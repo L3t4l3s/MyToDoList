@@ -326,12 +326,21 @@ class MyTodoListCard extends HTMLElement {
     const filteredTasks = this._filteredTasks;
 
     // Header
-    const title = this._el("h1", { className: "title", textContent: this._getListName() });
-    const progress = this._el("span", {
-      className: "progress",
-      textContent: `${completedCount} von ${totalCount} erledigt`,
-    });
-    const header = this._el("div", { className: "header" }, [title, progress]);
+    const showTitle = this._config.show_title !== false;
+    const showProgress = this._config.show_progress !== false;
+    const headerChildren = [];
+    if (showTitle) {
+      headerChildren.push(this._el("h1", { className: "title", textContent: this._getListName() }));
+    }
+    if (showProgress) {
+      headerChildren.push(this._el("span", {
+        className: "progress",
+        textContent: `${completedCount} von ${totalCount} erledigt`,
+      }));
+    }
+    const header = headerChildren.length > 0
+      ? this._el("div", { className: "header" }, headerChildren)
+      : null;
 
     // Add task input
     const addInput = this._el("input", {
@@ -374,9 +383,10 @@ class MyTodoListCard extends HTMLElement {
     }
     const taskList = this._el("div", { className: "task-list" }, taskListChildren);
 
-    return this._el("div", { className: "card-content" }, [
-      header, addTask, filters, taskList,
-    ]);
+    const children = [];
+    if (header) children.push(header);
+    children.push(addTask, filters, taskList);
+    return this._el("div", { className: "card-content" }, children);
   }
 
   _buildFilterBtn(label, value) {
@@ -903,8 +913,11 @@ class MyTodoListCardEditor extends HTMLElement {
       .editor { display: flex; flex-direction: column; gap: 16px; padding: 16px 0; }
       .field { display: flex; flex-direction: column; gap: 4px; }
       label { font-size: 12px; font-weight: 500; color: var(--secondary-text-color); text-transform: uppercase; letter-spacing: 0.5px; }
-      select, input { padding: 8px 12px; border: 1px solid var(--divider-color); border-radius: 4px; font-size: 14px; background: var(--card-background-color); color: var(--primary-text-color); font-family: inherit; }
+      select, input[type="text"] { padding: 8px 12px; border: 1px solid var(--divider-color); border-radius: 4px; font-size: 14px; background: var(--card-background-color); color: var(--primary-text-color); font-family: inherit; }
       .hint { font-size: 12px; color: var(--secondary-text-color); font-style: italic; }
+      .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
+      .toggle-label { font-size: 14px; color: var(--primary-text-color); }
+      .toggle-row input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary-color); }
     `;
     root.appendChild(style);
 
@@ -935,6 +948,34 @@ class MyTodoListCardEditor extends HTMLElement {
       this._fireChanged();
     });
 
+    // Show title toggle
+    const showTitleCb = this._el("input", {
+      type: "checkbox",
+      checked: this._config.show_title !== false,
+    });
+    showTitleCb.addEventListener("change", () => {
+      this._config = { ...this._config, show_title: showTitleCb.checked };
+      this._fireChanged();
+    });
+    const showTitleRow = this._el("div", { className: "toggle-row" }, [
+      this._el("span", { className: "toggle-label", textContent: "Titel anzeigen" }),
+      showTitleCb,
+    ]);
+
+    // Show progress toggle
+    const showProgressCb = this._el("input", {
+      type: "checkbox",
+      checked: this._config.show_progress !== false,
+    });
+    showProgressCb.addEventListener("change", () => {
+      this._config = { ...this._config, show_progress: showProgressCb.checked };
+      this._fireChanged();
+    });
+    const showProgressRow = this._el("div", { className: "toggle-row" }, [
+      this._el("span", { className: "toggle-label", textContent: "Fortschritt anzeigen" }),
+      showProgressCb,
+    ]);
+
     const hint = this._el("span", {
       className: "hint",
       textContent: "Neue Listen k\u00f6nnen unter Einstellungen \u2192 Integrationen \u2192 My ToDo List erstellt werden.",
@@ -949,6 +990,11 @@ class MyTodoListCardEditor extends HTMLElement {
       this._el("div", { className: "field" }, [
         this._el("label", { textContent: "Titel (optional)" }),
         titleInput,
+      ]),
+      this._el("div", { className: "field" }, [
+        this._el("label", { textContent: "Anzeige" }),
+        showTitleRow,
+        showProgressRow,
       ]),
     ]);
 
