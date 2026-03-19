@@ -33,20 +33,33 @@ async def _async_register_card(hass: HomeAssistant) -> None:
 
     async_register_websocket_commands(hass)
 
+    comp_path = hass.config.path(f"custom_components/{DOMAIN}")
+    static_paths = [
+        StaticPathConfig(
+            CARD_URL,
+            f"{comp_path}/www/my-todo-list-card.js",
+            cache_headers=False,
+        ),
+        StaticPathConfig(
+            f"/brands/{DOMAIN}/icon.png",
+            f"{comp_path}/icon.png",
+            cache_headers=True,
+        ),
+        StaticPathConfig(
+            f"/brands/{DOMAIN}/icon@2x.png",
+            f"{comp_path}/icon@2x.png",
+            cache_headers=True,
+        ),
+        StaticPathConfig(
+            f"/brands/{DOMAIN}/logo.png",
+            f"{comp_path}/icon.png",
+            cache_headers=True,
+        ),
+    ]
     try:
-        await hass.http.async_register_static_paths(
-            [
-                StaticPathConfig(
-                    CARD_URL,
-                    hass.config.path(
-                        f"custom_components/{DOMAIN}/www/my-todo-list-card.js"
-                    ),
-                    cache_headers=False,
-                )
-            ]
-        )
+        await hass.http.async_register_static_paths(static_paths)
     except RuntimeError:
-        # Route already registered from a previous setup
+        # Routes already registered from a previous setup
         pass
 
     add_extra_js_url(hass, CARD_URL)
