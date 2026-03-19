@@ -15,33 +15,48 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = ["todo"]
 CARD_URL = "/my_todo_list/my-todo-list-card.js"
+DATA_SETUP_DONE = f"{DOMAIN}_setup_done"
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the My ToDo List component."""
     hass.data.setdefault(DOMAIN, {})
+    await _async_register_card(hass)
+    return True
 
-    # Register websocket commands and card JS once at component level
+
+async def _async_register_card(hass: HomeAssistant) -> None:
+    """Register websocket commands and frontend card (once)."""
+    if hass.data.get(DATA_SETUP_DONE):
+        return
+    hass.data[DATA_SETUP_DONE] = True
+
     async_register_websocket_commands(hass)
 
-    await hass.http.async_register_static_paths(
-        [
-            StaticPathConfig(
-                CARD_URL,
-                hass.config.path(
-                    f"custom_components/{DOMAIN}/www/my-todo-list-card.js"
-                ),
-                cache_headers=False,
-            )
-        ]
-    )
-    add_extra_js_url(hass, CARD_URL)
+    try:
+        await hass.http.async_register_static_paths(
+            [
+                StaticPathConfig(
+                    CARD_URL,
+                    hass.config.path(
+                        f"custom_components/{DOMAIN}/www/my-todo-list-card.js"
+                    ),
+                    cache_headers=False,
+                )
+            ]
+        )
+    except RuntimeError:
+        # Route already registered from a previous setup
+        pass
 
-    return True
+    add_extra_js_url(hass, CARD_URL)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up My ToDo List from a config entry."""
+    # Ensure card is registered (in case async_setup was not called)
+    await _async_register_card(hass)
+
     store = MyToDoListStore(hass, entry.entry_id)
     await store.async_load()
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = store
