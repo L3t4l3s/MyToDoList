@@ -2,7 +2,6 @@
 
 import logging
 
-from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -26,7 +25,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
 
 async def _async_register_card(hass: HomeAssistant) -> None:
-    """Register websocket commands and frontend card (once)."""
+    """Register websocket commands and serve static files (once)."""
     if hass.data.get(DATA_SETUP_DONE):
         return
     hass.data[DATA_SETUP_DONE] = True
@@ -59,15 +58,19 @@ async def _async_register_card(hass: HomeAssistant) -> None:
     try:
         await hass.http.async_register_static_paths(static_paths)
     except RuntimeError:
-        # Routes already registered from a previous setup
         pass
 
-    add_extra_js_url(hass, CARD_URL)
+    # NOTE: The card JS must be added as a Lovelace resource manually:
+    # URL: /my_todo_list/my-todo-list-card.js  Type: JavaScript Module
+    _LOGGER.info(
+        "My ToDo List card served at %s - ensure it is added as a "
+        "Lovelace resource (JavaScript Module)",
+        CARD_URL,
+    )
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up My ToDo List from a config entry."""
-    # Ensure card is registered (in case async_setup was not called)
     await _async_register_card(hass)
 
     store = MyToDoListStore(hass, entry.entry_id)
