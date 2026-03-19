@@ -862,7 +862,10 @@ class MyTodoListCardEditor extends HTMLElement {
 
   setConfig(config) {
     this._config = { ...config };
-    if (this._listsLoaded) {
+    // Update existing DOM elements without full re-render
+    if (this._rendered) {
+      this._updateValues();
+    } else if (this._listsLoaded) {
       this._render();
     }
   }
@@ -887,9 +890,20 @@ class MyTodoListCardEditor extends HTMLElement {
     }
   }
 
+  _updateValues() {
+    // Update select and input without rebuilding DOM
+    const root = this.shadowRoot;
+    const select = root.getElementById("list-select");
+    if (select && select.value !== this._config.list_id) {
+      select.value = this._config.list_id || "";
+    }
+    // Don't touch title input - it's being actively edited by the user
+  }
+
   _render() {
     const root = this.shadowRoot;
     root.innerHTML = "";
+    this._rendered = true;
 
     const style = document.createElement("style");
     style.textContent = `
