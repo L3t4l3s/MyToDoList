@@ -197,11 +197,14 @@ class MyTodoListCard extends HTMLElement {
   }
 
   async _addSubItem(taskId) {
-    await this._callWs("my_todo_list/add_sub_item", {
+    const result = await this._callWs("my_todo_list/add_sub_item", {
       list_id: this._config.list_id,
       task_id: taskId,
       title: "Neuer Unterpunkt",
     });
+    if (result) {
+      this._editingSubItemId = result.id;
+    }
     await this._loadTasks();
   }
 
