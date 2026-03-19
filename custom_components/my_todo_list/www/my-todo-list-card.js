@@ -28,6 +28,8 @@ class MyTodoListCard extends HTMLElement {
     this._config = config;
     if (this._initialized) {
       this._loadTasks();
+    } else {
+      this._render();
     }
   }
 
@@ -116,8 +118,8 @@ class MyTodoListCard extends HTMLElement {
       if (!this._config.list_id && this._lists.length > 0) {
         this._config = { ...this._config, list_id: this._lists[0].id };
       }
-      await this._loadTasks();
     }
+    await this._loadTasks();
   }
 
   async _loadTasks() {
