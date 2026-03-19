@@ -892,11 +892,17 @@ class MyTodoListCardEditor extends HTMLElement {
 
   setConfig(config) {
     this._config = { ...config };
-    // Update existing DOM elements without full re-render
-    if (this._rendered) {
-      this._updateValues();
-    } else if (this._listsLoaded) {
-      this._render();
+    if (this._listsLoaded) {
+      // Only skip re-render if title input is focused (user is typing)
+      const root = this.shadowRoot;
+      const active = root && root.activeElement;
+      const isTitleFocused = active && active.id === "title-input";
+      if (isTitleFocused) {
+        // Update everything except the title input
+        this._updateNonInputValues();
+      } else {
+        this._render();
+      }
     }
   }
 
@@ -913,6 +919,11 @@ class MyTodoListCardEditor extends HTMLElement {
       if (result && Array.isArray(result.lists)) {
         this._lists = result.lists;
         this._listsLoaded = true;
+        // Auto-select first list if none set
+        if (!this._config.list_id && this._lists.length > 0) {
+          this._config = { ...this._config, list_id: this._lists[0].id };
+          this._fireChanged();
+        }
         this._render();
       }
     } catch (e) {
@@ -920,24 +931,13 @@ class MyTodoListCardEditor extends HTMLElement {
     }
   }
 
-  _updateValues() {
-    // Update select and checkboxes without rebuilding DOM
-    // Don't touch text inputs - they may be actively edited
+  _updateNonInputValues() {
+    // Update select and checkboxes without touching text inputs
     const root = this.shadowRoot;
     const select = root.getElementById("list-select");
     if (select && select.value !== this._config.list_id) {
       select.value = this._config.list_id || "";
     }
-    const showTitleCb = root.getElementById("cb-show-title");
-    if (showTitleCb) showTitleCb.checked = this._config.show_title !== false;
-    const showProgressCb = root.getElementById("cb-show-progress");
-    if (showProgressCb) showProgressCb.checked = this._config.show_progress !== false;
-    const showDueDateCb = root.getElementById("cb-show-due-date");
-    if (showDueDateCb) showDueDateCb.checked = this._config.show_due_date !== false;
-    const showNotesCb = root.getElementById("cb-show-notes");
-    if (showNotesCb) showNotesCb.checked = this._config.show_notes !== false;
-    const autoDeleteCb = root.getElementById("cb-auto-delete");
-    if (autoDeleteCb) autoDeleteCb.checked = this._config.auto_delete_completed === true;
   }
 
   _render() {
