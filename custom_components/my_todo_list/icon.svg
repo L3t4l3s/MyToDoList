@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Checkmark for first item -->
+  <polyline points="3,5.5 4.5,7 7,4" fill="none" stroke="#03a9f4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- First line -->
+  <line x1="9.5" y1="5.5" x2="21" y2="5.5" stroke="#03a9f4" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- Empty circle for second item -->
+  <circle cx="5" cy="12" r="2" fill="none" stroke="#03a9f4" stroke-width="1.5"/>
+  <!-- Second line -->
+  <line x1="9.5" y1="12" x2="21" y2="12" stroke="#03a9f4" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- Empty circle for third item -->
+  <circle cx="5" cy="18.5" r="2" fill="none" stroke="#03a9f4" stroke-width="1.5"/>
+  <!-- Third line -->
+  <line x1="9.5" y1="18.5" x2="17" y2="18.5" stroke="#03a9f4" stroke-width="1.8" stroke-linecap="round"/>
+</svg>
