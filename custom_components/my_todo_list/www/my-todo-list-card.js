@@ -1,6 +1,9 @@
 /**
  * My ToDo List Card for Home Assistant
  * A feature-rich todo list with drag & drop, sub-items, notes, and due dates.
+ *
+ * Security: All user-controlled content is set via textContent or DOM properties,
+ * never via innerHTML with unsanitized data.
  */
 
 class MyTodoListCard extends HTMLElement {
@@ -34,6 +37,55 @@ class MyTodoListCard extends HTMLElement {
     }
   }
 
+  // --- Safe DOM helpers ---
+
+  _el(tag, attrs = {}, children = []) {
+    const el = document.createElement(tag);
+    for (const [key, val] of Object.entries(attrs)) {
+      if (key === "className") {
+        el.className = val;
+      } else if (key === "textContent") {
+        el.textContent = val;
+      } else if (key.startsWith("on")) {
+        el.addEventListener(key.slice(2).toLowerCase(), val);
+      } else if (key === "checked") {
+        el.checked = val;
+      } else if (key === "draggable") {
+        el.draggable = val;
+      } else if (key === "value") {
+        el.value = val;
+      } else if (key === "disabled") {
+        el.disabled = val;
+      } else if (key === "rows") {
+        el.rows = val;
+      } else if (key === "type") {
+        el.type = val;
+      } else if (key === "placeholder") {
+        el.placeholder = val;
+      } else if (key === "title") {
+        el.title = val;
+      } else if (key === "htmlFor") {
+        el.htmlFor = val;
+      } else if (key.startsWith("data-")) {
+        el.setAttribute(key, val);
+      } else {
+        el.setAttribute(key, val);
+      }
+    }
+    for (const child of children) {
+      if (typeof child === "string") {
+        el.appendChild(document.createTextNode(child));
+      } else if (child) {
+        el.appendChild(child);
+      }
+    }
+    return el;
+  }
+
+  _text(str) {
+    return document.createTextNode(str);
+  }
+
   // --- Data methods ---
 
   async _callWs(type, data = {}) {
@@ -41,13 +93,23 @@ class MyTodoListCard extends HTMLElement {
       return await this._hass.callWS({ type, ...data });
     } catch (err) {
       console.error(`WS call ${type} failed:`, err);
+      this._showError(err.message || "Operation failed");
       return null;
     }
   }
 
+  _showError(message) {
+    const root = this.shadowRoot;
+    const existing = root.querySelector(".toast-error");
+    if (existing) existing.remove();
+    const toast = this._el("div", { className: "toast-error", textContent: message });
+    root.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+  }
+
   async _loadLists() {
     const result = await this._callWs("my_todo_list/get_lists");
-    if (result) {
+    if (result && Array.isArray(result.lists)) {
       this._lists = result.lists;
       if (!this._config.list_id && this._lists.length > 0) {
         this._config = { ...this._config, list_id: this._lists[0].id };
@@ -65,7 +127,7 @@ class MyTodoListCard extends HTMLElement {
     const result = await this._callWs("my_todo_list/get_tasks", {
       list_id: this._config.list_id,
     });
-    if (result) {
+    if (result && Array.isArray(result.tasks)) {
       this._tasks = result.tasks;
     }
     this._render();
@@ -74,12 +136,14 @@ class MyTodoListCard extends HTMLElement {
   async _addTask() {
     const title = this._newTaskTitle.trim();
     if (!title || !this._config.list_id) return;
-    await this._callWs("my_todo_list/add_task", {
+    const result = await this._callWs("my_todo_list/add_task", {
       list_id: this._config.list_id,
       title,
     });
-    this._newTaskTitle = "";
-    await this._loadTasks();
+    if (result) {
+      this._newTaskTitle = "";
+      await this._loadTasks();
+    }
   }
 
   async _toggleTask(taskId, completed) {
@@ -93,13 +157,15 @@ class MyTodoListCard extends HTMLElement {
 
   async _updateTaskTitle(taskId, title) {
     if (!title.trim()) return;
-    await this._callWs("my_todo_list/update_task", {
+    const result = await this._callWs("my_todo_list/update_task", {
       list_id: this._config.list_id,
       task_id: taskId,
       title: title.trim(),
     });
-    this._editingTaskId = null;
-    await this._loadTasks();
+    if (result) {
+      this._editingTaskId = null;
+      await this._loadTasks();
+    }
   }
 
   async _updateTaskNotes(taskId, notes) {
@@ -149,14 +215,16 @@ class MyTodoListCard extends HTMLElement {
 
   async _updateSubItemTitle(taskId, subItemId, title) {
     if (!title.trim()) return;
-    await this._callWs("my_todo_list/update_sub_item", {
+    const result = await this._callWs("my_todo_list/update_sub_item", {
       list_id: this._config.list_id,
       task_id: taskId,
       sub_item_id: subItemId,
       title: title.trim(),
     });
-    this._editingSubItemId = null;
-    await this._loadTasks();
+    if (result) {
+      this._editingSubItemId = null;
+      await this._loadTasks();
+    }
   }
 
   async _deleteSubItem(taskId, subItemId) {
@@ -230,369 +298,357 @@ class MyTodoListCard extends HTMLElement {
     return list ? list.name : "Meine Aufgaben";
   }
 
-  // --- Render ---
+  // --- Render (DOM-based, no innerHTML with user data) ---
 
   _render() {
+    const root = this.shadowRoot;
+    root.innerHTML = "";
+
+    // Styles (static, no user data)
+    const style = document.createElement("style");
+    style.textContent = this._getStyles();
+    root.appendChild(style);
+
+    const card = this._el("ha-card", {}, [
+      this._buildCardContent(),
+    ]);
+    root.appendChild(card);
+  }
+
+  _buildCardContent() {
     const completedCount = this._getCompletedCount();
     const totalCount = this._tasks.length;
     const filteredTasks = this._filteredTasks;
 
-    this.shadowRoot.innerHTML = `
-      <style>${this._getStyles()}</style>
-      <ha-card>
-        <div class="card-content">
-          <div class="header">
-            <h1 class="title">${this._getListName()}</h1>
-            <span class="progress">${completedCount} von ${totalCount} erledigt</span>
-          </div>
+    // Header
+    const title = this._el("h1", { className: "title", textContent: this._getListName() });
+    const progress = this._el("span", {
+      className: "progress",
+      textContent: `${completedCount} von ${totalCount} erledigt`,
+    });
+    const header = this._el("div", { className: "header" }, [title, progress]);
 
-          <div class="add-task">
-            <input
-              type="text"
-              class="add-input"
-              placeholder="Neue Aufgabe hinzuf\u00fcgen..."
-              value="${this._escapeHtml(this._newTaskTitle)}"
-            />
-            <button class="add-btn">+ Hinzuf\u00fcgen</button>
-          </div>
+    // Add task input
+    const addInput = this._el("input", {
+      type: "text",
+      className: "add-input",
+      placeholder: "Neue Aufgabe hinzuf\u00fcgen...",
+      value: this._newTaskTitle,
+    });
+    addInput.addEventListener("input", (e) => {
+      this._newTaskTitle = e.target.value;
+    });
+    addInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") this._addTask();
+    });
 
-          <div class="filters">
-            <button class="filter-btn ${this._filter === "all" ? "active" : ""}" data-filter="all">Alle</button>
-            <button class="filter-btn ${this._filter === "open" ? "active" : ""}" data-filter="open">Offen</button>
-            <button class="filter-btn ${this._filter === "done" ? "active" : ""}" data-filter="done">Erledigt</button>
-          </div>
+    const addBtn = this._el("button", {
+      className: "add-btn",
+      textContent: "+ Hinzuf\u00fcgen",
+    });
+    addBtn.addEventListener("click", () => this._addTask());
 
-          <div class="drag-hint">
-            <span class="drag-hint-icon">\u2237</span>
-            Aufgaben per Drag & Drop verschieben
-          </div>
+    const addTask = this._el("div", { className: "add-task" }, [addInput, addBtn]);
 
-          <div class="task-list">
-            ${filteredTasks.length === 0 ? '<div class="empty-state">Keine Aufgaben vorhanden</div>' : ""}
-            ${filteredTasks.map((task) => this._renderTask(task)).join("")}
-          </div>
-        </div>
-      </ha-card>
-    `;
+    // Filters
+    const filters = this._el("div", { className: "filters" }, [
+      this._buildFilterBtn("Alle", "all"),
+      this._buildFilterBtn("Offen", "open"),
+      this._buildFilterBtn("Erledigt", "done"),
+    ]);
 
-    this._attachEventListeners();
+    // Drag hint
+    const dragHint = this._el("div", { className: "drag-hint" }, [
+      this._el("span", { className: "drag-hint-icon", textContent: "\u2237" }),
+      this._text("Aufgaben per Drag & Drop verschieben"),
+    ]);
+
+    // Task list
+    const taskListChildren = [];
+    if (filteredTasks.length === 0) {
+      taskListChildren.push(
+        this._el("div", { className: "empty-state", textContent: "Keine Aufgaben vorhanden" })
+      );
+    }
+    for (const task of filteredTasks) {
+      taskListChildren.push(this._buildTask(task));
+    }
+    const taskList = this._el("div", { className: "task-list" }, taskListChildren);
+
+    return this._el("div", { className: "card-content" }, [
+      header, addTask, filters, dragHint, taskList,
+    ]);
   }
 
-  _renderTask(task) {
+  _buildFilterBtn(label, value) {
+    const btn = this._el("button", {
+      className: `filter-btn${this._filter === value ? " active" : ""}`,
+      textContent: label,
+    });
+    btn.addEventListener("click", () => {
+      this._filter = value;
+      this._render();
+    });
+    return btn;
+  }
+
+  _buildTask(task) {
     const isExpanded = this._expandedTasks.has(task.id);
-    const subProgress = this._getSubItemProgress(task);
-    const isOverdue = this._isDueDateOverdue(task.due_date);
-    const isToday = this._isDueDateToday(task.due_date);
     const isEditing = this._editingTaskId === task.id;
-    const isDragOver = this._dragOverTaskId === task.id;
 
-    return `
-      <div class="task ${task.completed ? "completed" : ""} ${isDragOver ? "drag-over" : ""}"
-           data-task-id="${task.id}" draggable="true">
-        <div class="task-main">
-          <span class="drag-handle" title="Verschieben">\u2237</span>
-          <label class="checkbox-container">
-            <input type="checkbox" ${task.completed ? "checked" : ""} data-toggle-task="${task.id}" />
-            <span class="checkmark"></span>
-          </label>
-          ${
-            isEditing
-              ? `<input type="text" class="edit-title-input" data-edit-task="${task.id}" value="${this._escapeHtml(task.title)}" />`
-              : `<span class="task-title" data-start-edit="${task.id}">${this._escapeHtml(task.title)}</span>`
-          }
-          <div class="task-meta">
-            ${subProgress ? `<span class="sub-badge">${subProgress}</span>` : ""}
-            ${
-              task.due_date
-                ? `<span class="due-date ${isOverdue ? "overdue" : ""} ${isToday ? "today" : ""}">${this._formatDueDate(task.due_date)}</span>`
-                : ""
-            }
-          </div>
-          <button class="expand-btn" data-expand="${task.id}">
-            ${isExpanded ? "\u25BC" : "\u25B6"}
-          </button>
-        </div>
-        ${isExpanded ? this._renderTaskDetails(task) : ""}
-      </div>
-    `;
-  }
+    let className = "task";
+    if (task.completed) className += " completed";
 
-  _renderTaskDetails(task) {
-    return `
-      <div class="task-details">
-        <div class="detail-section">
-          <label class="detail-label">F\u00e4lligkeitsdatum</label>
-          <input type="date" class="date-input" data-due-date="${task.id}"
-                 value="${task.due_date || ""}" />
-        </div>
+    const taskEl = this._el("div", { className, draggable: true });
+    taskEl.dataset.taskId = task.id;
 
-        <div class="detail-section">
-          <label class="detail-label">Notizen</label>
-          <textarea class="notes-input" data-notes="${task.id}"
-                    placeholder="Hier kannst du Notizen hinzuf\u00fcgen"
-                    rows="2">${this._escapeHtml(task.notes || "")}</textarea>
-        </div>
+    // Main row
+    const mainChildren = [];
 
-        <div class="detail-section">
-          <label class="detail-label">Unterpunkte</label>
-          ${task.sub_items
-            .map(
-              (sub) => `
-            <div class="sub-item">
-              <label class="checkbox-container small">
-                <input type="checkbox" ${sub.completed ? "checked" : ""}
-                       data-toggle-sub="${task.id}:${sub.id}" />
-                <span class="checkmark"></span>
-              </label>
-              ${
-                this._editingSubItemId === sub.id
-                  ? `<input type="text" class="edit-sub-input" data-edit-sub="${task.id}:${sub.id}" value="${this._escapeHtml(sub.title)}" />`
-                  : `<span class="sub-title ${sub.completed ? "completed" : ""}" data-start-edit-sub="${sub.id}">${this._escapeHtml(sub.title)}</span>`
-              }
-              <button class="delete-sub-btn" data-delete-sub="${task.id}:${sub.id}" title="L\u00f6schen">\u00D7</button>
-            </div>
-          `
-            )
-            .join("")}
-          <button class="add-sub-btn" data-add-sub="${task.id}">+ Unterpunkt hinzuf\u00fcgen</button>
-        </div>
+    // Drag handle
+    mainChildren.push(
+      this._el("span", { className: "drag-handle", title: "Verschieben", textContent: "\u2237" })
+    );
 
-        <div class="detail-actions">
-          <button class="delete-task-btn" data-delete-task="${task.id}">Aufgabe l\u00f6schen</button>
-        </div>
-      </div>
-    `;
-  }
+    // Checkbox
+    const checkbox = this._el("input", { type: "checkbox", checked: task.completed });
+    checkbox.addEventListener("change", () => this._toggleTask(task.id, task.completed));
+    const checkmark = this._el("span", { className: "checkmark" });
+    const label = this._el("label", { className: "checkbox-container" }, [checkbox, checkmark]);
+    mainChildren.push(label);
 
-  _escapeHtml(text) {
-    const div = document.createElement("div");
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
-  // --- Event Listeners ---
-
-  _attachEventListeners() {
-    const root = this.shadowRoot;
-
-    // Add task
-    const addInput = root.querySelector(".add-input");
-    const addBtn = root.querySelector(".add-btn");
-    if (addInput) {
-      addInput.addEventListener("input", (e) => {
-        this._newTaskTitle = e.target.value;
+    // Title (editable or display)
+    if (isEditing) {
+      const editInput = this._el("input", {
+        type: "text",
+        className: "edit-title-input",
+        value: task.title,
       });
-      addInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") this._addTask();
+      editInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") this._updateTaskTitle(task.id, editInput.value);
+        else if (e.key === "Escape") { this._editingTaskId = null; this._render(); }
       });
-    }
-    if (addBtn) {
-      addBtn.addEventListener("click", () => this._addTask());
+      editInput.addEventListener("blur", () => this._updateTaskTitle(task.id, editInput.value));
+      mainChildren.push(editInput);
+      setTimeout(() => { editInput.focus(); editInput.select(); }, 0);
+    } else {
+      const titleSpan = this._el("span", { className: "task-title", textContent: task.title });
+      titleSpan.addEventListener("dblclick", () => {
+        this._editingTaskId = task.id;
+        this._render();
+      });
+      mainChildren.push(titleSpan);
     }
 
-    // Filter buttons
-    root.querySelectorAll(".filter-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        this._filter = btn.dataset.filter;
-        this._render();
-      });
-    });
+    // Meta (sub-item count + due date)
+    const metaChildren = [];
+    const subProgress = this._getSubItemProgress(task);
+    if (subProgress) {
+      metaChildren.push(this._el("span", { className: "sub-badge", textContent: subProgress }));
+    }
+    if (task.due_date) {
+      let dueCls = "due-date";
+      if (this._isDueDateOverdue(task.due_date)) dueCls += " overdue";
+      else if (this._isDueDateToday(task.due_date)) dueCls += " today";
+      metaChildren.push(this._el("span", {
+        className: dueCls,
+        textContent: this._formatDueDate(task.due_date),
+      }));
+    }
+    mainChildren.push(this._el("div", { className: "task-meta" }, metaChildren));
 
-    // Toggle task
-    root.querySelectorAll("[data-toggle-task]").forEach((cb) => {
-      cb.addEventListener("change", () => {
-        const task = this._tasks.find((t) => t.id === cb.dataset.toggleTask);
-        if (task) this._toggleTask(task.id, task.completed);
-      });
+    // Expand button
+    const expandBtn = this._el("button", {
+      className: "expand-btn",
+      textContent: isExpanded ? "\u25BC" : "\u25B6",
     });
+    expandBtn.addEventListener("click", () => {
+      if (this._expandedTasks.has(task.id)) this._expandedTasks.delete(task.id);
+      else this._expandedTasks.add(task.id);
+      this._render();
+    });
+    mainChildren.push(expandBtn);
 
-    // Expand/collapse
-    root.querySelectorAll("[data-expand]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const taskId = btn.dataset.expand;
-        if (this._expandedTasks.has(taskId)) {
-          this._expandedTasks.delete(taskId);
-        } else {
-          this._expandedTasks.add(taskId);
-        }
-        this._render();
-      });
-    });
+    const mainRow = this._el("div", { className: "task-main" }, mainChildren);
+    taskEl.appendChild(mainRow);
 
-    // Start editing task title
-    root.querySelectorAll("[data-start-edit]").forEach((el) => {
-      el.addEventListener("dblclick", () => {
-        this._editingTaskId = el.dataset.startEdit;
-        this._render();
-        const input = root.querySelector(`[data-edit-task="${this._editingTaskId}"]`);
-        if (input) {
-          input.focus();
-          input.select();
-        }
-      });
-    });
-
-    // Edit task title
-    root.querySelectorAll("[data-edit-task]").forEach((input) => {
-      const taskId = input.dataset.editTask;
-      input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          this._updateTaskTitle(taskId, input.value);
-        } else if (e.key === "Escape") {
-          this._editingTaskId = null;
-          this._render();
-        }
-      });
-      input.addEventListener("blur", () => {
-        this._updateTaskTitle(taskId, input.value);
-      });
-    });
-
-    // Due date
-    root.querySelectorAll("[data-due-date]").forEach((input) => {
-      input.addEventListener("change", () => {
-        this._updateTaskDueDate(input.dataset.dueDate, input.value);
-      });
-    });
-
-    // Notes
-    root.querySelectorAll("[data-notes]").forEach((textarea) => {
-      let debounceTimer;
-      textarea.addEventListener("input", () => {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-          this._updateTaskNotes(textarea.dataset.notes, textarea.value);
-        }, 500);
-      });
-    });
-
-    // Sub-item toggle
-    root.querySelectorAll("[data-toggle-sub]").forEach((cb) => {
-      cb.addEventListener("change", () => {
-        const [taskId, subId] = cb.dataset.toggleSub.split(":");
-        const task = this._tasks.find((t) => t.id === taskId);
-        const sub = task?.sub_items.find((s) => s.id === subId);
-        if (sub) this._toggleSubItem(taskId, subId, sub.completed);
-      });
-    });
-
-    // Start editing sub-item
-    root.querySelectorAll("[data-start-edit-sub]").forEach((el) => {
-      el.addEventListener("dblclick", () => {
-        this._editingSubItemId = el.dataset.startEditSub;
-        this._render();
-        const input = root.querySelector(`[data-edit-sub*="${this._editingSubItemId}"]`);
-        if (input) {
-          input.focus();
-          input.select();
-        }
-      });
-    });
-
-    // Edit sub-item title
-    root.querySelectorAll("[data-edit-sub]").forEach((input) => {
-      const [taskId, subId] = input.dataset.editSub.split(":");
-      input.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          this._updateSubItemTitle(taskId, subId, input.value);
-        } else if (e.key === "Escape") {
-          this._editingSubItemId = null;
-          this._render();
-        }
-      });
-      input.addEventListener("blur", () => {
-        this._updateSubItemTitle(taskId, subId, input.value);
-      });
-    });
-
-    // Add sub-item
-    root.querySelectorAll("[data-add-sub]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        this._addSubItem(btn.dataset.addSub);
-      });
-    });
-
-    // Delete sub-item
-    root.querySelectorAll("[data-delete-sub]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const [taskId, subId] = btn.dataset.deleteSub.split(":");
-        this._deleteSubItem(taskId, subId);
-      });
-    });
-
-    // Delete task
-    root.querySelectorAll("[data-delete-task]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        this._deleteTask(btn.dataset.deleteTask);
-      });
-    });
+    // Details (expanded)
+    if (isExpanded) {
+      taskEl.appendChild(this._buildTaskDetails(task));
+    }
 
     // Drag & drop
-    this._attachDragListeners();
+    this._attachDragToTask(taskEl, task.id);
+
+    return taskEl;
   }
 
-  _attachDragListeners() {
-    const root = this.shadowRoot;
-    const tasks = root.querySelectorAll(".task[draggable]");
+  _buildTaskDetails(task) {
+    // Due date section
+    const dateInput = this._el("input", {
+      type: "date",
+      className: "date-input",
+      value: task.due_date || "",
+    });
+    dateInput.addEventListener("change", () =>
+      this._updateTaskDueDate(task.id, dateInput.value)
+    );
+    const dateSection = this._el("div", { className: "detail-section" }, [
+      this._el("label", { className: "detail-label", textContent: "F\u00e4lligkeitsdatum" }),
+      dateInput,
+    ]);
 
-    tasks.forEach((taskEl) => {
-      const taskId = taskEl.dataset.taskId;
+    // Notes section
+    const notesInput = this._el("textarea", {
+      className: "notes-input",
+      placeholder: "Hier kannst du Notizen hinzuf\u00fcgen",
+      rows: 2,
+      value: task.notes || "",
+    });
+    // textarea needs textContent for initial value
+    notesInput.textContent = task.notes || "";
+    let debounceTimer;
+    notesInput.addEventListener("input", () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        this._updateTaskNotes(task.id, notesInput.value);
+      }, 500);
+    });
+    const notesSection = this._el("div", { className: "detail-section" }, [
+      this._el("label", { className: "detail-label", textContent: "Notizen" }),
+      notesInput,
+    ]);
 
-      taskEl.addEventListener("dragstart", (e) => {
-        this._draggedTaskId = taskId;
-        e.dataTransfer.effectAllowed = "move";
-        taskEl.classList.add("dragging");
-        // Need a small delay for the class to apply before drag image is captured
-        setTimeout(() => taskEl.classList.add("dragging"), 0);
+    // Sub-items section
+    const subChildren = [
+      this._el("label", { className: "detail-label", textContent: "Unterpunkte" }),
+    ];
+    for (const sub of task.sub_items) {
+      subChildren.push(this._buildSubItem(task.id, sub));
+    }
+    const addSubBtn = this._el("button", {
+      className: "add-sub-btn",
+      textContent: "+ Unterpunkt hinzuf\u00fcgen",
+    });
+    addSubBtn.addEventListener("click", () => this._addSubItem(task.id));
+    subChildren.push(addSubBtn);
+    const subSection = this._el("div", { className: "detail-section" }, subChildren);
+
+    // Delete button
+    const deleteBtn = this._el("button", {
+      className: "delete-task-btn",
+      textContent: "Aufgabe l\u00f6schen",
+    });
+    deleteBtn.addEventListener("click", () => this._deleteTask(task.id));
+    const actions = this._el("div", { className: "detail-actions" }, [deleteBtn]);
+
+    return this._el("div", { className: "task-details" }, [
+      dateSection, notesSection, subSection, actions,
+    ]);
+  }
+
+  _buildSubItem(taskId, sub) {
+    const isEditing = this._editingSubItemId === sub.id;
+
+    const checkbox = this._el("input", { type: "checkbox", checked: sub.completed });
+    checkbox.addEventListener("change", () =>
+      this._toggleSubItem(taskId, sub.id, sub.completed)
+    );
+    const checkmark = this._el("span", { className: "checkmark" });
+    const label = this._el("label", { className: "checkbox-container small" }, [
+      checkbox, checkmark,
+    ]);
+
+    let titleEl;
+    if (isEditing) {
+      titleEl = this._el("input", {
+        type: "text",
+        className: "edit-sub-input",
+        value: sub.title,
       });
-
-      taskEl.addEventListener("dragend", () => {
-        this._draggedTaskId = null;
-        this._dragOverTaskId = null;
-        root.querySelectorAll(".task").forEach((el) => {
-          el.classList.remove("dragging", "drag-over");
-        });
+      titleEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") this._updateSubItemTitle(taskId, sub.id, titleEl.value);
+        else if (e.key === "Escape") { this._editingSubItemId = null; this._render(); }
       });
-
-      taskEl.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "move";
-        if (this._draggedTaskId && this._draggedTaskId !== taskId) {
-          this._dragOverTaskId = taskId;
-          root.querySelectorAll(".task").forEach((el) => el.classList.remove("drag-over"));
-          taskEl.classList.add("drag-over");
-        }
+      titleEl.addEventListener("blur", () =>
+        this._updateSubItemTitle(taskId, sub.id, titleEl.value)
+      );
+      setTimeout(() => { titleEl.focus(); titleEl.select(); }, 0);
+    } else {
+      let subCls = "sub-title";
+      if (sub.completed) subCls += " completed";
+      titleEl = this._el("span", { className: subCls, textContent: sub.title });
+      titleEl.addEventListener("dblclick", () => {
+        this._editingSubItemId = sub.id;
+        this._render();
       });
+    }
 
-      taskEl.addEventListener("dragleave", () => {
-        taskEl.classList.remove("drag-over");
+    const deleteBtn = this._el("button", {
+      className: "delete-sub-btn",
+      title: "L\u00f6schen",
+      textContent: "\u00D7",
+    });
+    deleteBtn.addEventListener("click", () => this._deleteSubItem(taskId, sub.id));
+
+    return this._el("div", { className: "sub-item" }, [label, titleEl, deleteBtn]);
+  }
+
+  // --- Drag & Drop ---
+
+  _attachDragToTask(taskEl, taskId) {
+    taskEl.addEventListener("dragstart", (e) => {
+      this._draggedTaskId = taskId;
+      e.dataTransfer.effectAllowed = "move";
+      taskEl.classList.add("dragging");
+    });
+
+    taskEl.addEventListener("dragend", () => {
+      this._draggedTaskId = null;
+      this._dragOverTaskId = null;
+      this.shadowRoot.querySelectorAll(".task").forEach((el) => {
+        el.classList.remove("dragging", "drag-over");
       });
+    });
 
-      taskEl.addEventListener("drop", (e) => {
-        e.preventDefault();
-        if (!this._draggedTaskId || this._draggedTaskId === taskId) return;
-
-        // Reorder
-        const currentOrder = this._filteredTasks.map((t) => t.id);
-        const fromIndex = currentOrder.indexOf(this._draggedTaskId);
-        const toIndex = currentOrder.indexOf(taskId);
-        if (fromIndex === -1 || toIndex === -1) return;
-
-        // Build new full order from all tasks
-        const allIds = this._tasks.map((t) => t.id);
-        const draggedId = this._draggedTaskId;
-        const newAllIds = allIds.filter((id) => id !== draggedId);
-        const targetFullIndex = newAllIds.indexOf(taskId);
-        newAllIds.splice(
-          fromIndex < toIndex ? targetFullIndex + 1 : targetFullIndex,
-          0,
-          draggedId
+    taskEl.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      if (this._draggedTaskId && this._draggedTaskId !== taskId) {
+        this._dragOverTaskId = taskId;
+        this.shadowRoot.querySelectorAll(".task").forEach((el) =>
+          el.classList.remove("drag-over")
         );
+        taskEl.classList.add("drag-over");
+      }
+    });
 
-        this._draggedTaskId = null;
-        this._dragOverTaskId = null;
-        this._reorderTasks(newAllIds);
-      });
+    taskEl.addEventListener("dragleave", () => {
+      taskEl.classList.remove("drag-over");
+    });
+
+    taskEl.addEventListener("drop", (e) => {
+      e.preventDefault();
+      if (!this._draggedTaskId || this._draggedTaskId === taskId) return;
+
+      const currentOrder = this._filteredTasks.map((t) => t.id);
+      const fromIndex = currentOrder.indexOf(this._draggedTaskId);
+      const toIndex = currentOrder.indexOf(taskId);
+      if (fromIndex === -1 || toIndex === -1) return;
+
+      const allIds = this._tasks.map((t) => t.id);
+      const draggedId = this._draggedTaskId;
+      const newAllIds = allIds.filter((id) => id !== draggedId);
+      const targetFullIndex = newAllIds.indexOf(taskId);
+      newAllIds.splice(
+        fromIndex < toIndex ? targetFullIndex + 1 : targetFullIndex,
+        0,
+        draggedId
+      );
+
+      this._draggedTaskId = null;
+      this._dragOverTaskId = null;
+      this._reorderTasks(newAllIds);
     });
   }
 
@@ -612,442 +668,146 @@ class MyTodoListCard extends HTMLElement {
         --todo-success: var(--success-color, #43a047);
         --todo-radius: 8px;
       }
-
-      ha-card {
-        overflow: hidden;
-      }
-
-      .card-content {
-        padding: 16px;
-      }
-
-      .header {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        margin-bottom: 16px;
-      }
-
-      .title {
-        font-size: 24px;
-        font-weight: 700;
-        color: var(--todo-text);
-        margin: 0;
-      }
-
-      .progress {
-        font-size: 14px;
-        color: var(--todo-secondary-text);
-      }
-
-      /* --- Add Task --- */
-      .add-task {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 16px;
-      }
-
+      ha-card { overflow: hidden; }
+      .card-content { padding: 16px; }
+      .header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; }
+      .title { font-size: 24px; font-weight: 700; color: var(--todo-text); margin: 0; }
+      .progress { font-size: 14px; color: var(--todo-secondary-text); }
+      .add-task { display: flex; gap: 8px; margin-bottom: 16px; }
       .add-input {
-        flex: 1;
-        padding: 10px 14px;
-        border: 1px solid var(--todo-divider);
-        border-radius: var(--todo-radius);
-        background: var(--todo-bg);
-        color: var(--todo-text);
-        font-size: 14px;
-        outline: none;
-        font-family: inherit;
+        flex: 1; padding: 10px 14px; border: 1px solid var(--todo-divider);
+        border-radius: var(--todo-radius); background: var(--todo-bg);
+        color: var(--todo-text); font-size: 14px; outline: none; font-family: inherit;
       }
-
-      .add-input:focus {
-        border-color: var(--todo-primary);
-      }
-
-      .add-input::placeholder {
-        color: var(--todo-disabled);
-      }
-
+      .add-input:focus { border-color: var(--todo-primary); }
+      .add-input::placeholder { color: var(--todo-disabled); }
       .add-btn {
-        padding: 10px 20px;
-        background: var(--todo-primary);
-        color: #fff;
-        border: none;
-        border-radius: var(--todo-radius);
-        font-size: 14px;
-        font-weight: 500;
-        cursor: pointer;
-        white-space: nowrap;
-        font-family: inherit;
+        padding: 10px 20px; background: var(--todo-primary); color: #fff;
+        border: none; border-radius: var(--todo-radius); font-size: 14px;
+        font-weight: 500; cursor: pointer; white-space: nowrap; font-family: inherit;
       }
-
-      .add-btn:hover {
-        opacity: 0.9;
-      }
-
-      /* --- Filters --- */
-      .filters {
-        display: flex;
-        gap: 4px;
-        margin-bottom: 12px;
-      }
-
+      .add-btn:hover { opacity: 0.9; }
+      .filters { display: flex; gap: 4px; margin-bottom: 12px; }
       .filter-btn {
-        padding: 6px 16px;
-        border: none;
-        border-radius: 20px;
-        background: transparent;
-        color: var(--todo-secondary-text);
-        font-size: 13px;
-        cursor: pointer;
-        font-family: inherit;
-        transition: all 0.2s;
+        padding: 6px 16px; border: none; border-radius: 20px; background: transparent;
+        color: var(--todo-secondary-text); font-size: 13px; cursor: pointer;
+        font-family: inherit; transition: all 0.2s;
       }
-
-      .filter-btn.active {
-        background: var(--todo-primary);
-        color: #fff;
-      }
-
-      .filter-btn:not(.active):hover {
-        background: var(--todo-surface);
-      }
-
-      /* --- Drag hint --- */
+      .filter-btn.active { background: var(--todo-primary); color: #fff; }
+      .filter-btn:not(.active):hover { background: var(--todo-surface); }
       .drag-hint {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 12px;
-        color: var(--todo-disabled);
-        margin-bottom: 8px;
-        padding: 4px 0;
+        display: flex; align-items: center; gap: 6px; font-size: 12px;
+        color: var(--todo-disabled); margin-bottom: 8px; padding: 4px 0;
       }
-
-      .drag-hint-icon {
-        font-size: 14px;
-      }
-
-      /* --- Task list --- */
-      .task-list {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-
-      .empty-state {
-        text-align: center;
-        padding: 24px;
-        color: var(--todo-disabled);
-        font-size: 14px;
-      }
-
+      .drag-hint-icon { font-size: 14px; }
+      .task-list { display: flex; flex-direction: column; gap: 6px; }
+      .empty-state { text-align: center; padding: 24px; color: var(--todo-disabled); font-size: 14px; }
       .task {
-        border: 1px solid var(--todo-divider);
-        border-radius: var(--todo-radius);
-        background: var(--todo-bg);
-        transition: box-shadow 0.2s, border-color 0.2s;
+        border: 1px solid var(--todo-divider); border-radius: var(--todo-radius);
+        background: var(--todo-bg); transition: box-shadow 0.2s, border-color 0.2s;
       }
-
-      .task.dragging {
-        opacity: 0.5;
-      }
-
-      .task.drag-over {
-        border-color: var(--todo-primary);
-        box-shadow: 0 0 0 1px var(--todo-primary);
-      }
-
-      .task-main {
-        display: flex;
-        align-items: center;
-        padding: 10px 12px;
-        gap: 8px;
-        min-height: 44px;
-      }
-
+      .task.dragging { opacity: 0.5; }
+      .task.drag-over { border-color: var(--todo-primary); box-shadow: 0 0 0 1px var(--todo-primary); }
+      .task-main { display: flex; align-items: center; padding: 10px 12px; gap: 8px; min-height: 44px; }
       .drag-handle {
-        cursor: grab;
-        color: var(--todo-disabled);
-        font-size: 16px;
-        user-select: none;
-        padding: 4px 2px;
-        line-height: 1;
+        cursor: grab; color: var(--todo-disabled); font-size: 16px;
+        user-select: none; padding: 4px 2px; line-height: 1;
       }
-
-      .drag-handle:active {
-        cursor: grabbing;
-      }
-
-      /* --- Checkbox --- */
+      .drag-handle:active { cursor: grabbing; }
       .checkbox-container {
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-        cursor: pointer;
-        flex-shrink: 0;
+        position: relative; display: inline-flex; align-items: center;
+        cursor: pointer; flex-shrink: 0;
       }
-
-      .checkbox-container input {
-        position: absolute;
-        opacity: 0;
-        cursor: pointer;
-        height: 0;
-        width: 0;
-      }
-
+      .checkbox-container input { position: absolute; opacity: 0; cursor: pointer; height: 0; width: 0; }
       .checkmark {
-        height: 20px;
-        width: 20px;
-        border: 2px solid var(--todo-divider);
-        border-radius: 4px;
-        transition: all 0.2s;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        height: 20px; width: 20px; border: 2px solid var(--todo-divider);
+        border-radius: 4px; transition: all 0.2s; display: flex;
+        align-items: center; justify-content: center;
       }
-
-      .checkbox-container:hover .checkmark {
-        border-color: var(--todo-primary);
-      }
-
-      .checkbox-container input:checked ~ .checkmark {
-        background: var(--todo-primary);
-        border-color: var(--todo-primary);
-      }
-
+      .checkbox-container:hover .checkmark { border-color: var(--todo-primary); }
+      .checkbox-container input:checked ~ .checkmark { background: var(--todo-primary); border-color: var(--todo-primary); }
       .checkbox-container input:checked ~ .checkmark::after {
-        content: "";
-        display: block;
-        width: 5px;
-        height: 9px;
-        border: solid #fff;
-        border-width: 0 2px 2px 0;
-        transform: rotate(45deg);
-        margin-top: -1px;
+        content: ""; display: block; width: 5px; height: 9px;
+        border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); margin-top: -1px;
       }
-
-      .checkbox-container.small .checkmark {
-        height: 16px;
-        width: 16px;
-      }
-
-      .checkbox-container.small input:checked ~ .checkmark::after {
-        width: 4px;
-        height: 7px;
-      }
-
-      /* --- Task title --- */
+      .checkbox-container.small .checkmark { height: 16px; width: 16px; }
+      .checkbox-container.small input:checked ~ .checkmark::after { width: 4px; height: 7px; }
       .task-title {
-        flex: 1;
-        font-size: 14px;
-        color: var(--todo-text);
-        cursor: default;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        flex: 1; font-size: 14px; color: var(--todo-text); cursor: default;
+        min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       }
-
-      .task.completed .task-title {
-        text-decoration: line-through;
-        color: var(--todo-disabled);
+      .task.completed .task-title { text-decoration: line-through; color: var(--todo-disabled); }
+      .edit-title-input, .edit-sub-input {
+        flex: 1; padding: 4px 8px; border: 1px solid var(--todo-primary);
+        border-radius: 4px; font-size: 14px; background: var(--todo-bg);
+        color: var(--todo-text); outline: none; font-family: inherit; min-width: 0;
       }
-
-      .edit-title-input,
-      .edit-sub-input {
-        flex: 1;
-        padding: 4px 8px;
-        border: 1px solid var(--todo-primary);
-        border-radius: 4px;
-        font-size: 14px;
-        background: var(--todo-bg);
-        color: var(--todo-text);
-        outline: none;
-        font-family: inherit;
-        min-width: 0;
-      }
-
-      /* --- Task meta --- */
-      .task-meta {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        flex-shrink: 0;
-      }
-
+      .task-meta { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
       .sub-badge {
-        font-size: 11px;
-        padding: 2px 8px;
-        border-radius: 10px;
-        background: var(--todo-surface);
-        color: var(--todo-secondary-text);
-        font-weight: 500;
+        font-size: 11px; padding: 2px 8px; border-radius: 10px;
+        background: var(--todo-surface); color: var(--todo-secondary-text); font-weight: 500;
       }
-
       .due-date {
-        font-size: 11px;
-        padding: 2px 8px;
-        border-radius: 10px;
-        background: var(--todo-surface);
-        color: var(--todo-secondary-text);
+        font-size: 11px; padding: 2px 8px; border-radius: 10px;
+        background: var(--todo-surface); color: var(--todo-secondary-text);
       }
-
-      .due-date.today {
-        background: #fff3e0;
-        color: #e65100;
-      }
-
-      .due-date.overdue {
-        background: #ffebee;
-        color: var(--todo-error);
-        font-weight: 500;
-      }
-
+      .due-date.today { background: #fff3e0; color: #e65100; }
+      .due-date.overdue { background: #ffebee; color: var(--todo-error); font-weight: 500; }
       .expand-btn {
-        background: none;
-        border: none;
-        color: var(--todo-secondary-text);
-        cursor: pointer;
-        font-size: 10px;
-        padding: 6px;
-        border-radius: 4px;
-        line-height: 1;
-        flex-shrink: 0;
+        background: none; border: none; color: var(--todo-secondary-text);
+        cursor: pointer; font-size: 10px; padding: 6px; border-radius: 4px;
+        line-height: 1; flex-shrink: 0;
       }
-
-      .expand-btn:hover {
-        background: var(--todo-surface);
-      }
-
-      /* --- Task details --- */
+      .expand-btn:hover { background: var(--todo-surface); }
       .task-details {
-        padding: 8px 12px 12px 44px;
-        border-top: 1px solid var(--todo-divider);
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
+        padding: 8px 12px 12px 44px; border-top: 1px solid var(--todo-divider);
+        display: flex; flex-direction: column; gap: 12px;
       }
-
-      .detail-section {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-
+      .detail-section { display: flex; flex-direction: column; gap: 6px; }
       .detail-label {
-        font-size: 11px;
-        font-weight: 600;
-        text-transform: uppercase;
-        color: var(--todo-secondary-text);
-        letter-spacing: 0.5px;
+        font-size: 11px; font-weight: 600; text-transform: uppercase;
+        color: var(--todo-secondary-text); letter-spacing: 0.5px;
       }
-
       .date-input {
-        padding: 6px 10px;
-        border: 1px solid var(--todo-divider);
-        border-radius: 4px;
-        font-size: 13px;
-        background: var(--todo-bg);
-        color: var(--todo-text);
-        font-family: inherit;
-        max-width: 180px;
+        padding: 6px 10px; border: 1px solid var(--todo-divider); border-radius: 4px;
+        font-size: 13px; background: var(--todo-bg); color: var(--todo-text);
+        font-family: inherit; max-width: 180px;
       }
-
       .notes-input {
-        padding: 8px 10px;
-        border: 1px solid var(--todo-divider);
-        border-radius: 4px;
-        font-size: 13px;
-        background: var(--todo-surface);
-        color: var(--todo-text);
-        resize: vertical;
-        min-height: 40px;
-        font-family: inherit;
-        outline: none;
+        padding: 8px 10px; border: 1px solid var(--todo-divider); border-radius: 4px;
+        font-size: 13px; background: var(--todo-surface); color: var(--todo-text);
+        resize: vertical; min-height: 40px; font-family: inherit; outline: none;
       }
-
-      .notes-input:focus {
-        border-color: var(--todo-primary);
-        background: var(--todo-bg);
-      }
-
-      /* --- Sub items --- */
-      .sub-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 4px 0;
-      }
-
+      .notes-input:focus { border-color: var(--todo-primary); background: var(--todo-bg); }
+      .sub-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
       .sub-title {
-        flex: 1;
-        font-size: 13px;
-        color: var(--todo-text);
-        cursor: default;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        flex: 1; font-size: 13px; color: var(--todo-text); cursor: default;
+        min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       }
-
-      .sub-title.completed {
-        text-decoration: line-through;
-        color: var(--todo-disabled);
-      }
-
+      .sub-title.completed { text-decoration: line-through; color: var(--todo-disabled); }
       .delete-sub-btn {
-        background: none;
-        border: none;
-        color: var(--todo-disabled);
-        cursor: pointer;
-        font-size: 16px;
-        padding: 2px 6px;
-        border-radius: 4px;
-        line-height: 1;
-        flex-shrink: 0;
+        background: none; border: none; color: var(--todo-disabled); cursor: pointer;
+        font-size: 16px; padding: 2px 6px; border-radius: 4px; line-height: 1; flex-shrink: 0;
       }
-
-      .delete-sub-btn:hover {
-        color: var(--todo-error);
-        background: #ffebee;
-      }
-
+      .delete-sub-btn:hover { color: var(--todo-error); background: #ffebee; }
       .add-sub-btn {
-        background: none;
-        border: none;
-        color: var(--todo-primary);
-        cursor: pointer;
-        font-size: 13px;
-        padding: 6px 0;
-        text-align: left;
-        font-family: inherit;
+        background: none; border: none; color: var(--todo-primary); cursor: pointer;
+        font-size: 13px; padding: 6px 0; text-align: left; font-family: inherit;
       }
-
-      .add-sub-btn:hover {
-        text-decoration: underline;
-      }
-
-      /* --- Delete task --- */
-      .detail-actions {
-        display: flex;
-        justify-content: flex-end;
-        padding-top: 4px;
-      }
-
+      .add-sub-btn:hover { text-decoration: underline; }
+      .detail-actions { display: flex; justify-content: flex-end; padding-top: 4px; }
       .delete-task-btn {
-        background: none;
-        border: 1px solid var(--todo-error);
-        color: var(--todo-error);
-        padding: 6px 14px;
-        border-radius: 4px;
-        font-size: 12px;
-        cursor: pointer;
-        font-family: inherit;
+        background: none; border: 1px solid var(--todo-error); color: var(--todo-error);
+        padding: 6px 14px; border-radius: 4px; font-size: 12px; cursor: pointer; font-family: inherit;
       }
-
-      .delete-task-btn:hover {
-        background: #ffebee;
+      .delete-task-btn:hover { background: #ffebee; }
+      .toast-error {
+        position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+        background: var(--todo-error, #db4437); color: #fff; padding: 10px 20px;
+        border-radius: 8px; font-size: 13px; z-index: 999; animation: fadeIn 0.3s;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
       }
+      @keyframes fadeIn { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
     `;
   }
 
@@ -1067,7 +827,7 @@ class MyTodoListCard extends HTMLElement {
 }
 
 /**
- * Card Editor
+ * Card Editor — uses safe DOM construction
  */
 class MyTodoListCardEditor extends HTMLElement {
   constructor() {
@@ -1076,6 +836,25 @@ class MyTodoListCardEditor extends HTMLElement {
     this._config = {};
     this._hass = null;
     this._lists = [];
+  }
+
+  _el(tag, attrs = {}, children = []) {
+    const el = document.createElement(tag);
+    for (const [key, val] of Object.entries(attrs)) {
+      if (key === "className") el.className = val;
+      else if (key === "textContent") el.textContent = val;
+      else if (key === "value") el.value = val;
+      else if (key === "selected") { if (val) el.selected = true; }
+      else if (key === "placeholder") el.placeholder = val;
+      else if (key === "type") el.type = val;
+      else if (key === "id") el.id = val;
+      else el.setAttribute(key, val);
+    }
+    for (const child of children) {
+      if (typeof child === "string") el.appendChild(document.createTextNode(child));
+      else if (child) el.appendChild(child);
+    }
+    return el;
   }
 
   setConfig(config) {
@@ -1091,7 +870,7 @@ class MyTodoListCardEditor extends HTMLElement {
   async _loadLists() {
     try {
       const result = await this._hass.callWS({ type: "my_todo_list/get_lists" });
-      if (result) {
+      if (result && Array.isArray(result.lists)) {
         this._lists = result.lists;
         this._render();
       }
@@ -1101,114 +880,89 @@ class MyTodoListCardEditor extends HTMLElement {
   }
 
   _render() {
-    this.shadowRoot.innerHTML = `
-      <style>
-        :host {
-          display: block;
-        }
-        .editor {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-          padding: 16px 0;
-        }
-        .field {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-        label {
-          font-size: 12px;
-          font-weight: 500;
-          color: var(--secondary-text-color);
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-        select, input {
-          padding: 8px 12px;
-          border: 1px solid var(--divider-color);
-          border-radius: 4px;
-          font-size: 14px;
-          background: var(--card-background-color);
-          color: var(--primary-text-color);
-          font-family: inherit;
-        }
-        .create-list {
-          display: flex;
-          gap: 8px;
-        }
-        .create-list input {
-          flex: 1;
-        }
-        button {
-          padding: 8px 16px;
-          background: var(--primary-color);
-          color: #fff;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-          font-size: 13px;
-          font-family: inherit;
-        }
-        button:hover {
-          opacity: 0.9;
-        }
-      </style>
-      <div class="editor">
-        <div class="field">
-          <label>Liste</label>
-          <select id="list-select">
-            ${this._lists.map((l) => `<option value="${l.id}" ${l.id === this._config.list_id ? "selected" : ""}>${l.name}</option>`).join("")}
-          </select>
-        </div>
-        <div class="field">
-          <label>Neue Liste erstellen</label>
-          <div class="create-list">
-            <input type="text" id="new-list-name" placeholder="Listenname..." />
-            <button id="create-list-btn">Erstellen</button>
-          </div>
-        </div>
-        <div class="field">
-          <label>Titel (optional)</label>
-          <input type="text" id="title-input" value="${this._config.title || ""}"
-                 placeholder="Standard: Listenname" />
-        </div>
-      </div>
-    `;
+    const root = this.shadowRoot;
+    root.innerHTML = "";
 
-    // Events
-    const listSelect = this.shadowRoot.getElementById("list-select");
-    listSelect?.addEventListener("change", () => {
+    const style = document.createElement("style");
+    style.textContent = `
+      :host { display: block; }
+      .editor { display: flex; flex-direction: column; gap: 16px; padding: 16px 0; }
+      .field { display: flex; flex-direction: column; gap: 4px; }
+      label { font-size: 12px; font-weight: 500; color: var(--secondary-text-color); text-transform: uppercase; letter-spacing: 0.5px; }
+      select, input { padding: 8px 12px; border: 1px solid var(--divider-color); border-radius: 4px; font-size: 14px; background: var(--card-background-color); color: var(--primary-text-color); font-family: inherit; }
+      .create-list { display: flex; gap: 8px; }
+      .create-list input { flex: 1; }
+      button { padding: 8px 16px; background: var(--primary-color); color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-family: inherit; }
+      button:hover { opacity: 0.9; }
+    `;
+    root.appendChild(style);
+
+    // List select
+    const listSelect = this._el("select", { id: "list-select" });
+    for (const l of this._lists) {
+      const option = this._el("option", {
+        value: l.id,
+        selected: l.id === this._config.list_id,
+        textContent: l.name,
+      });
+      listSelect.appendChild(option);
+    }
+    listSelect.addEventListener("change", () => {
       this._config = { ...this._config, list_id: listSelect.value };
       this._fireChanged();
     });
 
-    const titleInput = this.shadowRoot.getElementById("title-input");
-    titleInput?.addEventListener("input", () => {
-      this._config = { ...this._config, title: titleInput.value };
-      this._fireChanged();
+    // New list input
+    const newListInput = this._el("input", {
+      type: "text",
+      id: "new-list-name",
+      placeholder: "Listenname...",
     });
-
-    const createBtn = this.shadowRoot.getElementById("create-list-btn");
-    createBtn?.addEventListener("click", async () => {
-      const nameInput = this.shadowRoot.getElementById("new-list-name");
-      const name = nameInput?.value?.trim();
+    const createBtn = this._el("button", { id: "create-list-btn", textContent: "Erstellen" });
+    createBtn.addEventListener("click", async () => {
+      const name = newListInput.value?.trim();
       if (!name) return;
       try {
-        const result = await this._hass.callWS({
-          type: "my_todo_list/create_list",
-          name,
-        });
+        const result = await this._hass.callWS({ type: "my_todo_list/create_list", name });
         if (result) {
           this._config = { ...this._config, list_id: result.id };
           this._fireChanged();
-          nameInput.value = "";
+          newListInput.value = "";
           await this._loadLists();
         }
       } catch (e) {
         console.error("Failed to create list:", e);
       }
     });
+
+    // Title input
+    const titleInput = this._el("input", {
+      type: "text",
+      id: "title-input",
+      value: this._config.title || "",
+      placeholder: "Standard: Listenname",
+    });
+    titleInput.addEventListener("input", () => {
+      this._config = { ...this._config, title: titleInput.value };
+      this._fireChanged();
+    });
+
+    const editor = this._el("div", { className: "editor" }, [
+      this._el("div", { className: "field" }, [
+        this._el("label", { textContent: "Liste" }),
+        listSelect,
+      ]),
+      this._el("div", { className: "field" }, [
+        this._el("label", { textContent: "Neue Liste erstellen" }),
+        this._el("div", { className: "create-list" }, [newListInput, createBtn]),
+      ]),
+      this._el("div", { className: "field" }, [
+        this._el("label", { textContent: "Titel (optional)" }),
+        titleInput,
+      ]),
+    ]);
+
+    root.appendChild(editor);
   }
 
   _fireChanged() {
