@@ -481,7 +481,7 @@ class MyTodoListCard extends HTMLElement {
     if (subProgress) {
       metaChildren.push(this._el("span", { className: "sub-badge", textContent: subProgress }));
     }
-    if (task.due_date) {
+    if (task.due_date && this._config.show_due_date !== false) {
       let dueCls = "due-date";
       if (this._isDueDateOverdue(task.due_date)) dueCls += " overdue";
       else if (this._isDueDateToday(task.due_date)) dueCls += " today";
@@ -577,9 +577,11 @@ class MyTodoListCard extends HTMLElement {
     deleteBtn.addEventListener("click", () => this._deleteTask(task.id));
     const actions = this._el("div", { className: "detail-actions" }, [deleteBtn]);
 
-    return this._el("div", { className: "task-details" }, [
-      dateSection, notesSection, subSection, actions,
-    ]);
+    const details = [];
+    if (this._config.show_due_date !== false) details.push(dateSection);
+    if (this._config.show_notes !== false) details.push(notesSection);
+    details.push(subSection, actions);
+    return this._el("div", { className: "task-details" }, details);
   }
 
   _buildSubItem(taskId, sub) {
@@ -930,6 +932,10 @@ class MyTodoListCardEditor extends HTMLElement {
     if (showTitleCb) showTitleCb.checked = this._config.show_title !== false;
     const showProgressCb = root.getElementById("cb-show-progress");
     if (showProgressCb) showProgressCb.checked = this._config.show_progress !== false;
+    const showDueDateCb = root.getElementById("cb-show-due-date");
+    if (showDueDateCb) showDueDateCb.checked = this._config.show_due_date !== false;
+    const showNotesCb = root.getElementById("cb-show-notes");
+    if (showNotesCb) showNotesCb.checked = this._config.show_notes !== false;
     const autoDeleteCb = root.getElementById("cb-auto-delete");
     if (autoDeleteCb) autoDeleteCb.checked = this._config.auto_delete_completed === true;
   }
@@ -1010,6 +1016,36 @@ class MyTodoListCardEditor extends HTMLElement {
       showProgressCb,
     ]);
 
+    // Show due date toggle
+    const showDueDateCb = this._el("input", {
+      type: "checkbox",
+      id: "cb-show-due-date",
+      checked: this._config.show_due_date !== false,
+    });
+    showDueDateCb.addEventListener("change", () => {
+      this._config = { ...this._config, show_due_date: showDueDateCb.checked };
+      this._fireChanged();
+    });
+    const showDueDateRow = this._el("div", { className: "toggle-row" }, [
+      this._el("span", { className: "toggle-label", textContent: "F\u00e4lligkeitsdatum anzeigen" }),
+      showDueDateCb,
+    ]);
+
+    // Show notes toggle
+    const showNotesCb = this._el("input", {
+      type: "checkbox",
+      id: "cb-show-notes",
+      checked: this._config.show_notes !== false,
+    });
+    showNotesCb.addEventListener("change", () => {
+      this._config = { ...this._config, show_notes: showNotesCb.checked };
+      this._fireChanged();
+    });
+    const showNotesRow = this._el("div", { className: "toggle-row" }, [
+      this._el("span", { className: "toggle-label", textContent: "Notizen anzeigen" }),
+      showNotesCb,
+    ]);
+
     // Auto-delete completed toggle
     const autoDeleteCb = this._el("input", {
       type: "checkbox",
@@ -1044,6 +1080,8 @@ class MyTodoListCardEditor extends HTMLElement {
         this._el("label", { textContent: "Anzeige" }),
         showTitleRow,
         showProgressRow,
+        showDueDateRow,
+        showNotesRow,
         autoDeleteRow,
       ]),
     ]);
