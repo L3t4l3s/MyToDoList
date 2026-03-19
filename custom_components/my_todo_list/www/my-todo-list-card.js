@@ -453,7 +453,13 @@ class MyTodoListCard extends HTMLElement {
       setTimeout(() => { editInput.focus(); editInput.select(); }, 0);
     } else {
       const titleSpan = this._el("span", { className: "task-title", textContent: task.title });
-      titleSpan.addEventListener("dblclick", () => {
+      titleSpan.addEventListener("click", () => {
+        if (this._expandedTasks.has(task.id)) this._expandedTasks.delete(task.id);
+        else this._expandedTasks.add(task.id);
+        this._render();
+      });
+      titleSpan.addEventListener("dblclick", (e) => {
+        e.stopPropagation();
         this._editingTaskId = task.id;
         this._render();
       });
@@ -748,7 +754,7 @@ class MyTodoListCard extends HTMLElement {
       .checkbox-container.small .checkmark { height: 16px; width: 16px; }
       .checkbox-container.small input:checked ~ .checkmark::after { width: 4px; height: 7px; }
       .task-title {
-        flex: 1; font-size: 14px; color: var(--todo-text); cursor: default;
+        flex: 1; font-size: 14px; color: var(--todo-text); cursor: pointer;
         min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       }
       .task.completed .task-title { text-decoration: line-through; color: var(--todo-disabled); }
