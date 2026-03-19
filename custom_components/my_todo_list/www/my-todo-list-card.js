@@ -362,12 +362,6 @@ class MyTodoListCard extends HTMLElement {
       this._buildFilterBtn("Erledigt", "done"),
     ]);
 
-    // Drag hint
-    const dragHint = this._el("div", { className: "drag-hint" }, [
-      this._el("span", { className: "drag-hint-icon", textContent: "\u2237" }),
-      this._text("Aufgaben per Drag & Drop verschieben"),
-    ]);
-
     // Task list
     const taskListChildren = [];
     if (filteredTasks.length === 0) {
@@ -381,7 +375,7 @@ class MyTodoListCard extends HTMLElement {
     const taskList = this._el("div", { className: "task-list" }, taskListChildren);
 
     return this._el("div", { className: "card-content" }, [
-      header, addTask, filters, dragHint, taskList,
+      header, addTask, filters, taskList,
     ]);
   }
 
@@ -700,11 +694,6 @@ class MyTodoListCard extends HTMLElement {
       }
       .filter-btn.active { background: var(--todo-primary); color: #fff; }
       .filter-btn:not(.active):hover { background: var(--todo-surface); }
-      .drag-hint {
-        display: flex; align-items: center; gap: 6px; font-size: 12px;
-        color: var(--todo-disabled); margin-bottom: 8px; padding: 4px 0;
-      }
-      .drag-hint-icon { font-size: 14px; }
       .task-list { display: flex; flex-direction: column; gap: 6px; }
       .empty-state { text-align: center; padding: 24px; color: var(--todo-disabled); font-size: 14px; }
       .task {
