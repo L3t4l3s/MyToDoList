@@ -93,17 +93,24 @@ class MyTodoListCard extends HTMLElement {
   // --- Data methods ---
 
   async _callWs(type, data = {}) {
+    if (!this._hass) return null;
     try {
-      return await this._hass.callWS({ type, ...data });
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 5000)
+      );
+      return await Promise.race([
+        this._hass.callWS({ type, ...data }),
+        timeout,
+      ]);
     } catch (err) {
-      console.error(`WS call ${type} failed:`, err);
-      this._showError(err.message || "Operation failed");
+      console.warn(`WS call ${type} failed:`, err.message);
       return null;
     }
   }
 
   _showError(message) {
     const root = this.shadowRoot;
+    if (!root) return;
     const existing = root.querySelector(".toast-error");
     if (existing) existing.remove();
     const toast = this._el("div", { className: "toast-error", textContent: message });
