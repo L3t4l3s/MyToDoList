@@ -5,7 +5,7 @@
  * Security: All user-controlled content is set via textContent or DOM properties,
  * never via innerHTML with unsanitized data.
  */
-console.info("%c MY-TODO-LIST-CARD %c v2.0.0 ", "color: white; background: #03a9f4; font-weight: bold;", "color: #03a9f4; background: white; font-weight: bold;");
+console.info("%c MY-TODO-LIST-CARD %c v2.1.0 ", "color: white; background: #03a9f4; font-weight: bold;", "color: #03a9f4; background: white; font-weight: bold;");
 
 class MyTodoListCard extends HTMLElement {
   constructor() {
@@ -21,6 +21,9 @@ class MyTodoListCard extends HTMLElement {
     this._editingSubItemId = null;
     this._draggedTaskId = null;
     this._dragOverTaskId = null;
+    this._touchClone = null;
+    this._touchStartTimer = null;
+    this._touchBound = {};
     this._newTaskTitle = "";
     this._initialized = false;
   }
@@ -436,9 +439,8 @@ class MyTodoListCard extends HTMLElement {
     const mainChildren = [];
 
     // Drag handle
-    mainChildren.push(
-      this._el("span", { className: "drag-handle", title: "Verschieben", textContent: "\u2237" })
-    );
+    const dragHandle = this._el("span", { className: "drag-handle", title: "Verschieben", textContent: "\u2237" });
+    mainChildren.push(dragHandle);
 
     // Checkbox
     const checkbox = this._el("input", { type: "checkbox", checked: task.completed });
@@ -514,7 +516,7 @@ class MyTodoListCard extends HTMLElement {
     }
 
     // Drag & drop
-    this._attachDragToTask(taskEl, task.id);
+    this._attachDragToTask(taskEl, task.id, dragHandle);
 
     return taskEl;
   }
@@ -632,9 +634,76 @@ class MyTodoListCard extends HTMLElement {
     return this._el("div", { className: "sub-item" }, [label, titleEl, deleteBtn]);
   }
 
-  // --- Drag & Drop ---
+  // --- Drag & Drop (Desktop + Touch) ---
 
-  _attachDragToTask(taskEl, taskId) {
+  _getOrderFromDom() {
+    const taskList = this.shadowRoot.querySelector(".task-list");
+    if (!taskList) return [];
+    return Array.from(taskList.querySelectorAll(".task")).map((el) => el.dataset.taskId);
+  }
+
+  _liveMoveTask(draggedEl, targetEl) {
+    if (!draggedEl || !targetEl || draggedEl === targetEl) return;
+    const list = draggedEl.parentNode;
+    if (!list) return;
+    const draggedRect = draggedEl.getBoundingClientRect();
+    const targetRect = targetEl.getBoundingClientRect();
+    if (draggedRect.top < targetRect.top) {
+      list.insertBefore(draggedEl, targetEl.nextSibling);
+    } else {
+      list.insertBefore(draggedEl, targetEl);
+    }
+  }
+
+  _finishDrag() {
+    // Read final order from DOM and sync to backend
+    const newOrder = this._getOrderFromDom();
+    const draggedId = this._draggedTaskId;
+    this._draggedTaskId = null;
+    this._dragOverTaskId = null;
+
+    // Clean up classes
+    this.shadowRoot.querySelectorAll(".task").forEach((el) => {
+      el.classList.remove("dragging", "drag-over");
+    });
+
+    // Remove touch clone
+    if (this._touchClone) {
+      this._touchClone.remove();
+      this._touchClone = null;
+    }
+    if (this._touchStartTimer) {
+      clearTimeout(this._touchStartTimer);
+      this._touchStartTimer = null;
+    }
+
+    // Merge filtered order back into full order (for hidden tasks)
+    if (draggedId && newOrder.length > 0) {
+      const filteredIds = new Set(newOrder);
+      const hiddenIds = this._tasks.map((t) => t.id).filter((id) => !filteredIds.has(id));
+      // Insert hidden tasks at their relative positions
+      const fullOrder = [...newOrder];
+      const origOrder = this._tasks.map((t) => t.id);
+      for (const hid of hiddenIds) {
+        const origIdx = origOrder.indexOf(hid);
+        // Find the best insertion point
+        let insertIdx = fullOrder.length;
+        for (let i = origIdx - 1; i >= 0; i--) {
+          const prevId = origOrder[i];
+          const posInNew = fullOrder.indexOf(prevId);
+          if (posInNew !== -1) {
+            insertIdx = posInNew + 1;
+            break;
+          }
+        }
+        fullOrder.splice(insertIdx, 0, hid);
+      }
+      this._reorderTasks(fullOrder);
+    }
+  }
+
+  _attachDragToTask(taskEl, taskId, dragHandle) {
+    // --- HTML5 Drag & Drop (Desktop) ---
     taskEl.addEventListener("dragstart", (e) => {
       this._draggedTaskId = taskId;
       e.dataTransfer.effectAllowed = "move";
@@ -642,52 +711,94 @@ class MyTodoListCard extends HTMLElement {
     });
 
     taskEl.addEventListener("dragend", () => {
-      this._draggedTaskId = null;
-      this._dragOverTaskId = null;
-      this.shadowRoot.querySelectorAll(".task").forEach((el) => {
-        el.classList.remove("dragging", "drag-over");
-      });
+      this._finishDrag();
     });
 
     taskEl.addEventListener("dragover", (e) => {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
-      if (this._draggedTaskId && this._draggedTaskId !== taskId) {
-        this._dragOverTaskId = taskId;
-        this.shadowRoot.querySelectorAll(".task").forEach((el) =>
-          el.classList.remove("drag-over")
-        );
-        taskEl.classList.add("drag-over");
-      }
-    });
-
-    taskEl.addEventListener("dragleave", () => {
-      taskEl.classList.remove("drag-over");
+      if (!this._draggedTaskId || this._draggedTaskId === taskId) return;
+      const draggedEl = this.shadowRoot.querySelector(`.task[data-task-id="${this._draggedTaskId}"]`);
+      this._liveMoveTask(draggedEl, taskEl);
     });
 
     taskEl.addEventListener("drop", (e) => {
       e.preventDefault();
-      if (!this._draggedTaskId || this._draggedTaskId === taskId) return;
-
-      const currentOrder = this._filteredTasks.map((t) => t.id);
-      const fromIndex = currentOrder.indexOf(this._draggedTaskId);
-      const toIndex = currentOrder.indexOf(taskId);
-      if (fromIndex === -1 || toIndex === -1) return;
-
-      const allIds = this._tasks.map((t) => t.id);
-      const draggedId = this._draggedTaskId;
-      const newAllIds = allIds.filter((id) => id !== draggedId);
-      const targetFullIndex = newAllIds.indexOf(taskId);
-      newAllIds.splice(
-        fromIndex < toIndex ? targetFullIndex + 1 : targetFullIndex,
-        0,
-        draggedId
-      );
-
-      this._draggedTaskId = null;
-      this._dragOverTaskId = null;
-      this._reorderTasks(newAllIds);
+      this._finishDrag();
     });
+
+    // --- Touch Events (Mobile) ---
+    if (!dragHandle) return;
+
+    dragHandle.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      this._touchStartTimer = setTimeout(() => {
+        this._draggedTaskId = taskId;
+        taskEl.classList.add("dragging");
+
+        // Create visual clone
+        const rect = taskEl.getBoundingClientRect();
+        const clone = taskEl.cloneNode(true);
+        clone.className = "task drag-clone";
+        clone.style.cssText = `
+          position: fixed; top: ${rect.top}px; left: ${rect.left}px;
+          width: ${rect.width}px; z-index: 1000; opacity: 0.85;
+          pointer-events: none;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+          background: var(--todo-bg, #fff);
+          border-radius: var(--todo-radius, 8px);
+          border: 1px solid var(--todo-primary, #03a9f4);
+        `;
+        this.shadowRoot.appendChild(clone);
+        this._touchClone = clone;
+        this._touchOffsetY = touch.clientY - rect.top;
+      }, 150);
+    }, { passive: true });
+
+    const onTouchMove = (e) => {
+      if (!this._draggedTaskId) {
+        // If finger moves before long-press fires, cancel the timer (allow scroll)
+        if (this._touchStartTimer) {
+          clearTimeout(this._touchStartTimer);
+          this._touchStartTimer = null;
+        }
+        return;
+      }
+      e.preventDefault();
+      const touch = e.touches[0];
+
+      // Move clone
+      if (this._touchClone) {
+        this._touchClone.style.top = `${touch.clientY - this._touchOffsetY}px`;
+      }
+
+      // Find target element under finger (shadow DOM needs shadowRoot.elementFromPoint)
+      if (this._touchClone) this._touchClone.style.display = "none";
+      const shadowEl = this.shadowRoot.elementFromPoint(touch.clientX, touch.clientY);
+      if (this._touchClone) this._touchClone.style.display = "";
+
+      const target = shadowEl ? shadowEl.closest(".task") : null;
+
+      if (target && target.dataset.taskId && target.dataset.taskId !== this._draggedTaskId && !target.classList.contains("drag-clone")) {
+        const draggedEl = this.shadowRoot.querySelector(`.task[data-task-id="${this._draggedTaskId}"]`);
+        this._liveMoveTask(draggedEl, target);
+      }
+    };
+
+    const onTouchEnd = () => {
+      if (this._touchStartTimer) {
+        clearTimeout(this._touchStartTimer);
+        this._touchStartTimer = null;
+      }
+      if (this._draggedTaskId) {
+        this._finishDrag();
+      }
+    };
+
+    dragHandle.addEventListener("touchmove", onTouchMove, { passive: false });
+    dragHandle.addEventListener("touchend", onTouchEnd);
+    dragHandle.addEventListener("touchcancel", onTouchEnd);
   }
 
   // --- Styles ---
@@ -739,14 +850,17 @@ class MyTodoListCard extends HTMLElement {
         border: 1px solid var(--todo-divider); border-radius: var(--todo-radius);
         background: var(--todo-bg); transition: box-shadow 0.2s, border-color 0.2s;
       }
-      .task.dragging { opacity: 0.5; }
-      .task.drag-over { border-color: var(--todo-primary); box-shadow: 0 0 0 1px var(--todo-primary); }
+      .task.dragging { opacity: 0.4; }
       .task-main { display: flex; align-items: center; padding: 10px 12px; gap: 8px; min-height: 44px; }
       .drag-handle {
         cursor: grab; color: var(--todo-disabled); font-size: 16px;
         user-select: none; padding: 4px 2px; line-height: 1;
+        touch-action: none;
       }
       .drag-handle:active { cursor: grabbing; }
+      @media (pointer: coarse) {
+        .drag-handle { padding: 8px 6px; font-size: 18px; }
+      }
       .checkbox-container {
         position: relative; display: inline-flex; align-items: center;
         cursor: pointer; flex-shrink: 0;
