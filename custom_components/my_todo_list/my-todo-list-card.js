@@ -449,6 +449,9 @@ class MyTodoListCard extends HTMLElement {
     const label = this._el("label", { className: "checkbox-container" }, [checkbox, checkmark]);
     mainChildren.push(label);
 
+    // Content wrapper (title + meta in column layout)
+    const contentChildren = [];
+
     // Title (editable or display)
     if (isEditing) {
       const editInput = this._el("input", {
@@ -461,7 +464,7 @@ class MyTodoListCard extends HTMLElement {
         else if (e.key === "Escape") { this._editingTaskId = null; this._render(); }
       });
       editInput.addEventListener("blur", () => this._updateTaskTitle(task.id, editInput.value));
-      mainChildren.push(editInput);
+      contentChildren.push(editInput);
       setTimeout(() => { editInput.focus(); editInput.select(); }, 0);
     } else {
       const titleSpan = this._el("span", { className: "task-title", textContent: task.title });
@@ -475,10 +478,10 @@ class MyTodoListCard extends HTMLElement {
         this._editingTaskId = task.id;
         this._render();
       });
-      mainChildren.push(titleSpan);
+      contentChildren.push(titleSpan);
     }
 
-    // Meta (sub-item count + due date)
+    // Meta (sub-item count + due date) — second line below title
     const metaChildren = [];
     const subProgress = this._getSubItemProgress(task);
     if (subProgress) {
@@ -493,7 +496,11 @@ class MyTodoListCard extends HTMLElement {
         textContent: this._formatDueDate(task.due_date),
       }));
     }
-    mainChildren.push(this._el("div", { className: "task-meta" }, metaChildren));
+    if (metaChildren.length > 0) {
+      contentChildren.push(this._el("div", { className: "task-meta" }, metaChildren));
+    }
+
+    mainChildren.push(this._el("div", { className: "task-content" }, contentChildren));
 
     // Expand button
     const expandBtn = this._el("button", {
@@ -852,6 +859,7 @@ class MyTodoListCard extends HTMLElement {
       }
       .task.dragging { opacity: 0.4; }
       .task-main { display: flex; align-items: center; padding: 10px 12px; gap: 8px; min-height: 44px; }
+      .task-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
       .drag-handle {
         cursor: grab; color: var(--todo-disabled); font-size: 16px;
         user-select: none; padding: 4px 2px; line-height: 1;
@@ -880,8 +888,8 @@ class MyTodoListCard extends HTMLElement {
       .checkbox-container.small .checkmark { height: 16px; width: 16px; }
       .checkbox-container.small input:checked ~ .checkmark::after { width: 4px; height: 7px; }
       .task-title {
-        flex: 1; font-size: 14px; color: var(--todo-text); cursor: pointer;
-        min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        font-size: 14px; color: var(--todo-text); cursor: pointer;
+        line-height: 1.3; word-break: break-word;
       }
       .task.completed .task-title { text-decoration: line-through; color: var(--todo-disabled); }
       .edit-title-input, .edit-sub-input {
@@ -889,7 +897,7 @@ class MyTodoListCard extends HTMLElement {
         border-radius: 4px; font-size: 14px; background: var(--todo-bg);
         color: var(--todo-text); outline: none; font-family: inherit; min-width: 0;
       }
-      .task-meta { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+      .task-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
       .sub-badge {
         font-size: 11px; padding: 2px 8px; border-radius: 10px;
         background: var(--todo-surface); color: var(--todo-secondary-text); font-weight: 500;
