@@ -65,9 +65,16 @@ class MyToDoListStore:
         """Initialize the store."""
         self._store = Store(hass, STORAGE_VERSION, f"my_todo_list_{entry_id}")
         self._data: dict | None = None
+        self._listeners: list[Callable[[], None]] = []
         self.on_task_completed: Callable[[dict], None] | None = None
+        self.on_task_created: Callable[[dict], None] | None = None
         self.on_task_deleted: Callable[[str], None] | None = None
         self.on_task_assigned: Callable[[dict, str | None], None] | None = None
+
+    def async_add_listener(self, callback: Callable[[], None]) -> Callable[[], None]:
+        """Add a listener for data changes. Returns a removal callable."""
+        self._listeners.append(callback)
+        return lambda: self._listeners.remove(callback) if callback in self._listeners else None
 
     async def async_load(self) -> None:
         """Load data from disk."""
@@ -103,6 +110,8 @@ class MyToDoListStore:
     async def _async_save(self) -> None:
         """Save data to disk."""
         await self._store.async_save(self._data)
+        for listener in self._listeners:
+            listener()
 
     @property
     def tasks(self) -> list[dict]:
@@ -131,6 +140,8 @@ class MyToDoListStore:
         }
         self._data["tasks"].append(task)
         await self._async_save()
+        if self.on_task_created:
+            self.on_task_created(task)
         return task
 
     def get_task(self, task_id: str) -> dict:

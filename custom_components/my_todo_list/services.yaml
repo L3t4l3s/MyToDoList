@@ -1,0 +1,90 @@
+add_task:
+  name: Aufgabe hinzufügen
+  description: Erstellt eine neue Aufgabe in einer ToDo-Liste.
+  fields:
+    list_name:
+      name: Listenname
+      description: Der Name der ToDo-Liste.
+      example: "Einkaufsliste"
+      selector:
+        text:
+    entry_id:
+      name: Entry ID
+      description: Die Config-Entry-ID der Liste (Alternative zum Listennamen).
+      selector:
+        text:
+    title:
+      name: Titel
+      description: Der Titel der Aufgabe.
+      required: true
+      example: "Milch kaufen"
+      selector:
+        text:
+    assigned_person:
+      name: Zugewiesene Person
+      description: Person-Entität zum Zuweisen (z.B. person.max).
+      selector:
+        entity:
+          domain: person
+    due_date:
+      name: Fälligkeitsdatum
+      description: Fälligkeitsdatum im Format YYYY-MM-DD.
+      selector:
+        date:
+
+complete_task:
+  name: Aufgabe erledigen
+  description: Markiert eine Aufgabe als erledigt.
+  fields:
+    list_name:
+      name: Listenname
+      description: Der Name der ToDo-Liste.
+      selector:
+        text:
+    entry_id:
+      name: Entry ID
+      description: Die Config-Entry-ID der Liste (Alternative zum Listennamen).
+      selector:
+        text:
+    task_title:
+      name: Aufgabentitel
+      description: Titel der Aufgabe.
+      selector:
+        text:
+    task_id:
+      name: Task ID
+      description: UUID der Aufgabe (Alternative zum Titel).
+      selector:
+        text:
+
+assign_task:
+  name: Aufgabe zuweisen
+  description: Weist einer Aufgabe eine Person zu.
+  fields:
+    list_name:
+      name: Listenname
+      description: Der Name der ToDo-Liste.
+      selector:
+        text:
+    entry_id:
+      name: Entry ID
+      description: Die Config-Entry-ID der Liste (Alternative zum Listennamen).
+      selector:
+        text:
+    task_title:
+      name: Aufgabentitel
+      description: Titel der Aufgabe.
+      selector:
+        text:
+    task_id:
+      name: Task ID
+      description: UUID der Aufgabe (Alternative zum Titel).
+      selector:
+        text:
+    person:
+      name: Person
+      description: Person-Entität zum Zuweisen.
+      required: true
+      selector:
+        entity:
+          domain: person

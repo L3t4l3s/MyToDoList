@@ -1,12 +1,15 @@
 """The My ToDo List integration."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
+
+import voluptuous as vol
 
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.event import async_call_later
+from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.event import async_call_later, async_track_time_interval
 
 from .const import DOMAIN, RECURRENCE_UNIT_SECONDS
 from .store import MyToDoListStore
@@ -14,16 +17,26 @@ from .websocket_api import async_register_websocket_commands
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["todo"]
+PLATFORMS = ["todo", "sensor", "binary_sensor"]
 CARD_URL = "/my_todo_list/my-todo-list-card.js"
 DATA_SETUP_DONE = f"{DOMAIN}_setup_done"
 DATA_RECURRENCE_TIMERS = f"{DOMAIN}_recurrence_timers"
+DATA_DUE_CHECK_UNSUB = f"{DOMAIN}_due_check_unsub"
+DATA_DUE_FIRED = f"{DOMAIN}_due_fired"
 
+DUE_CHECK_INTERVAL = timedelta(hours=1)
+
+
+# ---------------------------------------------------------------------------
+#  Setup
+# ---------------------------------------------------------------------------
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the My ToDo List component."""
     hass.data.setdefault(DOMAIN, {})
     await _async_register_card(hass)
+    _async_register_services(hass)
+    _async_register_due_checker(hass)
     return True
 
 
@@ -63,8 +76,6 @@ async def _async_register_card(hass: HomeAssistant) -> None:
     except RuntimeError:
         pass
 
-    # NOTE: The card JS must be added as a Lovelace resource manually:
-    # URL: /my_todo_list/my-todo-list-card.js  Type: JavaScript Module
     _LOGGER.info(
         "My ToDo List card served at %s - ensure it is added as a "
         "Lovelace resource (JavaScript Module)",
@@ -72,12 +83,101 @@ async def _async_register_card(hass: HomeAssistant) -> None:
     )
 
 
+# ---------------------------------------------------------------------------
+#  Events
+# ---------------------------------------------------------------------------
+
+def _build_event_data(entry_id: str, task: dict) -> dict:
+    """Build common event data dict."""
+    data = {
+        "entry_id": entry_id,
+        "task_id": task["id"],
+        "task_title": task.get("title", ""),
+    }
+    if task.get("assigned_person"):
+        data["assigned_person"] = task["assigned_person"]
+    if task.get("due_date"):
+        data["due_date"] = task["due_date"]
+    return data
+
+
+def _on_task_completed(hass: HomeAssistant, entry_id: str, task: dict) -> None:
+    """Handle task completion: fire event and schedule recurrence."""
+    hass.bus.async_fire(f"{DOMAIN}_task_completed", _build_event_data(entry_id, task))
+    _schedule_recurrence(hass, entry_id, task)
+
+
+def _on_task_created(hass: HomeAssistant, entry_id: str, task: dict) -> None:
+    """Fire event when a task is created."""
+    hass.bus.async_fire(f"{DOMAIN}_task_created", _build_event_data(entry_id, task))
+
+
+def _on_task_deleted(hass: HomeAssistant, task_id: str) -> None:
+    """Handle task deletion: cancel recurrence and clean due-fired cache."""
+    _cancel_recurrence(hass, task_id)
+    hass.data.get(DATA_DUE_FIRED, {}).pop(task_id, None)
+
+
+def _fire_assignment_event(
+    hass: HomeAssistant, entry_id: str, task: dict, previous_person: str | None
+) -> None:
+    """Fire an event when a task's assigned person changes."""
+    data = _build_event_data(entry_id, task)
+    data["previous_person"] = previous_person
+    hass.bus.async_fire(f"{DOMAIN}_task_assigned", data)
+
+
+# ---------------------------------------------------------------------------
+#  Due-date checker (hourly)
+# ---------------------------------------------------------------------------
+
+def _async_register_due_checker(hass: HomeAssistant) -> None:
+    """Register the periodic due-date checker (once globally)."""
+    if hass.data.get(DATA_DUE_CHECK_UNSUB):
+        return
+    unsub = async_track_time_interval(hass, _async_check_due_dates, DUE_CHECK_INTERVAL)
+    hass.data[DATA_DUE_CHECK_UNSUB] = unsub
+    # Also run once on startup
+    hass.async_create_task(_async_check_due_dates(hass))
+
+
+async def _async_check_due_dates(hass: HomeAssistant, _now=None) -> None:
+    """Check all tasks for due/overdue and fire events once per day per task."""
+    today = date.today().isoformat()
+    fired = hass.data.setdefault(DATA_DUE_FIRED, {})
+    stores = hass.data.get(DOMAIN, {})
+
+    for entry_id, store in stores.items():
+        if not isinstance(store, MyToDoListStore):
+            continue
+        for task in store.tasks:
+            if task.get("completed"):
+                continue
+            dd = task.get("due_date")
+            if not dd:
+                continue
+            task_id = task["id"]
+            task_fired = fired.setdefault(task_id, {})
+
+            event_data = _build_event_data(entry_id, task)
+
+            if dd == today and task_fired.get("due") != today:
+                hass.bus.async_fire(f"{DOMAIN}_task_due", event_data)
+                task_fired["due"] = today
+            elif dd < today and task_fired.get("overdue") != today:
+                hass.bus.async_fire(f"{DOMAIN}_task_overdue", event_data)
+                task_fired["overdue"] = today
+
+
+# ---------------------------------------------------------------------------
+#  Recurrence scheduling
+# ---------------------------------------------------------------------------
+
 def _schedule_recurrence(hass: HomeAssistant, entry_id: str, task: dict, delay_seconds: float | None = None) -> None:
     """Schedule a task to reopen after its recurrence interval."""
     timers = hass.data.setdefault(DATA_RECURRENCE_TIMERS, {})
     task_id = task["id"]
 
-    # Cancel any existing timer for this task
     _cancel_recurrence(hass, task_id)
 
     unit = task.get("recurrence_unit")
@@ -89,7 +189,6 @@ def _schedule_recurrence(hass: HomeAssistant, entry_id: str, task: dict, delay_s
         delay_seconds = float(RECURRENCE_UNIT_SECONDS[unit] * value)
 
     def _reopen_task(_now):
-        """Reopen the task after recurrence interval."""
         timers.pop(task_id, None)
         hass.async_create_task(_async_reopen_task(hass, entry_id, task_id))
 
@@ -107,23 +206,18 @@ async def _async_reopen_task(hass: HomeAssistant, entry_id: str, task_id: str) -
     try:
         task = store.get_task(task_id)
     except ValueError:
-        return  # Task was deleted
+        return
 
     if not task.get("recurrence_enabled"):
-        return  # Recurrence was disabled while waiting
+        return
 
-    # Reopen task without triggering the completion callback again
     task["completed"] = False
     task["completed_at"] = None
-    # Reset sub-items
     for sub in task.get("sub_items", []):
         sub["completed"] = False
     await store._async_save()
 
-    # Fire events
-    event_data = {"entry_id": entry_id, "task_id": task_id, "task_title": task.get("title", "")}
-    if task.get("assigned_person"):
-        event_data["assigned_person"] = task["assigned_person"]
+    event_data = _build_event_data(entry_id, task)
     hass.bus.async_fire(f"{DOMAIN}_task_reopened", event_data)
     _LOGGER.info("Recurring task '%s' reopened", task.get("title", task_id))
 
@@ -137,7 +231,7 @@ def _cancel_recurrence(hass: HomeAssistant, task_id: str) -> None:
 
 
 def _recover_recurrence_timers(hass: HomeAssistant, entry_id: str, store: MyToDoListStore) -> None:
-    """On startup, recover timers for tasks that were completed with recurrence enabled."""
+    """On startup, recover timers for completed recurring tasks."""
     now = datetime.now(timezone.utc)
     for task in store.tasks:
         if not task.get("completed") or not task.get("recurrence_enabled") or not task.get("recurrence_unit"):
@@ -161,45 +255,133 @@ def _recover_recurrence_timers(hass: HomeAssistant, entry_id: str, store: MyToDo
         remaining = interval_seconds - elapsed
 
         if remaining <= 0:
-            # Should have reopened already — do it now
             hass.async_create_task(_async_reopen_task(hass, entry_id, task["id"]))
         else:
             _schedule_recurrence(hass, entry_id, task, delay_seconds=remaining)
 
 
-def _fire_assignment_event(
-    hass: HomeAssistant, entry_id: str, task: dict, previous_person: str | None
-) -> None:
-    """Fire an event when a task's assigned person changes."""
-    hass.bus.async_fire(
-        f"{DOMAIN}_task_assigned",
-        {
-            "entry_id": entry_id,
-            "task_id": task["id"],
-            "task_title": task.get("title", ""),
-            "assigned_person": task.get("assigned_person"),
-            "previous_person": previous_person,
-        },
-    )
-    _LOGGER.debug(
-        "Task '%s' assigned to %s (was %s)",
-        task.get("title"),
-        task.get("assigned_person"),
-        previous_person,
-    )
+# ---------------------------------------------------------------------------
+#  Services
+# ---------------------------------------------------------------------------
 
+def _resolve_store(hass: HomeAssistant, data: dict) -> tuple[str, MyToDoListStore]:
+    """Find the store by entry_id or list_name."""
+    entry_id = data.get("entry_id")
+    list_name = data.get("list_name")
+
+    if entry_id:
+        store = hass.data.get(DOMAIN, {}).get(entry_id)
+        if store is None or not isinstance(store, MyToDoListStore):
+            raise vol.Invalid(f"No list found with entry_id: {entry_id}")
+        return entry_id, store
+
+    if list_name:
+        entries = hass.config_entries.async_entries(DOMAIN)
+        for entry in entries:
+            name = entry.data.get("name", entry.title)
+            if name.lower() == list_name.lower():
+                store = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+                if store and isinstance(store, MyToDoListStore):
+                    return entry.entry_id, store
+        raise vol.Invalid(f"No list found with name: {list_name}")
+
+    raise vol.Invalid("Either entry_id or list_name must be provided")
+
+
+def _resolve_task(store: MyToDoListStore, data: dict) -> dict:
+    """Find a task by task_id or task_title."""
+    task_id = data.get("task_id")
+    task_title = data.get("task_title")
+
+    if task_id:
+        return store.get_task(task_id)
+
+    if task_title:
+        matches = [t for t in store.tasks if t["title"].lower() == task_title.lower()]
+        if not matches:
+            raise ValueError(f"No task found with title: {task_title}")
+        incomplete = [t for t in matches if not t.get("completed")]
+        return incomplete[0] if incomplete else matches[0]
+
+    raise ValueError("Either task_id or task_title must be provided")
+
+
+def _async_register_services(hass: HomeAssistant) -> None:
+    """Register integration services (once globally)."""
+    if hass.services.has_service(DOMAIN, "add_task"):
+        return
+
+    async def async_handle_add_task(call: ServiceCall) -> None:
+        entry_id, store = _resolve_store(hass, call.data)
+        task = await store.async_add_task(call.data["title"])
+        kwargs = {}
+        if "assigned_person" in call.data:
+            kwargs["assigned_person"] = call.data["assigned_person"]
+        if "due_date" in call.data:
+            kwargs["due_date"] = call.data["due_date"]
+        if kwargs:
+            await store.async_update_task(task["id"], **kwargs)
+
+    async def async_handle_complete_task(call: ServiceCall) -> None:
+        _entry_id, store = _resolve_store(hass, call.data)
+        task = _resolve_task(store, call.data)
+        if not task.get("completed"):
+            await store.async_update_task(task["id"], completed=True)
+
+    async def async_handle_assign_task(call: ServiceCall) -> None:
+        _entry_id, store = _resolve_store(hass, call.data)
+        task = _resolve_task(store, call.data)
+        await store.async_update_task(task["id"], assigned_person=call.data["person"])
+
+    hass.services.async_register(
+        DOMAIN, "add_task", async_handle_add_task,
+        schema=vol.Schema({
+            vol.Optional("entry_id"): cv.string,
+            vol.Optional("list_name"): cv.string,
+            vol.Required("title"): cv.string,
+            vol.Optional("assigned_person"): cv.string,
+            vol.Optional("due_date"): cv.string,
+        }),
+    )
+    hass.services.async_register(
+        DOMAIN, "complete_task", async_handle_complete_task,
+        schema=vol.Schema({
+            vol.Optional("entry_id"): cv.string,
+            vol.Optional("list_name"): cv.string,
+            vol.Optional("task_id"): cv.string,
+            vol.Optional("task_title"): cv.string,
+        }),
+    )
+    hass.services.async_register(
+        DOMAIN, "assign_task", async_handle_assign_task,
+        schema=vol.Schema({
+            vol.Optional("entry_id"): cv.string,
+            vol.Optional("list_name"): cv.string,
+            vol.Optional("task_id"): cv.string,
+            vol.Optional("task_title"): cv.string,
+            vol.Required("person"): cv.string,
+        }),
+    )
+    _LOGGER.info("My ToDo List services registered")
+
+
+# ---------------------------------------------------------------------------
+#  Config entry lifecycle
+# ---------------------------------------------------------------------------
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up My ToDo List from a config entry."""
     await _async_register_card(hass)
+    _async_register_services(hass)
 
     store = MyToDoListStore(hass, entry.entry_id)
     await store.async_load()
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = store
 
     # Wire up callbacks
-    store.on_task_completed = lambda task: _schedule_recurrence(hass, entry.entry_id, task)
-    store.on_task_deleted = lambda task_id: _cancel_recurrence(hass, task_id)
+    store.on_task_completed = lambda task: _on_task_completed(hass, entry.entry_id, task)
+    store.on_task_created = lambda task: _on_task_created(hass, entry.entry_id, task)
+    store.on_task_deleted = lambda task_id: _on_task_deleted(hass, task_id)
     store.on_task_assigned = lambda task, prev: _fire_assignment_event(hass, entry.entry_id, task, prev)
 
     # Recover any pending recurrence timers from before restart
@@ -211,7 +393,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    # Cancel all recurrence timers for this entry's tasks
     store = hass.data.get(DOMAIN, {}).get(entry.entry_id)
     if store:
         for task in store.tasks:
