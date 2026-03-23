@@ -8,7 +8,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_call_later
 
-from .const import DOMAIN, RECURRENCE_INTERVAL_SECONDS
+from .const import DOMAIN, RECURRENCE_UNIT_SECONDS
 from .store import MyToDoListStore
 from .websocket_api import async_register_websocket_commands
 
@@ -80,12 +80,13 @@ def _schedule_recurrence(hass: HomeAssistant, entry_id: str, task: dict, delay_s
     # Cancel any existing timer for this task
     _cancel_recurrence(hass, task_id)
 
-    interval_key = task.get("recurrence_interval")
-    if not interval_key or interval_key not in RECURRENCE_INTERVAL_SECONDS:
+    unit = task.get("recurrence_unit")
+    value = task.get("recurrence_value", 1)
+    if not unit or unit not in RECURRENCE_UNIT_SECONDS:
         return
 
     if delay_seconds is None:
-        delay_seconds = float(RECURRENCE_INTERVAL_SECONDS[interval_key])
+        delay_seconds = float(RECURRENCE_UNIT_SECONDS[unit] * value)
 
     def _reopen_task(_now):
         """Reopen the task after recurrence interval."""
@@ -136,7 +137,7 @@ def _recover_recurrence_timers(hass: HomeAssistant, entry_id: str, store: MyToDo
     """On startup, recover timers for tasks that were completed with recurrence enabled."""
     now = datetime.now(timezone.utc)
     for task in store.tasks:
-        if not task.get("completed") or not task.get("recurrence_enabled") or not task.get("recurrence_interval"):
+        if not task.get("completed") or not task.get("recurrence_enabled") or not task.get("recurrence_unit"):
             continue
         completed_at_str = task.get("completed_at")
         if not completed_at_str:
@@ -148,7 +149,8 @@ def _recover_recurrence_timers(hass: HomeAssistant, entry_id: str, store: MyToDo
         except (ValueError, TypeError):
             continue
 
-        interval_seconds = RECURRENCE_INTERVAL_SECONDS.get(task["recurrence_interval"], 0)
+        unit_seconds = RECURRENCE_UNIT_SECONDS.get(task.get("recurrence_unit"), 0)
+        interval_seconds = unit_seconds * task.get("recurrence_value", 1)
         if interval_seconds <= 0:
             continue
 

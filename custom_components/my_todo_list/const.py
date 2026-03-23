@@ -13,10 +13,11 @@ MAX_NOTES_LENGTH = 5000
 MAX_REORDER_IDS = 500
 
 # --- Recurrence ---
-VALID_RECURRENCE_INTERVALS = ("daily", "weekly", "biweekly", "monthly")
-RECURRENCE_INTERVAL_SECONDS = {
-    "daily": 86400,
-    "weekly": 604800,
-    "biweekly": 1209600,
-    "monthly": 2592000,  # 30 days
+VALID_RECURRENCE_UNITS = ("hours", "days", "weeks", "months")
+RECURRENCE_UNIT_SECONDS = {
+    "hours": 3600,
+    "days": 86400,
+    "weeks": 604800,
+    "months": 2592000,  # 30 days
 }
+MAX_RECURRENCE_VALUE = 365

@@ -164,7 +164,7 @@ class MyTodoListCard extends HTMLElement {
   async _toggleTask(taskId, completed) {
     const newCompleted = !completed;
     const task = this._tasks.find(t => t.id === taskId);
-    const hasRecurrence = task && task.recurrence_enabled && task.recurrence_interval;
+    const hasRecurrence = task && task.recurrence_enabled && task.recurrence_unit;
     if (newCompleted && this._config.auto_delete_completed && !hasRecurrence) {
       await this._callWs("my_todo_list/delete_task", {
         list_id: this._config.list_id,
@@ -498,11 +498,15 @@ class MyTodoListCard extends HTMLElement {
         textContent: this._formatDueDate(task.due_date),
       }));
     }
-    if (task.recurrence_enabled && task.recurrence_interval && this._config.show_recurrence !== false) {
-      const labels = { daily: "Täglich", weekly: "Wöchentl.", biweekly: "Alle 2 Wo.", monthly: "Monatl." };
+    if (task.recurrence_enabled && task.recurrence_unit && this._config.show_recurrence !== false) {
+      const unitLabels = { hours: "Std.", days: "T.", weeks: "Wo.", months: "Mon." };
+      const val = task.recurrence_value || 1;
+      const label = val === 1
+        ? { hours: "Stündl.", days: "Täglich", weeks: "Wöchentl.", months: "Monatl." }[task.recurrence_unit]
+        : `${val} ${unitLabels[task.recurrence_unit] || task.recurrence_unit}`;
       metaChildren.push(this._el("span", {
         className: "recurrence-badge",
-        textContent: "\u21BB " + (labels[task.recurrence_interval] || task.recurrence_interval),
+        textContent: "\u21BB " + label,
       }));
     }
     if (metaChildren.length > 0) {
@@ -590,7 +594,8 @@ class MyTodoListCard extends HTMLElement {
 
     // Recurrence section
     const recurrenceEnabled = task.recurrence_enabled || false;
-    const recurrenceInterval = task.recurrence_interval || "daily";
+    const recurrenceValue = task.recurrence_value || 1;
+    const recurrenceUnit = task.recurrence_unit || "days";
 
     const recurrenceToggle = this._el("input", { type: "checkbox", checked: recurrenceEnabled });
     const recurrenceCheckmark = this._el("span", { className: "checkmark" });
@@ -602,41 +607,68 @@ class MyTodoListCard extends HTMLElement {
       this._el("span", { textContent: "Aktiviert" }),
     ]);
 
-    const recurrenceSelect = this._el("select", { className: "recurrence-select" });
-    const options = [
-      { value: "daily", label: "Täglich" },
-      { value: "weekly", label: "Wöchentlich" },
-      { value: "biweekly", label: "Alle 2 Wochen" },
-      { value: "monthly", label: "Monatlich" },
+    const recurrenceValueInput = this._el("input", {
+      type: "number",
+      className: "recurrence-value",
+      value: recurrenceValue,
+    });
+    recurrenceValueInput.min = 1;
+    recurrenceValueInput.max = 365;
+
+    const recurrenceUnitSelect = this._el("select", { className: "recurrence-select" });
+    const unitOptions = [
+      { value: "hours", label: "Stunden" },
+      { value: "days", label: "Tage" },
+      { value: "weeks", label: "Wochen" },
+      { value: "months", label: "Monate" },
     ];
-    for (const opt of options) {
+    for (const opt of unitOptions) {
       const optEl = this._el("option", { value: opt.value, textContent: opt.label });
-      if (opt.value === recurrenceInterval) optEl.selected = true;
-      recurrenceSelect.appendChild(optEl);
+      if (opt.value === recurrenceUnit) optEl.selected = true;
+      recurrenceUnitSelect.appendChild(optEl);
     }
-    if (!recurrenceEnabled) recurrenceSelect.disabled = true;
+    if (!recurrenceEnabled) {
+      recurrenceValueInput.disabled = true;
+      recurrenceUnitSelect.disabled = true;
+    }
+
+    const saveRecurrence = () => {
+      const val = Math.max(1, Math.min(365, parseInt(recurrenceValueInput.value) || 1));
+      recurrenceValueInput.value = val;
+      this._callWs("my_todo_list/update_task", {
+        list_id: this._config.list_id,
+        task_id: task.id,
+        recurrence_value: val,
+        recurrence_unit: recurrenceUnitSelect.value,
+      }).then(() => this._loadTasks());
+    };
 
     recurrenceToggle.addEventListener("change", () => {
-      recurrenceSelect.disabled = !recurrenceToggle.checked;
+      const enabled = recurrenceToggle.checked;
+      recurrenceValueInput.disabled = !enabled;
+      recurrenceUnitSelect.disabled = !enabled;
+      const val = Math.max(1, Math.min(365, parseInt(recurrenceValueInput.value) || 1));
       this._callWs("my_todo_list/update_task", {
         list_id: this._config.list_id,
         task_id: task.id,
-        recurrence_enabled: recurrenceToggle.checked,
-        recurrence_interval: recurrenceSelect.value,
+        recurrence_enabled: enabled,
+        recurrence_value: val,
+        recurrence_unit: recurrenceUnitSelect.value,
       }).then(() => this._loadTasks());
     });
-    recurrenceSelect.addEventListener("change", () => {
-      this._callWs("my_todo_list/update_task", {
-        list_id: this._config.list_id,
-        task_id: task.id,
-        recurrence_interval: recurrenceSelect.value,
-      }).then(() => this._loadTasks());
-    });
+    recurrenceValueInput.addEventListener("change", saveRecurrence);
+    recurrenceUnitSelect.addEventListener("change", saveRecurrence);
+
+    const recurrenceRow = this._el("div", { className: "recurrence-input-row" }, [
+      this._el("span", { textContent: "Alle", className: "recurrence-prefix" }),
+      recurrenceValueInput,
+      recurrenceUnitSelect,
+    ]);
 
     const recurrenceSection = this._el("div", { className: "detail-section" }, [
       this._el("label", { className: "detail-label", textContent: "Wiederholung" }),
       recurrenceToggleRow,
-      recurrenceSelect,
+      recurrenceRow,
     ]);
 
     // Delete button
@@ -977,12 +1009,23 @@ class MyTodoListCard extends HTMLElement {
       .recurrence-toggle-row {
         display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
       }
+      .recurrence-input-row {
+        display: flex; align-items: center; gap: 8px;
+      }
+      .recurrence-prefix {
+        font-size: 13px; color: var(--todo-secondary-text); white-space: nowrap;
+      }
+      .recurrence-value {
+        width: 60px; padding: 6px 8px; border: 1px solid var(--todo-divider);
+        border-radius: 4px; font-size: 13px; background: var(--todo-bg);
+        color: var(--todo-text); font-family: inherit; text-align: center;
+      }
       .recurrence-select {
-        width: 100%; padding: 6px 8px; border: 1px solid var(--todo-divider);
+        flex: 1; padding: 6px 8px; border: 1px solid var(--todo-divider);
         border-radius: 4px; font-size: 13px; background: var(--todo-bg);
         color: var(--todo-text); font-family: inherit;
       }
-      .recurrence-select:disabled { opacity: 0.5; }
+      .recurrence-value:disabled, .recurrence-select:disabled { opacity: 0.5; }
       .expand-btn {
         background: none; border: none; color: var(--todo-secondary-text);
         cursor: pointer; font-size: 10px; padding: 6px; border-radius: 4px;

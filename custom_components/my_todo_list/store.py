@@ -13,11 +13,12 @@ from homeassistant.helpers.storage import Store
 
 from .const import (
     MAX_NOTES_LENGTH,
+    MAX_RECURRENCE_VALUE,
     MAX_SUB_ITEMS_PER_TASK,
     MAX_TASKS_PER_LIST,
     MAX_TITLE_LENGTH,
     STORAGE_VERSION,
-    VALID_RECURRENCE_INTERVALS,
+    VALID_RECURRENCE_UNITS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -78,9 +79,22 @@ class MyToDoListStore:
             self._backfill_recurrence_fields()
 
     def _backfill_recurrence_fields(self) -> None:
-        """Add missing recurrence fields to existing tasks."""
+        """Add missing recurrence fields and migrate old format."""
+        _MIGRATE = {
+            "daily": (1, "days"),
+            "weekly": (1, "weeks"),
+            "biweekly": (2, "weeks"),
+            "monthly": (1, "months"),
+        }
         for task in self._data.get("tasks", []):
-            task.setdefault("recurrence_interval", None)
+            # Migrate old recurrence_interval string to value + unit
+            old = task.pop("recurrence_interval", None)
+            if old and old in _MIGRATE and "recurrence_value" not in task:
+                val, unit = _MIGRATE[old]
+                task["recurrence_value"] = val
+                task["recurrence_unit"] = unit
+            task.setdefault("recurrence_value", 1)
+            task.setdefault("recurrence_unit", None)
             task.setdefault("recurrence_enabled", False)
             task.setdefault("completed_at", None)
 
@@ -107,7 +121,8 @@ class MyToDoListStore:
             "due_date": None,
             "sort_order": max_order + 1,
             "sub_items": [],
-            "recurrence_interval": None,
+            "recurrence_value": 1,
+            "recurrence_unit": None,
             "recurrence_enabled": False,
             "completed_at": None,
         }
@@ -137,15 +152,19 @@ class MyToDoListStore:
             kwargs["due_date"] = validate_date(kwargs["due_date"])
         if "completed" in kwargs and not isinstance(kwargs["completed"], bool):
             raise ValueError("completed must be a boolean")
-        if "recurrence_interval" in kwargs:
-            val = kwargs["recurrence_interval"]
-            if val is not None and val not in VALID_RECURRENCE_INTERVALS:
-                raise ValueError(f"recurrence_interval must be one of {VALID_RECURRENCE_INTERVALS} or null")
+        if "recurrence_unit" in kwargs:
+            val = kwargs["recurrence_unit"]
+            if val is not None and val not in VALID_RECURRENCE_UNITS:
+                raise ValueError(f"recurrence_unit must be one of {VALID_RECURRENCE_UNITS} or null")
+        if "recurrence_value" in kwargs:
+            val = kwargs["recurrence_value"]
+            if not isinstance(val, int) or val < 1 or val > MAX_RECURRENCE_VALUE:
+                raise ValueError(f"recurrence_value must be an integer between 1 and {MAX_RECURRENCE_VALUE}")
         if "recurrence_enabled" in kwargs and not isinstance(kwargs["recurrence_enabled"], bool):
             raise ValueError("recurrence_enabled must be a boolean")
 
         was_completed = task.get("completed", False)
-        allowed = ("title", "completed", "notes", "due_date", "recurrence_interval", "recurrence_enabled")
+        allowed = ("title", "completed", "notes", "due_date", "recurrence_value", "recurrence_unit", "recurrence_enabled")
         for key, value in kwargs.items():
             if key in allowed:
                 task[key] = value
@@ -155,7 +174,7 @@ class MyToDoListStore:
         if is_completed and not was_completed:
             task["completed_at"] = datetime.now(timezone.utc).isoformat()
             # Notify recurrence scheduler
-            if self.on_task_completed and task.get("recurrence_enabled") and task.get("recurrence_interval"):
+            if self.on_task_completed and task.get("recurrence_enabled") and task.get("recurrence_unit"):
                 self.on_task_completed(task)
         elif not is_completed and was_completed:
             task["completed_at"] = None
