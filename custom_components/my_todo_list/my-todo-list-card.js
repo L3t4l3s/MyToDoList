@@ -41,6 +41,7 @@ const _TRANSLATIONS = {
     ed_show_due_date: "Show due date",
     ed_show_notes: "Show notes",
     ed_show_recurrence: "Show recurrence",
+    ed_show_sub_items: "Show sub-items",
     ed_show_person: "Show assigned person",
     ed_auto_delete: "Delete completed tasks immediately",
     ed_hint: "New lists can be created under Settings \u2192 Integrations \u2192 My ToDo List.",
@@ -78,6 +79,7 @@ const _TRANSLATIONS = {
     ed_show_due_date: "F\u00e4lligkeitsdatum anzeigen",
     ed_show_notes: "Notizen anzeigen",
     ed_show_recurrence: "Wiederholung anzeigen",
+    ed_show_sub_items: "Unterpunkte anzeigen",
     ed_show_person: "Zugewiesene Person anzeigen",
     ed_auto_delete: "Erledigte Aufgaben sofort l\u00f6schen",
     ed_hint: "Neue Listen k\u00f6nnen unter Einstellungen \u2192 Integrationen \u2192 My ToDo List erstellt werden.",
@@ -570,7 +572,7 @@ class MyTodoListCard extends HTMLElement {
     // Meta (sub-item count + due date) — second line below title
     const metaChildren = [];
     const subProgress = this._getSubItemProgress(task);
-    if (subProgress) {
+    if (subProgress && this._config.show_sub_items !== false) {
       metaChildren.push(this._el("span", { className: "sub-badge", textContent: subProgress }));
     }
     if (task.due_date && this._config.show_due_date !== false) {
@@ -806,7 +808,7 @@ class MyTodoListCard extends HTMLElement {
 
     const details = [];
     if (this._config.show_notes !== false) details.push(notesSection);
-    details.push(subSection);
+    if (this._config.show_sub_items !== false) details.push(subSection);
     if (this._config.show_due_date !== false) details.push(dateSection);
     if (this._config.show_recurrence !== false) details.push(recurrenceSection);
     if (this._config.show_assigned_person !== false) details.push(personSection);
@@ -1444,6 +1446,21 @@ class MyTodoListCardEditor extends HTMLElement {
       showRecurrenceCb,
     ]);
 
+    // Show sub-items toggle
+    const showSubItemsCb = this._el("input", {
+      type: "checkbox",
+      id: "cb-show-sub-items",
+      checked: this._config.show_sub_items !== false,
+    });
+    showSubItemsCb.addEventListener("change", () => {
+      this._config = { ...this._config, show_sub_items: showSubItemsCb.checked };
+      this._fireChanged();
+    });
+    const showSubItemsRow = this._el("div", { className: "toggle-row" }, [
+      this._el("span", { className: "toggle-label", textContent: this._t("ed_show_sub_items") }),
+      showSubItemsCb,
+    ]);
+
     // Show assigned person toggle
     const showPersonCb = this._el("input", {
       type: "checkbox",
@@ -1495,6 +1512,7 @@ class MyTodoListCardEditor extends HTMLElement {
         showProgressRow,
         showDueDateRow,
         showRecurrenceRow,
+        showSubItemsRow,
         showPersonRow,
         showNotesRow,
         autoDeleteRow,
