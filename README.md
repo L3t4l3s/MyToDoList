@@ -5,6 +5,20 @@
 
 A feature-rich task management integration for [Home Assistant](https://www.home-assistant.io/) with a custom Lovelace card.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/Household-collapsed.png" width="400" alt="Household list with badges">
+  <img src="docs/Household-weekly.png" width="400" alt="Expanded task with sub-items, notes, and recurrence">
+</p>
+<p align="center">
+  <img src="docs/Quick-notes-minimal.png" width="400" alt="Minimal card without title or extras">
+  <img src="docs/Shopping-list.png" width="400" alt="Shopping list with auto-delete">
+</p>
+<p align="center">
+  <img src="docs/Card-editor.png" width="600" alt="Card editor with all display options">
+</p>
+
 ## Features
 
 - **Drag & drop** reordering (desktop and mobile)
@@ -45,20 +59,18 @@ A feature-rich task management integration for [Home Assistant](https://www.home
 3. Enter a name for your list
 4. Repeat for additional lists
 
-### Lovelace Card
-
-1. Go to **Settings** > **Dashboards** > **Resources**
-2. Add `/home_tasks/home-tasks-card.js` as **JavaScript Module**
-3. Add the card to your dashboard
+The Lovelace card is automatically registered — just add it to your dashboard.
 
 ### Card Configuration
+
+All options are available in the visual card editor. You can also use YAML:
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `list_id` | (required) | The list to display (selectable in the visual editor) |
 | `title` | List name | Custom card title |
 | `show_title` | `true` | Show/hide the card title |
-| `show_progress` | `true` | Show/hide the task progress bar |
+| `show_progress` | `true` | Show/hide the task progress counter |
 | `show_due_date` | `true` | Show/hide due date fields |
 | `show_recurrence` | `true` | Show/hide recurrence settings |
 | `show_sub_items` | `true` | Show/hide sub-items |
@@ -92,7 +104,7 @@ Create a new task via automation.
 | `list_name` | * | Name of the list |
 | `entry_id` | * | Config entry ID (alternative to `list_name`) |
 | `title` | yes | Task title |
-| `assigned_person` | no | Person entity ID (e.g. `person.john`) |
+| `assigned_person` | no | Person entity ID (e.g. `person.ben`) |
 | `due_date` | no | Due date (`YYYY-MM-DD`) |
 
 *Either `list_name` or `entry_id` is required.*
@@ -107,6 +119,8 @@ Mark a task as completed.
 | `entry_id` | * | Config entry ID |
 | `task_title` | ** | Title of the task |
 | `task_id` | ** | UUID of the task |
+
+*\* Either `list_name` or `entry_id`. \*\* Either `task_title` or `task_id`.*
 
 #### `home_tasks.assign_task`
 
