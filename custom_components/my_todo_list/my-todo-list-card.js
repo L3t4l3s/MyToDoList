@@ -5,7 +5,84 @@
  * Security: All user-controlled content is set via textContent or DOM properties,
  * never via innerHTML with unsanitized data.
  */
-console.info("%c MY-TODO-LIST-CARD %c v2.2.0 ", "color: white; background: #03a9f4; font-weight: bold;", "color: #03a9f4; background: white; font-weight: bold;");
+console.info("%c MY-TODO-LIST-CARD %c v2.3.0 ", "color: white; background: #03a9f4; font-weight: bold;", "color: #03a9f4; background: white; font-weight: bold;");
+
+const _TRANSLATIONS = {
+  en: {
+    my_tasks: "My Tasks",
+    add_placeholder: "Add new task...",
+    filter_all: "All",
+    filter_open: "Open",
+    filter_done: "Done",
+    progress: "{0} of {1} done",
+    empty: "No tasks",
+    drag_handle: "Drag to reorder",
+    due_date: "Due date",
+    notes: "Notes",
+    notes_placeholder: "Add notes here",
+    sub_items: "Sub-items",
+    add_sub_item: "+ Add sub-item",
+    recurrence: "Recurrence",
+    recurrence_enabled: "Enabled",
+    recurrence_every: "Every",
+    rec_hours: "Hours", rec_days: "Days", rec_weeks: "Weeks", rec_months: "Months",
+    rec_short_h: "h", rec_short_d: "d", rec_short_w: "w", rec_short_m: "mo",
+    rec_hourly: "Hourly", rec_daily: "Daily", rec_weekly: "Weekly", rec_monthly: "Monthly",
+    assigned_to: "Assigned to",
+    nobody: "\u2013 Nobody \u2013",
+    delete_task: "Delete task",
+    delete_sub: "Delete",
+    ed_list: "List",
+    ed_title: "Title (optional)",
+    ed_title_placeholder: "Default: List name",
+    ed_display: "Display",
+    ed_show_title: "Show title",
+    ed_show_progress: "Show progress",
+    ed_show_due_date: "Show due date",
+    ed_show_notes: "Show notes",
+    ed_show_recurrence: "Show recurrence",
+    ed_show_person: "Show assigned person",
+    ed_auto_delete: "Delete completed tasks immediately",
+    ed_hint: "New lists can be created under Settings \u2192 Integrations \u2192 My ToDo List.",
+  },
+  de: {
+    my_tasks: "Meine Aufgaben",
+    add_placeholder: "Neue Aufgabe hinzuf\u00fcgen...",
+    filter_all: "Alle",
+    filter_open: "Offen",
+    filter_done: "Erledigt",
+    progress: "{0} von {1} erledigt",
+    empty: "Keine Aufgaben vorhanden",
+    drag_handle: "Verschieben",
+    due_date: "F\u00e4lligkeitsdatum",
+    notes: "Notizen",
+    notes_placeholder: "Hier kannst du Notizen hinzuf\u00fcgen",
+    sub_items: "Unterpunkte",
+    add_sub_item: "+ Unterpunkt hinzuf\u00fcgen",
+    recurrence: "Wiederholung",
+    recurrence_enabled: "Aktiviert",
+    recurrence_every: "Alle",
+    rec_hours: "Stunden", rec_days: "Tage", rec_weeks: "Wochen", rec_months: "Monate",
+    rec_short_h: "Std.", rec_short_d: "T.", rec_short_w: "Wo.", rec_short_m: "Mon.",
+    rec_hourly: "St\u00fcndl.", rec_daily: "T\u00e4glich", rec_weekly: "W\u00f6chentl.", rec_monthly: "Monatl.",
+    assigned_to: "Zugewiesen an",
+    nobody: "\u2013 Niemand \u2013",
+    delete_task: "Aufgabe l\u00f6schen",
+    delete_sub: "L\u00f6schen",
+    ed_list: "Liste",
+    ed_title: "Titel (optional)",
+    ed_title_placeholder: "Standard: Listenname",
+    ed_display: "Anzeige",
+    ed_show_title: "Titel anzeigen",
+    ed_show_progress: "Fortschritt anzeigen",
+    ed_show_due_date: "F\u00e4lligkeitsdatum anzeigen",
+    ed_show_notes: "Notizen anzeigen",
+    ed_show_recurrence: "Wiederholung anzeigen",
+    ed_show_person: "Zugewiesene Person anzeigen",
+    ed_auto_delete: "Erledigte Aufgaben sofort l\u00f6schen",
+    ed_hint: "Neue Listen k\u00f6nnen unter Einstellungen \u2192 Integrationen \u2192 My ToDo List erstellt werden.",
+  },
+};
 
 class MyTodoListCard extends HTMLElement {
   constructor() {
@@ -26,6 +103,12 @@ class MyTodoListCard extends HTMLElement {
     this._touchBound = {};
     this._newTaskTitle = "";
     this._initialized = false;
+  }
+
+  _t(key, ...args) {
+    const lang = (this._hass && this._hass.language) || "en";
+    const str = (_TRANSLATIONS[lang] || _TRANSLATIONS.en)[key] || _TRANSLATIONS.en[key] || key;
+    return args.length ? str.replace(/\{(\d+)\}/g, (_, i) => args[i] ?? "") : str;
   }
 
   setConfig(config) {
@@ -313,7 +396,8 @@ class MyTodoListCard extends HTMLElement {
   _formatDueDate(dueDate) {
     if (!dueDate) return "";
     const date = new Date(dueDate + "T00:00:00");
-    return date.toLocaleDateString("de-DE", {
+    const lang = (this._hass && this._hass.language) || "en";
+    return date.toLocaleDateString(lang, {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -323,7 +407,7 @@ class MyTodoListCard extends HTMLElement {
   _getListName() {
     if (this._config.title) return this._config.title;
     const list = this._lists.find((l) => l.id === this._config.list_id);
-    return list ? list.name : "Meine Aufgaben";
+    return list ? list.name : this._t("my_tasks");
   }
 
   // --- Render (DOM-based, no innerHTML with user data) ---
@@ -358,7 +442,7 @@ class MyTodoListCard extends HTMLElement {
     if (showProgress) {
       headerChildren.push(this._el("span", {
         className: "progress",
-        textContent: `${completedCount} von ${totalCount} erledigt`,
+        textContent: this._t("progress", completedCount, totalCount),
       }));
     }
     const header = headerChildren.length > 0
@@ -369,7 +453,7 @@ class MyTodoListCard extends HTMLElement {
     const addInput = this._el("input", {
       type: "text",
       className: "add-input",
-      placeholder: "Neue Aufgabe hinzuf\u00fcgen...",
+      placeholder: this._t("add_placeholder"),
       value: this._newTaskTitle,
     });
     addInput.addEventListener("input", (e) => {
@@ -390,16 +474,16 @@ class MyTodoListCard extends HTMLElement {
     // Filters (hidden when auto-delete is on)
     const hideFilters = this._config.auto_delete_completed === true;
     const filters = hideFilters ? null : this._el("div", { className: "filters" }, [
-      this._buildFilterBtn("Alle", "all"),
-      this._buildFilterBtn("Offen", "open"),
-      this._buildFilterBtn("Erledigt", "done"),
+      this._buildFilterBtn(this._t("filter_all"), "all"),
+      this._buildFilterBtn(this._t("filter_open"), "open"),
+      this._buildFilterBtn(this._t("filter_done"), "done"),
     ]);
 
     // Task list
     const taskListChildren = [];
     if (filteredTasks.length === 0) {
       taskListChildren.push(
-        this._el("div", { className: "empty-state", textContent: "Keine Aufgaben vorhanden" })
+        this._el("div", { className: "empty-state", textContent: this._t("empty") })
       );
     }
     for (const task of filteredTasks) {
@@ -441,7 +525,7 @@ class MyTodoListCard extends HTMLElement {
     const mainChildren = [];
 
     // Drag handle
-    const dragHandle = this._el("span", { className: "drag-handle", title: "Verschieben", textContent: "\u2237" });
+    const dragHandle = this._el("span", { className: "drag-handle", title: this._t("drag_handle"), textContent: "\u2237" });
     mainChildren.push(dragHandle);
 
     // Checkbox
@@ -499,10 +583,11 @@ class MyTodoListCard extends HTMLElement {
       }));
     }
     if (task.recurrence_enabled && task.recurrence_unit && this._config.show_recurrence !== false) {
-      const unitLabels = { hours: "Std.", days: "T.", weeks: "Wo.", months: "Mon." };
+      const unitLabels = { hours: this._t("rec_short_h"), days: this._t("rec_short_d"), weeks: this._t("rec_short_w"), months: this._t("rec_short_m") };
       const val = task.recurrence_value || 1;
+      const singleLabels = { hours: this._t("rec_hourly"), days: this._t("rec_daily"), weeks: this._t("rec_weekly"), months: this._t("rec_monthly") };
       const label = val === 1
-        ? { hours: "Stündl.", days: "Täglich", weeks: "Wöchentl.", months: "Monatl." }[task.recurrence_unit]
+        ? singleLabels[task.recurrence_unit]
         : `${val} ${unitLabels[task.recurrence_unit] || task.recurrence_unit}`;
       metaChildren.push(this._el("span", {
         className: "recurrence-badge",
@@ -563,14 +648,14 @@ class MyTodoListCard extends HTMLElement {
       this._updateTaskDueDate(task.id, dateInput.value)
     );
     const dateSection = this._el("div", { className: "detail-section" }, [
-      this._el("label", { className: "detail-label", textContent: "F\u00e4lligkeitsdatum" }),
+      this._el("label", { className: "detail-label", textContent: this._t("due_date") }),
       dateInput,
     ]);
 
     // Notes section
     const notesInput = this._el("textarea", {
       className: "notes-input",
-      placeholder: "Hier kannst du Notizen hinzuf\u00fcgen",
+      placeholder: this._t("notes_placeholder"),
       rows: 2,
       value: task.notes || "",
     });
@@ -584,20 +669,20 @@ class MyTodoListCard extends HTMLElement {
       }, 500);
     });
     const notesSection = this._el("div", { className: "detail-section" }, [
-      this._el("label", { className: "detail-label", textContent: "Notizen" }),
+      this._el("label", { className: "detail-label", textContent: this._t("notes") }),
       notesInput,
     ]);
 
     // Sub-items section
     const subChildren = [
-      this._el("label", { className: "detail-label", textContent: "Unterpunkte" }),
+      this._el("label", { className: "detail-label", textContent: this._t("sub_items") }),
     ];
     for (const sub of task.sub_items) {
       subChildren.push(this._buildSubItem(task.id, sub));
     }
     const addSubBtn = this._el("button", {
       className: "add-sub-btn",
-      textContent: "+ Unterpunkt hinzuf\u00fcgen",
+      textContent: this._t("add_sub_item"),
     });
     addSubBtn.addEventListener("click", () => this._addSubItem(task.id));
     subChildren.push(addSubBtn);
@@ -615,7 +700,7 @@ class MyTodoListCard extends HTMLElement {
     ]);
     const recurrenceToggleRow = this._el("div", { className: "recurrence-toggle-row" }, [
       recurrenceLabel,
-      this._el("span", { textContent: "Aktiviert" }),
+      this._el("span", { textContent: this._t("recurrence_enabled") }),
     ]);
 
     const recurrenceValueInput = this._el("input", {
@@ -628,10 +713,10 @@ class MyTodoListCard extends HTMLElement {
 
     const recurrenceUnitSelect = this._el("select", { className: "recurrence-select" });
     const unitOptions = [
-      { value: "hours", label: "Stunden" },
-      { value: "days", label: "Tage" },
-      { value: "weeks", label: "Wochen" },
-      { value: "months", label: "Monate" },
+      { value: "hours", label: this._t("rec_hours") },
+      { value: "days", label: this._t("rec_days") },
+      { value: "weeks", label: this._t("rec_weeks") },
+      { value: "months", label: this._t("rec_months") },
     ];
     for (const opt of unitOptions) {
       const optEl = this._el("option", { value: opt.value, textContent: opt.label });
@@ -671,20 +756,20 @@ class MyTodoListCard extends HTMLElement {
     recurrenceUnitSelect.addEventListener("change", saveRecurrence);
 
     const recurrenceRow = this._el("div", { className: "recurrence-input-row" }, [
-      this._el("span", { textContent: "Alle", className: "recurrence-prefix" }),
+      this._el("span", { textContent: this._t("recurrence_every"), className: "recurrence-prefix" }),
       recurrenceValueInput,
       recurrenceUnitSelect,
     ]);
 
     const recurrenceSection = this._el("div", { className: "detail-section" }, [
-      this._el("label", { className: "detail-label", textContent: "Wiederholung" }),
+      this._el("label", { className: "detail-label", textContent: this._t("recurrence") }),
       recurrenceToggleRow,
       recurrenceRow,
     ]);
 
     // Assigned person section
     const personSelect = this._el("select", { className: "person-select" });
-    const noneOpt = this._el("option", { value: "", textContent: "\u2013 Niemand \u2013" });
+    const noneOpt = this._el("option", { value: "", textContent: this._t("nobody") });
     if (!task.assigned_person) noneOpt.selected = true;
     personSelect.appendChild(noneOpt);
     if (this._hass && this._hass.states) {
@@ -707,14 +792,14 @@ class MyTodoListCard extends HTMLElement {
       }).then(() => this._loadTasks());
     });
     const personSection = this._el("div", { className: "detail-section" }, [
-      this._el("label", { className: "detail-label", textContent: "Zugewiesen an" }),
+      this._el("label", { className: "detail-label", textContent: this._t("assigned_to") }),
       personSelect,
     ]);
 
     // Delete button
     const deleteBtn = this._el("button", {
       className: "delete-task-btn",
-      textContent: "Aufgabe l\u00f6schen",
+      textContent: this._t("delete_task"),
     });
     deleteBtn.addEventListener("click", () => this._deleteTask(task.id));
     const actions = this._el("div", { className: "detail-actions" }, [deleteBtn]);
@@ -768,7 +853,7 @@ class MyTodoListCard extends HTMLElement {
 
     const deleteBtn = this._el("button", {
       className: "delete-sub-btn",
-      title: "L\u00f6schen",
+      title: this._t("delete_sub"),
       textContent: "\u00D7",
     });
     deleteBtn.addEventListener("click", () => this._deleteSubItem(taskId, sub.id));
@@ -1162,6 +1247,12 @@ class MyTodoListCardEditor extends HTMLElement {
     this._listsLoaded = false;
   }
 
+  _t(key, ...args) {
+    const lang = (this._hass && this._hass.language) || "en";
+    const str = (_TRANSLATIONS[lang] || _TRANSLATIONS.en)[key] || _TRANSLATIONS.en[key] || key;
+    return args.length ? str.replace(/\{(\d+)\}/g, (_, i) => args[i] ?? "") : str;
+  }
+
   _el(tag, attrs = {}, children = []) {
     const el = document.createElement(tag);
     for (const [key, val] of Object.entries(attrs)) {
@@ -1271,7 +1362,7 @@ class MyTodoListCardEditor extends HTMLElement {
       type: "text",
       id: "title-input",
       value: this._config.title || "",
-      placeholder: "Standard: Listenname",
+      placeholder: this._t("ed_title_placeholder"),
     });
     titleInput.addEventListener("input", () => {
       this._config = { ...this._config, title: titleInput.value };
@@ -1289,7 +1380,7 @@ class MyTodoListCardEditor extends HTMLElement {
       this._fireChanged();
     });
     const showTitleRow = this._el("div", { className: "toggle-row" }, [
-      this._el("span", { className: "toggle-label", textContent: "Titel anzeigen" }),
+      this._el("span", { className: "toggle-label", textContent: this._t("ed_show_title") }),
       showTitleCb,
     ]);
 
@@ -1304,7 +1395,7 @@ class MyTodoListCardEditor extends HTMLElement {
       this._fireChanged();
     });
     const showProgressRow = this._el("div", { className: "toggle-row" }, [
-      this._el("span", { className: "toggle-label", textContent: "Fortschritt anzeigen" }),
+      this._el("span", { className: "toggle-label", textContent: this._t("ed_show_progress") }),
       showProgressCb,
     ]);
 
@@ -1319,7 +1410,7 @@ class MyTodoListCardEditor extends HTMLElement {
       this._fireChanged();
     });
     const showDueDateRow = this._el("div", { className: "toggle-row" }, [
-      this._el("span", { className: "toggle-label", textContent: "F\u00e4lligkeitsdatum anzeigen" }),
+      this._el("span", { className: "toggle-label", textContent: this._t("ed_show_due_date") }),
       showDueDateCb,
     ]);
 
@@ -1334,7 +1425,7 @@ class MyTodoListCardEditor extends HTMLElement {
       this._fireChanged();
     });
     const showNotesRow = this._el("div", { className: "toggle-row" }, [
-      this._el("span", { className: "toggle-label", textContent: "Notizen anzeigen" }),
+      this._el("span", { className: "toggle-label", textContent: this._t("ed_show_notes") }),
       showNotesCb,
     ]);
 
@@ -1349,7 +1440,7 @@ class MyTodoListCardEditor extends HTMLElement {
       this._fireChanged();
     });
     const showRecurrenceRow = this._el("div", { className: "toggle-row" }, [
-      this._el("span", { className: "toggle-label", textContent: "Wiederholung anzeigen" }),
+      this._el("span", { className: "toggle-label", textContent: this._t("ed_show_recurrence") }),
       showRecurrenceCb,
     ]);
 
@@ -1364,7 +1455,7 @@ class MyTodoListCardEditor extends HTMLElement {
       this._fireChanged();
     });
     const showPersonRow = this._el("div", { className: "toggle-row" }, [
-      this._el("span", { className: "toggle-label", textContent: "Zugewiesene Person anzeigen" }),
+      this._el("span", { className: "toggle-label", textContent: this._t("ed_show_person") }),
       showPersonCb,
     ]);
 
@@ -1379,27 +1470,27 @@ class MyTodoListCardEditor extends HTMLElement {
       this._fireChanged();
     });
     const autoDeleteRow = this._el("div", { className: "toggle-row" }, [
-      this._el("span", { className: "toggle-label", textContent: "Erledigte Aufgaben sofort l\u00f6schen" }),
+      this._el("span", { className: "toggle-label", textContent: this._t("ed_auto_delete") }),
       autoDeleteCb,
     ]);
 
     const hint = this._el("span", {
       className: "hint",
-      textContent: "Neue Listen k\u00f6nnen unter Einstellungen \u2192 Integrationen \u2192 My ToDo List erstellt werden.",
+      textContent: this._t("ed_hint"),
     });
 
     const editor = this._el("div", { className: "editor" }, [
       this._el("div", { className: "field" }, [
-        this._el("label", { textContent: "Liste" }),
+        this._el("label", { textContent: this._t("ed_list") }),
         listSelect,
         hint,
       ]),
       this._el("div", { className: "field" }, [
-        this._el("label", { textContent: "Titel (optional)" }),
+        this._el("label", { textContent: this._t("ed_title") }),
         titleInput,
       ]),
       this._el("div", { className: "field" }, [
-        this._el("label", { textContent: "Anzeige" }),
+        this._el("label", { textContent: this._t("ed_display") }),
         showTitleRow,
         showProgressRow,
         showDueDateRow,
