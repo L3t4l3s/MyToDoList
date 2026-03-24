@@ -13,6 +13,8 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.event import async_call_later, async_track_time_interval
 
 from .const import DOMAIN, RECURRENCE_UNIT_SECONDS
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 from .store import HomeTasksStore
 from .websocket_api import async_register_websocket_commands
 
