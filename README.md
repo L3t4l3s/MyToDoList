@@ -1,7 +1,7 @@
 # Home Tasks
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://github.com/hacs/integration)
-[![Validate](https://github.com/L3t4l3s/MyToDoList/actions/workflows/validate.yaml/badge.svg)](https://github.com/L3t4l3s/MyToDoList/actions/workflows/validate.yaml)
+[![Validate](https://github.com/L3t4l3s/home-tasks/actions/workflows/validate.yaml/badge.svg)](https://github.com/L3t4l3s/home-tasks/actions/workflows/validate.yaml)
 
 A feature-rich task management integration for [Home Assistant](https://www.home-assistant.io/) with a custom Lovelace card.
 
@@ -29,7 +29,7 @@ A feature-rich task management integration for [Home Assistant](https://www.home
 1. Open HACS in Home Assistant
 2. Go to **Integrations**
 3. Click the **three dots** menu (top right) and select **Custom repositories**
-4. Add `https://github.com/L3t4l3s/MyToDoList` with category **Integration**
+4. Add `https://github.com/L3t4l3s/home-tasks` with category **Integration**
 5. Install **Home Tasks**
 6. Restart Home Assistant
 

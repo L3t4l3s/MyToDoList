@@ -3,9 +3,9 @@
   "name": "Home Tasks",
   "codeowners": ["@L3t4l3s"],
   "config_flow": true,
-  "documentation": "https://github.com/L3t4l3s/MyToDoList",
+  "documentation": "https://github.com/L3t4l3s/home-tasks",
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/L3t4l3s/MyToDoList/issues",
+  "issue_tracker": "https://github.com/L3t4l3s/home-tasks/issues",
   "dependencies": ["todo"],
   "integration_type": "device",
   "version": "3.0.0"
