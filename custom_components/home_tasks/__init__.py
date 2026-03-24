@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import voluptuous as vol
 
+from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -76,42 +77,9 @@ async def _async_register_card(hass: HomeAssistant) -> None:
     except RuntimeError:
         pass
 
-    # Auto-register the card as a Lovelace resource
-    await _async_register_lovelace_resource(hass)
-
+    # Auto-register card JS so users don't need to add a Lovelace resource manually
+    add_extra_js_url(hass, CARD_URL)
     _LOGGER.info("Home Tasks card served at %s", CARD_URL)
-
-
-async def _async_register_lovelace_resource(hass: HomeAssistant) -> None:
-    """Ensure the card JS is registered as a Lovelace resource."""
-    # Wait for lovelace to be ready
-    if "lovelace" not in hass.data:
-        return
-    try:
-        resources = hass.data["lovelace"].get("resources")
-        if resources is None:
-            resources = hass.data["lovelace"]["resources"] = (
-                await hass.components.lovelace.resources.async_get_info()
-            )
-    except (KeyError, AttributeError, TypeError):
-        pass
-
-    # Check if already registered using the frontend storage
-    try:
-        ll_resources = hass.data["lovelace"]["resources"]
-        items = ll_resources.async_items() if hasattr(ll_resources, "async_items") else []
-        for item in items:
-            if CARD_URL in item.get("url", ""):
-                return  # Already registered
-        # Register it
-        await ll_resources.async_create_item({"res_type": "module", "url": CARD_URL})
-        _LOGGER.info("Auto-registered Lovelace resource: %s", CARD_URL)
-    except Exception:  # noqa: BLE001
-        _LOGGER.debug(
-            "Could not auto-register Lovelace resource. "
-            "Please add %s manually as a JavaScript Module resource.",
-            CARD_URL,
-        )
 
 
 # ---------------------------------------------------------------------------
