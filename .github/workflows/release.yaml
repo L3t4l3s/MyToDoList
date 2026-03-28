@@ -13,6 +13,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Update manifest version from release tag
+        if: ${{ !github.event.release.prerelease }}
         run: |
           VERSION="${GITHUB_REF#refs/tags/v}"
           echo "Setting version to $VERSION"
@@ -22,6 +23,7 @@ jobs:
             custom_components/home_tasks/home-tasks-card.js
 
       - name: Commit and push version bump
+        if: ${{ !github.event.release.prerelease }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
