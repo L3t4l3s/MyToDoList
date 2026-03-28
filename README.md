@@ -34,6 +34,7 @@ A feature-rich task management integration for [Home Assistant](https://www.home
 - **Events** for automations (task created, completed, due, overdue, assigned, reopened)
 - **Sensors**: Open task count and overdue binary sensor per list
 - **Services**: Create, complete, reopen, and assign tasks via automations — target tasks by name, person, or tag
+- **Compact mode** for denser task rows
 - **Auto-delete** completed tasks (optional)
 - **i18n**: Supports English and German, follows HA language setting
 - Follows Home Assistant design language
@@ -80,6 +81,7 @@ All options are available in the visual card editor. You can also use YAML:
 | `show_tags` | `true` | Show/hide tags, tag badges, and tag filter chips |
 | `show_notes` | `true` | Show/hide the notes field |
 | `auto_delete_completed` | `false` | Automatically delete completed tasks |
+| `compact` | `false` | Compact mode for denser task rows |
 
 ## Automations
 
