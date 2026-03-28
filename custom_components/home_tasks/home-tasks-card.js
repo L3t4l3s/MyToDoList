@@ -1772,4 +1772,5 @@ window.customCards.push({
   type: "home-tasks-card",
   name: "Home Tasks",
   description: "A feature-rich todo list with drag & drop, sub-items, notes, and due dates.",
+  preview: true,
 });
