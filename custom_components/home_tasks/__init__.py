@@ -99,6 +99,8 @@ def _build_event_data(entry_id: str, task: dict) -> dict:
         data["assigned_person"] = task["assigned_person"]
     if task.get("due_date"):
         data["due_date"] = task["due_date"]
+    if task.get("tags"):
+        data["tags"] = task["tags"]
     return data
 
 
@@ -318,14 +320,28 @@ def _async_register_services(hass: HomeAssistant) -> None:
             kwargs["assigned_person"] = call.data["assigned_person"]
         if "due_date" in call.data:
             kwargs["due_date"] = call.data["due_date"]
+        if "tags" in call.data:
+            raw = call.data["tags"]
+            kwargs["tags"] = [t.strip() for t in raw.split(",") if t.strip()]
         if kwargs:
             await store.async_update_task(task["id"], **kwargs)
 
     async def async_handle_complete_task(call: ServiceCall) -> None:
         _entry_id, store = _resolve_store(hass, call.data)
-        task = _resolve_task(store, call.data)
-        if not task.get("completed"):
-            await store.async_update_task(task["id"], completed=True)
+        tag = call.data.get("tag")
+
+        if tag:
+            tag = tag.strip().lower()
+            for task in store.tasks:
+                if (
+                    not task.get("completed")
+                    and tag in (t.lower() for t in task.get("tags", []))
+                ):
+                    await store.async_update_task(task["id"], completed=True)
+        else:
+            task = _resolve_task(store, call.data)
+            if not task.get("completed"):
+                await store.async_update_task(task["id"], completed=True)
 
     async def async_handle_assign_task(call: ServiceCall) -> None:
         _entry_id, store = _resolve_store(hass, call.data)
@@ -337,23 +353,28 @@ def _async_register_services(hass: HomeAssistant) -> None:
         task_id = call.data.get("task_id")
         task_title = call.data.get("task_title")
         assigned_person = call.data.get("assigned_person")
+        tag = call.data.get("tag")
 
         if task_id or task_title:
             # Reopen a single task
             task = _resolve_task(store, call.data)
             if task.get("completed"):
                 await store.async_reopen_task(task["id"])
-        elif assigned_person:
-            # Reopen all completed tasks for this person
+        elif assigned_person or tag:
+            # Reopen completed tasks matching person and/or tag
             for task in store.tasks:
-                if (
-                    task.get("completed")
-                    and task.get("assigned_person") == assigned_person
+                if not task.get("completed"):
+                    continue
+                if assigned_person and task.get("assigned_person") != assigned_person:
+                    continue
+                if tag and tag.strip().lower() not in (
+                    t.lower() for t in task.get("tags", [])
                 ):
-                    await store.async_reopen_task(task["id"])
+                    continue
+                await store.async_reopen_task(task["id"])
         else:
             raise vol.Invalid(
-                "Either task_id, task_title, or assigned_person must be provided"
+                "Either task_id, task_title, assigned_person, or tag must be provided"
             )
 
     hass.services.async_register(
@@ -364,6 +385,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             vol.Required("title"): cv.string,
             vol.Optional("assigned_person"): cv.string,
             vol.Optional("due_date"): cv.string,
+            vol.Optional("tags"): cv.string,
         }),
     )
     hass.services.async_register(
@@ -373,6 +395,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             vol.Optional("list_name"): cv.string,
             vol.Optional("task_id"): cv.string,
             vol.Optional("task_title"): cv.string,
+            vol.Optional("tag"): cv.string,
         }),
     )
     hass.services.async_register(
@@ -393,6 +416,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             vol.Optional("task_id"): cv.string,
             vol.Optional("task_title"): cv.string,
             vol.Optional("assigned_person"): cv.string,
+            vol.Optional("tag"): cv.string,
         }),
     )
     _LOGGER.info("Home Tasks services registered")

@@ -31,10 +31,17 @@ add_task:
       description: Due date in YYYY-MM-DD format.
       selector:
         date:
+    tags:
+      name: Tags
+      description: Comma-separated list of tags (e.g. "kitchen,daily").
+      selector:
+        text:
 
 complete_task:
   name: Complete Task
-  description: Mark a task as completed.
+  description: >-
+    Mark a task as completed. Provide task_title or task_id for a single task,
+    or tag to complete all open tasks with that tag.
   fields:
     list_name:
       name: List Name
@@ -54,6 +61,12 @@ complete_task:
     task_id:
       name: Task ID
       description: UUID of the task (alternative to task title).
+      selector:
+        text:
+    tag:
+      name: Tag
+      description: >-
+        Complete all open tasks with this tag. Alternative to task_title/task_id.
       selector:
         text:
 
@@ -123,3 +136,10 @@ reopen_task:
       selector:
         entity:
           domain: person
+    tag:
+      name: Tag
+      description: >-
+        Reopen all completed tasks with this tag. Can be combined with
+        assigned_person to narrow the selection.
+      selector:
+        text:

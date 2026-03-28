@@ -7,7 +7,7 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 
-from .const import DOMAIN, MAX_REORDER_IDS, MAX_RECURRENCE_VALUE, MAX_TITLE_LENGTH, VALID_RECURRENCE_UNITS
+from .const import DOMAIN, MAX_REORDER_IDS, MAX_RECURRENCE_VALUE, MAX_TAGS_PER_TASK, MAX_TITLE_LENGTH, VALID_RECURRENCE_UNITS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -121,6 +121,7 @@ async def ws_add_task(hass, connection, msg):
         vol.Optional("recurrence_unit"): vol.Any(vol.In(list(VALID_RECURRENCE_UNITS)), None),
         vol.Optional("recurrence_enabled"): bool,
         vol.Optional("assigned_person"): vol.Any(str, None),
+        vol.Optional("tags"): vol.All(list, vol.Length(max=MAX_TAGS_PER_TASK)),
     }
 )
 @websocket_api.async_response
@@ -129,7 +130,7 @@ async def ws_update_task(hass, connection, msg):
     try:
         store = _get_store(hass, msg["list_id"])
         kwargs = {}
-        for key in ("title", "completed", "notes", "due_date", "recurrence_value", "recurrence_unit", "recurrence_enabled", "assigned_person"):
+        for key in ("title", "completed", "notes", "due_date", "recurrence_value", "recurrence_unit", "recurrence_enabled", "assigned_person", "tags"):
             if key in msg:
                 kwargs[key] = msg[key]
         task = await store.async_update_task(msg["task_id"], **kwargs)

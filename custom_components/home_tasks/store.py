@@ -15,6 +15,8 @@ from .const import (
     MAX_NOTES_LENGTH,
     MAX_RECURRENCE_VALUE,
     MAX_SUB_ITEMS_PER_TASK,
+    MAX_TAG_LENGTH,
+    MAX_TAGS_PER_TASK,
     MAX_TASKS_PER_LIST,
     MAX_TITLE_LENGTH,
     STORAGE_VERSION,
@@ -107,6 +109,7 @@ class HomeTasksStore:
             task.setdefault("recurrence_enabled", False)
             task.setdefault("completed_at", None)
             task.setdefault("assigned_person", None)
+            task.setdefault("tags", [])
 
     async def _async_save(self) -> None:
         """Save data to disk."""
@@ -138,6 +141,7 @@ class HomeTasksStore:
             "recurrence_enabled": False,
             "completed_at": None,
             "assigned_person": None,
+            "tags": [],
         }
         self._data["tasks"].append(task)
         await self._async_save()
@@ -181,10 +185,30 @@ class HomeTasksStore:
             val = kwargs["assigned_person"]
             if val is not None and (not isinstance(val, str) or len(val) > MAX_TITLE_LENGTH):
                 raise ValueError("assigned_person must be a string entity_id or null")
+        if "tags" in kwargs:
+            tags = kwargs["tags"]
+            if not isinstance(tags, list):
+                raise ValueError("tags must be a list")
+            if len(tags) > MAX_TAGS_PER_TASK:
+                raise ValueError(f"Maximum of {MAX_TAGS_PER_TASK} tags allowed")
+            cleaned = []
+            seen = set()
+            for tag in tags:
+                if not isinstance(tag, str):
+                    raise ValueError("Each tag must be a string")
+                tag = tag.strip().lower()
+                if not tag:
+                    continue
+                if len(tag) > MAX_TAG_LENGTH:
+                    raise ValueError(f"Tag exceeds maximum length of {MAX_TAG_LENGTH}")
+                if tag not in seen:
+                    cleaned.append(tag)
+                    seen.add(tag)
+            kwargs["tags"] = cleaned
 
         was_completed = task.get("completed", False)
         previous_person = task.get("assigned_person")
-        allowed = ("title", "completed", "notes", "due_date", "recurrence_value", "recurrence_unit", "recurrence_enabled", "assigned_person")
+        allowed = ("title", "completed", "notes", "due_date", "recurrence_value", "recurrence_unit", "recurrence_enabled", "assigned_person", "tags")
         for key, value in kwargs.items():
             if key in allowed:
                 task[key] = value

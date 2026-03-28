@@ -44,7 +44,12 @@ const _TRANSLATIONS = {
     ed_show_sub_items: "Show sub-items",
     ed_show_person: "Show assigned person",
     ed_auto_delete: "Delete completed tasks immediately",
+    ed_show_tags: "Show tags",
     ed_hint: "New lists can be created under Settings \u2192 Integrations \u2192 Home Tasks.",
+    tags: "Tags",
+    add_tag: "+ Add tag",
+    tag_placeholder: "New tag...",
+    remove_tag: "Remove",
   },
   de: {
     my_tasks: "Meine Aufgaben",
@@ -82,7 +87,12 @@ const _TRANSLATIONS = {
     ed_show_sub_items: "Unterpunkte anzeigen",
     ed_show_person: "Zugewiesene Person anzeigen",
     ed_auto_delete: "Erledigte Aufgaben sofort l\u00f6schen",
+    ed_show_tags: "Tags anzeigen",
     ed_hint: "Neue Listen k\u00f6nnen unter Einstellungen \u2192 Integrationen \u2192 Home Tasks erstellt werden.",
+    tags: "Tags",
+    add_tag: "+ Tag hinzuf\u00fcgen",
+    tag_placeholder: "Neues Tag...",
+    remove_tag: "Entfernen",
   },
 };
 
@@ -104,6 +114,7 @@ class HomeTasksCard extends HTMLElement {
     this._touchStartTimer = null;
     this._touchBound = {};
     this._newTaskTitle = "";
+    this._tagFilter = null;
     this._initialized = false;
   }
 
@@ -360,14 +371,21 @@ class HomeTasksCard extends HTMLElement {
   // --- Filter ---
 
   get _filteredTasks() {
+    let tasks;
     switch (this._filter) {
       case "open":
-        return this._tasks.filter((t) => !t.completed);
+        tasks = this._tasks.filter((t) => !t.completed);
+        break;
       case "done":
-        return this._tasks.filter((t) => t.completed);
+        tasks = this._tasks.filter((t) => t.completed);
+        break;
       default:
-        return this._tasks;
+        tasks = this._tasks;
     }
+    if (this._tagFilter) {
+      tasks = tasks.filter((t) => t.tags && t.tags.includes(this._tagFilter));
+    }
+    return tasks;
   }
 
   // --- Helpers ---
@@ -493,10 +511,36 @@ class HomeTasksCard extends HTMLElement {
     }
     const taskList = this._el("div", { className: "task-list" }, taskListChildren);
 
+    // Tag chips (filter by tag)
+    let tagChips = null;
+    if (this._config.show_tags !== false) {
+      const allTags = new Set();
+      for (const t of this._tasks) {
+        for (const tag of (t.tags || [])) allTags.add(tag);
+      }
+      if (allTags.size > 0) {
+        const chipChildren = [];
+        for (const tag of [...allTags].sort()) {
+          const isActive = this._tagFilter === tag;
+          const chip = this._el("button", {
+            className: "tag-chip" + (isActive ? " active" : ""),
+            textContent: "#" + tag,
+          });
+          chip.addEventListener("click", () => {
+            this._tagFilter = isActive ? null : tag;
+            this._render();
+          });
+          chipChildren.push(chip);
+        }
+        tagChips = this._el("div", { className: "tag-chips" }, chipChildren);
+      }
+    }
+
     const children = [];
     if (header) children.push(header);
     children.push(addTask);
     if (filters) children.push(filters);
+    if (tagChips) children.push(tagChips);
     children.push(taskList);
     return this._el("div", { className: "card-content" }, children);
   }
@@ -606,6 +650,21 @@ class HomeTasksCard extends HTMLElement {
         className: "assigned-badge",
         textContent: "\uD83D\uDC64 " + personName,
       }));
+    }
+    if (task.tags && task.tags.length > 0 && this._config.show_tags !== false) {
+      for (const tag of task.tags) {
+        const isActive = this._tagFilter === tag;
+        const tagBadge = this._el("span", {
+          className: "tag-badge" + (isActive ? " active" : ""),
+          textContent: "#" + tag,
+        });
+        tagBadge.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this._tagFilter = isActive ? null : tag;
+          this._render();
+        });
+        metaChildren.push(tagBadge);
+      }
     }
     if (metaChildren.length > 0) {
       contentChildren.push(this._el("div", { className: "task-meta" }, metaChildren));
@@ -798,6 +857,57 @@ class HomeTasksCard extends HTMLElement {
       personSelect,
     ]);
 
+    // Tags section
+    const tagSectionChildren = [
+      this._el("label", { className: "detail-label", textContent: this._t("tags") }),
+    ];
+    const taskTags = task.tags || [];
+    if (taskTags.length > 0) {
+      const tagListEl = this._el("div", { className: "tag-list" });
+      for (const tag of taskTags) {
+        const removeBtn = this._el("button", {
+          className: "remove-tag-btn",
+          title: this._t("remove_tag"),
+          textContent: "\u00D7",
+        });
+        removeBtn.addEventListener("click", () => {
+          const newTags = taskTags.filter((t) => t !== tag);
+          this._callWs("home_tasks/update_task", {
+            list_id: this._config.list_id,
+            task_id: task.id,
+            tags: newTags,
+          }).then(() => this._loadTasks());
+        });
+        tagListEl.appendChild(
+          this._el("span", { className: "tag-item" }, [
+            this._el("span", { textContent: "#" + tag }),
+            removeBtn,
+          ])
+        );
+      }
+      tagSectionChildren.push(tagListEl);
+    }
+    const tagInput = this._el("input", {
+      type: "text",
+      className: "tag-input",
+      placeholder: this._t("tag_placeholder"),
+    });
+    tagInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const val = tagInput.value.trim().toLowerCase();
+        if (val && !taskTags.includes(val)) {
+          this._callWs("home_tasks/update_task", {
+            list_id: this._config.list_id,
+            task_id: task.id,
+            tags: [...taskTags, val],
+          }).then(() => this._loadTasks());
+        }
+        tagInput.value = "";
+      }
+    });
+    tagSectionChildren.push(tagInput);
+    const tagSection = this._el("div", { className: "detail-section" }, tagSectionChildren);
+
     // Delete button
     const deleteBtn = this._el("button", {
       className: "delete-task-btn",
@@ -807,6 +917,7 @@ class HomeTasksCard extends HTMLElement {
     const actions = this._el("div", { className: "detail-actions" }, [deleteBtn]);
 
     const details = [];
+    if (this._config.show_tags !== false) details.push(tagSection);
     if (this._config.show_notes !== false) details.push(notesSection);
     if (this._config.show_sub_items !== false) details.push(subSection);
     if (this._config.show_due_date !== false) details.push(dateSection);
@@ -1138,6 +1249,44 @@ class HomeTasksCard extends HTMLElement {
         font-size: 11px; padding: 2px 8px; border-radius: 10px;
         background: rgba(156, 39, 176, 0.15); color: var(--accent-color, #9c27b0);
       }
+      .tag-badge {
+        font-size: 11px; padding: 2px 8px; border-radius: 10px;
+        background: rgba(76, 175, 80, 0.15); color: var(--success-color, #4caf50);
+        cursor: pointer; transition: all 0.2s;
+      }
+      .tag-badge:hover { opacity: 0.8; }
+      .tag-badge.active {
+        background: var(--success-color, #4caf50); color: #fff;
+      }
+      .tag-chips { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }
+      .tag-chip {
+        padding: 4px 12px; border: 1px solid rgba(76, 175, 80, 0.3); border-radius: 16px;
+        background: transparent; color: var(--success-color, #4caf50); font-size: 12px;
+        cursor: pointer; font-family: inherit; transition: all 0.2s;
+      }
+      .tag-chip:hover { background: rgba(76, 175, 80, 0.1); }
+      .tag-chip.active {
+        background: var(--success-color, #4caf50); color: #fff;
+        border-color: var(--success-color, #4caf50);
+      }
+      .tag-list { display: flex; gap: 6px; flex-wrap: wrap; }
+      .tag-item {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 2px 8px; border-radius: 10px;
+        background: rgba(76, 175, 80, 0.15); color: var(--success-color, #4caf50);
+        font-size: 12px;
+      }
+      .remove-tag-btn {
+        background: none; border: none; color: var(--success-color, #4caf50);
+        cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1; opacity: 0.7;
+      }
+      .remove-tag-btn:hover { opacity: 1; }
+      .tag-input {
+        padding: 6px 10px; border: 1px solid var(--todo-divider); border-radius: 4px;
+        font-size: 13px; background: var(--todo-bg); color: var(--todo-text);
+        font-family: inherit; outline: none; max-width: 200px;
+      }
+      .tag-input:focus { border-color: var(--success-color, #4caf50); }
       .person-select {
         width: 100%; padding: 6px 8px; border: 1px solid var(--todo-divider);
         border-radius: 4px; font-size: 13px; background: var(--todo-bg);
@@ -1476,6 +1625,21 @@ class HomeTasksCardEditor extends HTMLElement {
       showPersonCb,
     ]);
 
+    // Show tags toggle
+    const showTagsCb = this._el("input", {
+      type: "checkbox",
+      id: "cb-show-tags",
+      checked: this._config.show_tags !== false,
+    });
+    showTagsCb.addEventListener("change", () => {
+      this._config = { ...this._config, show_tags: showTagsCb.checked };
+      this._fireChanged();
+    });
+    const showTagsRow = this._el("div", { className: "toggle-row" }, [
+      this._el("span", { className: "toggle-label", textContent: this._t("ed_show_tags") }),
+      showTagsCb,
+    ]);
+
     // Auto-delete completed toggle
     const autoDeleteCb = this._el("input", {
       type: "checkbox",
@@ -1514,6 +1678,7 @@ class HomeTasksCardEditor extends HTMLElement {
         showRecurrenceRow,
         showSubItemsRow,
         showPersonRow,
+        showTagsRow,
         showNotesRow,
         autoDeleteRow,
       ]),
