@@ -9,7 +9,7 @@ from homeassistant.components.todo import (
     TodoListEntityFeature,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
@@ -44,6 +44,17 @@ class HomeTasksEntity(TodoListEntity):
         self._store = store
         self._attr_name = entry.data.get("name", entry.title)
         self._attr_unique_id = entry.entry_id
+
+    async def async_added_to_hass(self) -> None:
+        """Register store listener so state updates on any data change."""
+        self.async_on_remove(
+            self._store.async_add_listener(self._handle_store_update)
+        )
+
+    @callback
+    def _handle_store_update(self) -> None:
+        """React to store data changes."""
+        self.async_write_ha_state()
 
     @property
     def todo_items(self) -> list[TodoItem]:

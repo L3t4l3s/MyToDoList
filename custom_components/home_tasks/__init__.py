@@ -196,9 +196,10 @@ def _compute_reopen_delay(task: dict, completed_at: datetime) -> float | None:
         weekdays = task.get("recurrence_weekdays", [])
         if not weekdays:
             return None
-        completed_weekday = completed_at.weekday()
+        local_completed = completed_at.astimezone()
+        completed_weekday = local_completed.weekday()  # local weekday, not UTC
         min_days = min((w - completed_weekday) % 7 or 7 for w in weekdays)
-        target = (completed_at.astimezone() + timedelta(days=min_days)).replace(
+        target = (local_completed + timedelta(days=min_days)).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
         return (target.astimezone(timezone.utc) - now).total_seconds()
@@ -497,8 +498,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     store = hass.data.get(DOMAIN, {}).get(entry.entry_id)
     if store:
+        fired = hass.data.get(DATA_DUE_FIRED, {})
         for task in store.tasks:
             _cancel_recurrence(hass, task["id"])
+            fired.pop(task["id"], None)
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
