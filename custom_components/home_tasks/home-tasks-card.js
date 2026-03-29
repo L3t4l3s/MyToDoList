@@ -17,7 +17,7 @@ const _TRANSLATIONS = {
     progress: "{0} of {1} done",
     empty: "No tasks",
     drag_handle: "Drag to reorder",
-    due_date: "Due date",
+    due_date: "Due",
     notes: "Notes",
     notes_placeholder: "Add notes here",
     sub_items: "Sub-items",
@@ -44,7 +44,7 @@ const _TRANSLATIONS = {
     ed_display: "Display",
     ed_show_title: "Show title",
     ed_show_progress: "Show progress",
-    ed_show_due_date: "Show due date",
+    ed_show_due_date: "Show due",
     ed_show_notes: "Show notes",
     ed_show_recurrence: "Show recurrence",
     ed_show_sub_items: "Show sub-items",
@@ -67,7 +67,7 @@ const _TRANSLATIONS = {
     progress: "{0} von {1} erledigt",
     empty: "Keine Aufgaben vorhanden",
     drag_handle: "Verschieben",
-    due_date: "F\u00e4lligkeitsdatum",
+    due_date: "F\u00e4lligkeit",
     notes: "Notizen",
     notes_placeholder: "Hier kannst du Notizen hinzuf\u00fcgen",
     sub_items: "Unterpunkte",
@@ -94,7 +94,7 @@ const _TRANSLATIONS = {
     ed_display: "Anzeige",
     ed_show_title: "Titel anzeigen",
     ed_show_progress: "Fortschritt anzeigen",
-    ed_show_due_date: "F\u00e4lligkeitsdatum anzeigen",
+    ed_show_due_date: "F\u00e4lligkeit anzeigen",
     ed_show_notes: "Notizen anzeigen",
     ed_show_recurrence: "Wiederholung anzeigen",
     ed_show_sub_items: "Unterpunkte anzeigen",
@@ -317,11 +317,12 @@ class HomeTasksCard extends HTMLElement {
     });
   }
 
-  async _updateTaskDueDate(taskId, dueDate) {
+  async _updateTaskDue(taskId, dueDate, dueTime) {
     await this._callWs("home_tasks/update_task", {
       list_id: this._config.list_id,
       task_id: taskId,
       due_date: dueDate || null,
+      due_time: dueDate ? (dueTime || null) : null,
     });
     await this._loadTasks();
   }
@@ -433,15 +434,17 @@ class HomeTasksCard extends HTMLElement {
     return dueDate === today;
   }
 
-  _formatDueDate(dueDate) {
+  _formatDueDate(dueDate, dueTime) {
     if (!dueDate) return "";
     const date = new Date(dueDate + "T00:00:00");
     const lang = (this._hass && this._hass.language) || "en";
-    return date.toLocaleDateString(lang, {
+    let formatted = date.toLocaleDateString(lang, {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
     });
+    if (dueTime) formatted += " " + dueTime;
+    return formatted;
   }
 
   _getListName() {
@@ -659,7 +662,7 @@ class HomeTasksCard extends HTMLElement {
       else if (this._isDueDateToday(task.due_date)) dueCls += " today";
       metaChildren.push(this._el("span", {
         className: dueCls,
-        textContent: this._formatDueDate(task.due_date),
+        textContent: this._formatDueDate(task.due_date, task.due_time),
       }));
     }
     if (task.recurrence_enabled && this._config.show_recurrence !== false) {
@@ -738,18 +741,31 @@ class HomeTasksCard extends HTMLElement {
   }
 
   _buildTaskDetails(task) {
-    // Due date section
+    // Due section (date + time)
     const dateInput = this._el("input", {
       type: "date",
       className: "date-input",
       value: task.due_date || "",
     });
-    dateInput.addEventListener("change", () =>
-      this._updateTaskDueDate(task.id, dateInput.value)
+    const timeInput = this._el("input", {
+      type: "time",
+      className: "time-input",
+      value: task.due_time || "",
+    });
+    if (!task.due_date) timeInput.disabled = true;
+
+    dateInput.addEventListener("change", () => {
+      if (!dateInput.value) timeInput.value = "";
+      timeInput.disabled = !dateInput.value;
+      this._updateTaskDue(task.id, dateInput.value, timeInput.value);
+    });
+    timeInput.addEventListener("change", () =>
+      this._updateTaskDue(task.id, dateInput.value, timeInput.value)
     );
+
     const dateSection = this._el("div", { className: "detail-section" }, [
       this._el("label", { className: "detail-label", textContent: this._t("due_date") }),
-      dateInput,
+      this._el("div", { className: "due-input-row" }, [dateInput, timeInput]),
     ]);
 
     // Notes section
@@ -1484,11 +1500,18 @@ class HomeTasksCard extends HTMLElement {
         font-size: 11px; font-weight: 600; text-transform: uppercase;
         color: var(--todo-secondary-text); letter-spacing: 0.5px;
       }
+      .due-input-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
       .date-input {
         padding: 6px 10px; border: 1px solid var(--todo-divider); border-radius: 4px;
         font-size: 13px; background: var(--todo-bg); color: var(--todo-text);
-        font-family: inherit; max-width: 180px;
+        font-family: inherit; flex: 1; min-width: 130px;
       }
+      .time-input {
+        padding: 6px 10px; border: 1px solid var(--todo-divider); border-radius: 4px;
+        font-size: 13px; background: var(--todo-bg); color: var(--todo-text);
+        font-family: inherit; width: 100px;
+      }
+      .time-input:disabled { opacity: 0.4; }
       .notes-input {
         padding: 8px 10px; border: 1px solid var(--todo-divider); border-radius: 4px;
         font-size: 13px; background: var(--todo-surface); color: var(--todo-text);

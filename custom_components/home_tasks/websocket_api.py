@@ -14,6 +14,7 @@ _LOGGER = logging.getLogger(__name__)
 _val_title = vol.All(str, vol.Length(min=1, max=MAX_TITLE_LENGTH))
 _val_id = vol.All(str, vol.Length(min=1, max=40))
 _val_date = vol.Any(vol.All(str, vol.Match(r"^\d{4}-\d{2}-\d{2}$")), None)
+_val_time = vol.Any(vol.All(str, vol.Match(r"^\d{2}:\d{2}$")), None)
 
 
 @callback
@@ -117,6 +118,7 @@ async def ws_add_task(hass, connection, msg):
         vol.Optional("completed"): bool,
         vol.Optional("notes"): vol.All(str, vol.Length(max=5000)),
         vol.Optional("due_date"): _val_date,
+        vol.Optional("due_time"): _val_time,
         vol.Optional("priority"): vol.Any(vol.In([1, 2, 3]), None),
         vol.Optional("recurrence_value"): vol.All(int, vol.Range(min=1, max=MAX_RECURRENCE_VALUE)),
         vol.Optional("recurrence_unit"): vol.Any(vol.In(list(VALID_RECURRENCE_UNITS)), None),
@@ -133,7 +135,7 @@ async def ws_update_task(hass, connection, msg):
     try:
         store = _get_store(hass, msg["list_id"])
         kwargs = {}
-        for key in ("title", "completed", "notes", "due_date", "priority", "recurrence_value", "recurrence_unit", "recurrence_enabled", "recurrence_type", "recurrence_weekdays", "assigned_person", "tags"):
+        for key in ("title", "completed", "notes", "due_date", "due_time", "priority", "recurrence_value", "recurrence_unit", "recurrence_enabled", "recurrence_type", "recurrence_weekdays", "assigned_person", "tags"):
             if key in msg:
                 kwargs[key] = msg[key]
         task = await store.async_update_task(msg["task_id"], **kwargs)

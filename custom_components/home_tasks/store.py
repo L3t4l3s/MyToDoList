@@ -26,6 +26,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 _DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_TIME_PATTERN = re.compile(r"^\d{2}:\d{2}$")
 
 
 def validate_text(value: str, max_length: int, field_name: str) -> str:
@@ -57,6 +58,23 @@ def validate_date(value: str | None) -> str | None:
             raise ValueError("due_date contains invalid date components")
     except (IndexError, TypeError) as err:
         raise ValueError("due_date must be in YYYY-MM-DD format") from err
+    return value
+
+
+def validate_time(value: str | None) -> str | None:
+    """Validate a time string (HH:MM) or None."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("due_time must be a string or null")
+    value = value.strip()
+    if not value:
+        return None
+    if not _TIME_PATTERN.match(value):
+        raise ValueError("due_time must be in HH:MM format")
+    h, m = int(value[:2]), int(value[3:5])
+    if not (0 <= h <= 23 and 0 <= m <= 59):
+        raise ValueError("due_time contains invalid time components")
     return value
 
 
@@ -105,6 +123,7 @@ class HomeTasksStore:
                 task["recurrence_value"] = val
                 task["recurrence_unit"] = unit
             task.setdefault("priority", None)
+            task.setdefault("due_time", None)
             task.setdefault("recurrence_value", 1)
             task.setdefault("recurrence_unit", None)
             task.setdefault("recurrence_enabled", False)
@@ -140,6 +159,7 @@ class HomeTasksStore:
             "sort_order": max_order + 1,
             "sub_items": [],
             "priority": None,
+            "due_time": None,
             "recurrence_value": 1,
             "recurrence_unit": None,
             "recurrence_enabled": False,
@@ -175,6 +195,10 @@ class HomeTasksStore:
                 raise ValueError(f"Notes exceed maximum length of {MAX_NOTES_LENGTH}")
         if "due_date" in kwargs:
             kwargs["due_date"] = validate_date(kwargs["due_date"])
+            if kwargs["due_date"] is None:
+                kwargs["due_time"] = None  # clear time when date is cleared
+        if "due_time" in kwargs:
+            kwargs["due_time"] = validate_time(kwargs["due_time"])
         if "completed" in kwargs and not isinstance(kwargs["completed"], bool):
             raise ValueError("completed must be a boolean")
         if "priority" in kwargs:
@@ -229,7 +253,7 @@ class HomeTasksStore:
 
         was_completed = task.get("completed", False)
         previous_person = task.get("assigned_person")
-        allowed = ("title", "completed", "notes", "due_date", "priority", "recurrence_value", "recurrence_unit", "recurrence_enabled", "recurrence_type", "recurrence_weekdays", "assigned_person", "tags")
+        allowed = ("title", "completed", "notes", "due_date", "due_time", "priority", "recurrence_value", "recurrence_unit", "recurrence_enabled", "recurrence_type", "recurrence_weekdays", "assigned_person", "tags")
         for key, value in kwargs.items():
             if key in allowed:
                 task[key] = value
