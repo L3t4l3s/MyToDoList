@@ -2000,7 +2000,6 @@ class HomeTasksCardEditor extends HTMLElement {
       ...config,
       columns: config.columns.map(({ type: _t, ...col }) => col),
     };
-    }
     this._config = { ...config };
 
     // Clamp active tab
