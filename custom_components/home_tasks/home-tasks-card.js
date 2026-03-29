@@ -210,12 +210,19 @@ class HomeTasksCard extends HTMLElement {
 
   setConfig(config) {
     // Normalize old single-list format to columns format
+    // Keep HA card-level keys (type, etc.) at root, not inside column objects
     if (config.list_id && !config.columns) {
-      config = { columns: [{ ...config }] };
+      const { type, columns: _c, ...colConfig } = config;
+      config = { ...(type ? { type } : {}), columns: [colConfig] };
     }
     if (!config.columns || !Array.isArray(config.columns) || config.columns.length === 0) {
-      config = { columns: [{}] };
+      config = { ...config, columns: [{}] };
     }
+    // Strip any stray type keys from column objects (e.g. from previously broken saves)
+    config = {
+      ...config,
+      columns: config.columns.map(({ type: _t, ...col }) => col),
+    };
 
     const prevConfig = this._config || { columns: [] };
     this._config = config;
@@ -1980,11 +1987,19 @@ class HomeTasksCardEditor extends HTMLElement {
 
   setConfig(config) {
     // Normalize old single-list format
+    // Keep HA card-level keys (type, etc.) at root, not inside column objects
     if (config.list_id && !config.columns) {
-      config = { columns: [{ ...config }] };
+      const { type, columns: _c, ...colConfig } = config;
+      config = { ...(type ? { type } : {}), columns: [colConfig] };
     }
     if (!config.columns || !Array.isArray(config.columns) || config.columns.length === 0) {
-      config = { columns: [{}] };
+      config = { ...config, columns: [{}] };
+    }
+    // Strip any stray type keys from column objects
+    config = {
+      ...config,
+      columns: config.columns.map(({ type: _t, ...col }) => col),
+    };
     }
     this._config = { ...config };
 
