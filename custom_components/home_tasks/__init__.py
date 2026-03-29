@@ -25,6 +25,7 @@ PLATFORMS = ["todo", "sensor", "binary_sensor"]
 CARD_URL = "/home_tasks/home-tasks-card.js"
 DATA_SETUP_DONE = f"{DOMAIN}_setup_done"
 DATA_RECURRENCE_TIMERS = f"{DOMAIN}_recurrence_timers"
+DATA_REMINDER_TIMERS = f"{DOMAIN}_reminder_timers"
 DATA_DUE_CHECK_UNSUB = f"{DOMAIN}_due_check_unsub"
 DATA_DUE_FIRED = f"{DOMAIN}_due_fired"
 
@@ -106,9 +107,10 @@ def _build_event_data(entry_id: str, task: dict) -> dict:
 
 
 def _on_task_completed(hass: HomeAssistant, entry_id: str, task: dict) -> None:
-    """Handle task completion: fire event and schedule recurrence."""
+    """Handle task completion: fire event, schedule recurrence, cancel reminders."""
     hass.bus.async_fire(f"{DOMAIN}_task_completed", _build_event_data(entry_id, task))
     _schedule_recurrence(hass, entry_id, task)
+    _cancel_reminders(hass, task["id"])
 
 
 def _on_task_created(hass: HomeAssistant, entry_id: str, task: dict) -> None:
@@ -117,14 +119,16 @@ def _on_task_created(hass: HomeAssistant, entry_id: str, task: dict) -> None:
 
 
 def _on_task_deleted(hass: HomeAssistant, task_id: str) -> None:
-    """Handle task deletion: cancel recurrence and clean due-fired cache."""
+    """Handle task deletion: cancel recurrence, reminders, and clean due-fired cache."""
     _cancel_recurrence(hass, task_id)
+    _cancel_reminders(hass, task_id)
     hass.data.get(DATA_DUE_FIRED, {}).pop(task_id, None)
 
 
 def _on_task_reopened(hass: HomeAssistant, entry_id: str, task: dict) -> None:
-    """Fire event when a task is reopened."""
+    """Fire event when a task is reopened and reschedule its reminders."""
     hass.bus.async_fire(f"{DOMAIN}_task_reopened", _build_event_data(entry_id, task))
+    _schedule_reminders(hass, entry_id, task)
 
 
 def _fire_assignment_event(
@@ -278,6 +282,101 @@ def _cancel_recurrence(hass: HomeAssistant, task_id: str) -> None:
     cancel = timers.pop(task_id, None)
     if cancel:
         cancel()
+
+
+# ---------------------------------------------------------------------------
+#  Reminder scheduling
+# ---------------------------------------------------------------------------
+
+def _compute_due_datetime(task: dict) -> datetime | None:
+    """Return timezone-aware datetime for the task's due moment (local time).
+
+    - due_date + due_time → exact datetime
+    - due_date only → midnight of that day (local time)
+    - no due_date → None
+    """
+    due_date = task.get("due_date")
+    if not due_date:
+        return None
+    try:
+        d = date.fromisoformat(due_date)
+    except (ValueError, TypeError):
+        return None
+    due_time_str = task.get("due_time")
+    if due_time_str:
+        try:
+            h, m = int(due_time_str[:2]), int(due_time_str[3:5])
+        except (ValueError, TypeError, IndexError):
+            h, m = 0, 0
+    else:
+        h, m = 0, 0
+    local_tz = datetime.now().astimezone().tzinfo
+    return datetime(d.year, d.month, d.day, h, m, 0, tzinfo=local_tz)
+
+
+def _schedule_reminders(hass: HomeAssistant, entry_id: str, task: dict) -> None:
+    """Schedule async_call_later timers for all reminder offsets of a task."""
+    task_id = task["id"]
+    _cancel_reminders(hass, task_id)
+
+    if task.get("completed"):
+        return
+
+    due_dt = _compute_due_datetime(task)
+    if due_dt is None:
+        return
+
+    reminders = task.get("reminders", [])
+    if not reminders:
+        return
+
+    timers = hass.data.setdefault(DATA_REMINDER_TIMERS, {})
+    now = datetime.now(timezone.utc)
+
+    for offset in reminders:
+        target = due_dt - timedelta(minutes=offset)
+        delay = (target.astimezone(timezone.utc) - now).total_seconds()
+        if delay <= 0:
+            continue  # already past — silent miss
+
+        def _fire_reminder(_now, _task=task, _offset=offset):
+            key = f"{_task['id']}_r{_offset}"
+            hass.data.get(DATA_REMINDER_TIMERS, {}).pop(key, None)
+            event_data = {
+                **_build_event_data(entry_id, _task),
+                "reminder_offset_minutes": _offset,
+            }
+            hass.bus.async_fire(f"{DOMAIN}_task_reminder", event_data)
+
+        cancel = async_call_later(hass, delay, _fire_reminder)
+        timers[f"{task_id}_r{offset}"] = cancel
+        _LOGGER.debug(
+            "Scheduled reminder for task %s (offset %d min) in %.0f s",
+            task_id, offset, delay,
+        )
+
+
+def _cancel_reminders(hass: HomeAssistant, task_id: str) -> None:
+    """Cancel all pending reminder timers for a task."""
+    timers = hass.data.get(DATA_REMINDER_TIMERS, {})
+    prefix = f"{task_id}_r"
+    keys = [k for k in list(timers) if k.startswith(prefix)]
+    for key in keys:
+        cancel = timers.pop(key, None)
+        if cancel:
+            cancel()
+
+
+def _recover_reminder_timers(hass: HomeAssistant, entry_id: str, store: HomeTasksStore) -> None:
+    """On startup, reschedule reminder timers for open tasks with due dates."""
+    for task in store.tasks:
+        if task.get("completed"):
+            continue
+        if not task.get("reminders"):
+            continue
+        if not task.get("due_date"):
+            continue
+        _schedule_reminders(hass, entry_id, task)
 
 
 def _recover_recurrence_timers(hass: HomeAssistant, entry_id: str, store: HomeTasksStore) -> None:
@@ -486,9 +585,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     store.on_task_deleted = lambda task_id: _on_task_deleted(hass, task_id)
     store.on_task_assigned = lambda task, prev: _fire_assignment_event(hass, entry.entry_id, task, prev)
     store.on_task_reopened = lambda task: _on_task_reopened(hass, entry.entry_id, task)
+    store.on_reminders_changed = lambda task: _schedule_reminders(hass, entry.entry_id, task)
 
-    # Recover any pending recurrence timers from before restart
+    # Recover any pending timers from before restart
     _recover_recurrence_timers(hass, entry.entry_id, store)
+    _recover_reminder_timers(hass, entry.entry_id, store)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
@@ -501,6 +602,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         fired = hass.data.get(DATA_DUE_FIRED, {})
         for task in store.tasks:
             _cancel_recurrence(hass, task["id"])
+            _cancel_reminders(hass, task["id"])
             fired.pop(task["id"], None)
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

@@ -57,6 +57,18 @@ const _TRANSLATIONS = {
     add_tag: "+ Add tag",
     tag_placeholder: "New tag...",
     remove_tag: "Remove",
+    reminder: "Reminders",
+    rem_add: "+ Add reminder",
+    rem_none: "No reminder",
+    rem_at_due: "At due time",
+    rem_5m: "5 min before",
+    rem_15m: "15 min before",
+    rem_30m: "30 min before",
+    rem_1h: "1 hour before",
+    rem_2h: "2 hours before",
+    rem_1d: "1 day before",
+    rem_2d: "2 days before",
+    ed_show_reminders: "Show reminders",
   },
   de: {
     my_tasks: "Meine Aufgaben",
@@ -107,8 +119,31 @@ const _TRANSLATIONS = {
     add_tag: "+ Tag hinzuf\u00fcgen",
     tag_placeholder: "Neues Tag...",
     remove_tag: "Entfernen",
+    reminder: "Erinnerungen",
+    rem_add: "+ Erinnerung hinzuf\u00fcgen",
+    rem_none: "Keine Erinnerung",
+    rem_at_due: "Zur F\u00e4lligkeit",
+    rem_5m: "5 Min. vorher",
+    rem_15m: "15 Min. vorher",
+    rem_30m: "30 Min. vorher",
+    rem_1h: "1 Std. vorher",
+    rem_2h: "2 Std. vorher",
+    rem_1d: "1 Tag vorher",
+    rem_2d: "2 Tage vorher",
+    ed_show_reminders: "Erinnerungen anzeigen",
   },
 };
+
+const REMINDER_OFFSETS = [
+  [0, "rem_at_due"],
+  [5, "rem_5m"],
+  [15, "rem_15m"],
+  [30, "rem_30m"],
+  [60, "rem_1h"],
+  [120, "rem_2h"],
+  [1440, "rem_1d"],
+  [2880, "rem_2d"],
+];
 
 class HomeTasksCard extends HTMLElement {
   constructor() {
@@ -708,6 +743,16 @@ class HomeTasksCard extends HTMLElement {
         metaChildren.push(tagBadge);
       }
     }
+    if (task.reminders && task.reminders.length > 0 && this._config.show_reminders !== false) {
+      let remText;
+      if (task.reminders.length === 1) {
+        const entry = REMINDER_OFFSETS.find(([v]) => v === task.reminders[0]);
+        remText = "\u23F0 " + (entry ? this._t(entry[1]) : task.reminders[0] + " min");
+      } else {
+        remText = "\u23F0 " + task.reminders.length;
+      }
+      metaChildren.push(this._el("span", { className: "reminder-badge", textContent: remText }));
+    }
     if (metaChildren.length > 0) {
       contentChildren.push(this._el("div", { className: "task-meta" }, metaChildren));
     }
@@ -1047,6 +1092,56 @@ class HomeTasksCard extends HTMLElement {
     tagSectionChildren.push(tagInput);
     const tagSection = this._el("div", { className: "detail-section" }, tagSectionChildren);
 
+    // Reminders section
+    const taskReminders = task.reminders || [];
+    const reminderSectionChildren = [
+      this._el("label", { className: "detail-label", textContent: this._t("reminder") }),
+    ];
+    const _rebuildReminders = (newReminders) => {
+      this._callWs("home_tasks/update_task", {
+        list_id: this._config.list_id,
+        task_id: task.id,
+        reminders: newReminders,
+      }).then(() => this._loadTasks());
+    };
+    for (let ri = 0; ri < taskReminders.length; ri++) {
+      const offset = taskReminders[ri];
+      const sel = this._el("select", { className: "reminder-select" });
+      for (const [val, key] of REMINDER_OFFSETS) {
+        const opt = this._el("option", { value: String(val), textContent: this._t(key) });
+        if (val === offset) opt.selected = true;
+        sel.appendChild(opt);
+      }
+      sel.addEventListener("change", () => {
+        const updated = [...taskReminders];
+        updated[ri] = parseInt(sel.value, 10);
+        _rebuildReminders(updated);
+      });
+      const removeBtn = this._el("button", {
+        className: "reminder-remove",
+        textContent: "\u00D7",
+        title: this._t("remove_tag"),
+      });
+      removeBtn.addEventListener("click", () => {
+        const updated = taskReminders.filter((_, i) => i !== ri);
+        _rebuildReminders(updated);
+      });
+      reminderSectionChildren.push(this._el("div", { className: "reminder-row" }, [sel, removeBtn]));
+    }
+    if (taskReminders.length < 5) {
+      const addReminderBtn = this._el("button", {
+        className: "add-reminder-btn",
+        textContent: this._t("rem_add"),
+      });
+      addReminderBtn.addEventListener("click", () => {
+        const used = new Set(taskReminders);
+        const defaultOffset = (REMINDER_OFFSETS.find(([v]) => !used.has(v)) || REMINDER_OFFSETS[3])[0];
+        _rebuildReminders([...taskReminders, defaultOffset]);
+      });
+      reminderSectionChildren.push(addReminderBtn);
+    }
+    const reminderSection = this._el("div", { className: "detail-section" }, reminderSectionChildren);
+
     // Delete button
     const deleteBtn = this._el("button", {
       className: "delete-task-btn",
@@ -1062,6 +1157,7 @@ class HomeTasksCard extends HTMLElement {
     if (this._config.show_sub_items !== false) details.push(subSection);
     if (this._config.show_due_date !== false) details.push(dateSection);
     if (this._config.show_recurrence !== false) details.push(recurrenceSection);
+    if (this._config.show_reminders !== false) details.push(reminderSection);
     if (this._config.show_assigned_person !== false) details.push(personSection);
     details.push(actions);
     return this._el("div", { className: "task-details" }, details);
@@ -1413,6 +1509,10 @@ class HomeTasksCard extends HTMLElement {
       .tag-badge.active {
         background: var(--success-color, #4caf50); color: #fff;
       }
+      .reminder-badge {
+        font-size: 11px; padding: 2px 8px; border-radius: 10px;
+        background: rgba(255, 152, 0, 0.15); color: var(--warning-color, #ff9800);
+      }
       .tag-chips { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }
       .tag-chip {
         padding: 4px 12px; border: 1px solid rgba(76, 175, 80, 0.3); border-radius: 16px;
@@ -1485,6 +1585,22 @@ class HomeTasksCard extends HTMLElement {
         background: var(--primary-color, #03a9f4); color: #fff; border-color: var(--primary-color, #03a9f4);
       }
       .weekday-label input[type="checkbox"]:disabled + span { opacity: 0.5; cursor: default; }
+      .reminder-row { display: flex; gap: 6px; align-items: center; }
+      .reminder-select {
+        flex: 1; padding: 6px 8px; border: 1px solid var(--todo-divider);
+        border-radius: 4px; font-size: 13px; background: var(--todo-bg);
+        color: var(--todo-text); font-family: inherit;
+      }
+      .reminder-remove {
+        background: none; border: none; color: var(--todo-secondary-text);
+        cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 4px; line-height: 1;
+      }
+      .reminder-remove:hover { color: var(--todo-error); background: rgba(244, 67, 54, 0.15); }
+      .add-reminder-btn {
+        background: none; border: none; color: var(--warning-color, #ff9800); cursor: pointer;
+        font-size: 13px; padding: 6px 0; text-align: left; font-family: inherit;
+      }
+      .add-reminder-btn:hover { text-decoration: underline; }
       .expand-btn {
         background: none; border: none; color: var(--todo-secondary-text);
         cursor: pointer; font-size: 10px; padding: 6px; border-radius: 4px;
@@ -1565,7 +1681,7 @@ class HomeTasksCard extends HTMLElement {
       .compact .task-title { font-size: 13px; }
       .compact .task-meta { gap: 4px; }
       .compact .sub-badge, .compact .due-date, .compact .priority-badge, .compact .recurrence-badge,
-      .compact .assigned-badge, .compact .tag-badge { font-size: 10px; padding: 1px 6px; }
+      .compact .assigned-badge, .compact .tag-badge, .compact .reminder-badge { font-size: 10px; padding: 1px 6px; }
       .compact .checkmark { height: 16px; width: 16px; }
       .compact .checkbox-container input:checked ~ .checkmark::after { width: 4px; height: 7px; }
       .compact .expand-btn { padding: 4px; font-size: 9px; }
@@ -1815,6 +1931,21 @@ class HomeTasksCardEditor extends HTMLElement {
       showRecurrenceCb,
     ]);
 
+    // Show reminders toggle
+    const showRemindersCb = this._el("input", {
+      type: "checkbox",
+      id: "cb-show-reminders",
+      checked: this._config.show_reminders !== false,
+    });
+    showRemindersCb.addEventListener("change", () => {
+      this._config = { ...this._config, show_reminders: showRemindersCb.checked };
+      this._fireChanged();
+    });
+    const showRemindersRow = this._el("div", { className: "toggle-row" }, [
+      this._el("span", { className: "toggle-label", textContent: this._t("ed_show_reminders") }),
+      showRemindersCb,
+    ]);
+
     // Show sub-items toggle
     const showSubItemsCb = this._el("input", {
       type: "checkbox",
@@ -1929,6 +2060,7 @@ class HomeTasksCardEditor extends HTMLElement {
         showDueDateRow,
         showPriorityRow,
         showRecurrenceRow,
+        showRemindersRow,
         showSubItemsRow,
         showPersonRow,
         showTagsRow,

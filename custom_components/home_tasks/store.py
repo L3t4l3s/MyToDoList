@@ -14,6 +14,8 @@ from homeassistant.helpers.storage import Store
 from .const import (
     MAX_NOTES_LENGTH,
     MAX_RECURRENCE_VALUE,
+    MAX_REMINDER_OFFSET_MINUTES,
+    MAX_REMINDERS_PER_TASK,
     MAX_SUB_ITEMS_PER_TASK,
     MAX_TAG_LENGTH,
     MAX_TAGS_PER_TASK,
@@ -91,6 +93,7 @@ class HomeTasksStore:
         self.on_task_deleted: Callable[[str], None] | None = None
         self.on_task_assigned: Callable[[dict, str | None], None] | None = None
         self.on_task_reopened: Callable[[dict], None] | None = None
+        self.on_reminders_changed: Callable[[dict], None] | None = None
 
     def async_add_listener(self, callback: Callable[[], None]) -> Callable[[], None]:
         """Add a listener for data changes. Returns a removal callable."""
@@ -124,6 +127,7 @@ class HomeTasksStore:
                 task["recurrence_unit"] = unit
             task.setdefault("priority", None)
             task.setdefault("due_time", None)
+            task.setdefault("reminders", [])
             task.setdefault("recurrence_value", 1)
             task.setdefault("recurrence_unit", None)
             task.setdefault("recurrence_enabled", False)
@@ -160,6 +164,7 @@ class HomeTasksStore:
             "sub_items": [],
             "priority": None,
             "due_time": None,
+            "reminders": [],
             "recurrence_value": 1,
             "recurrence_unit": None,
             "recurrence_enabled": False,
@@ -250,10 +255,23 @@ class HomeTasksStore:
                     cleaned.append(tag)
                     seen.add(tag)
             kwargs["tags"] = cleaned
+        if "reminders" in kwargs:
+            val = kwargs["reminders"]
+            if not isinstance(val, list):
+                raise ValueError("reminders must be a list")
+            if len(val) > MAX_REMINDERS_PER_TASK:
+                raise ValueError(f"Maximum of {MAX_REMINDERS_PER_TASK} reminders allowed")
+            if not all(isinstance(r, int) and 0 <= r <= MAX_REMINDER_OFFSET_MINUTES for r in val):
+                raise ValueError(f"Each reminder must be an integer between 0 and {MAX_REMINDER_OFFSET_MINUTES}")
+            kwargs["reminders"] = sorted(set(val))
 
         was_completed = task.get("completed", False)
         previous_person = task.get("assigned_person")
-        allowed = ("title", "completed", "notes", "due_date", "due_time", "priority", "recurrence_value", "recurrence_unit", "recurrence_enabled", "recurrence_type", "recurrence_weekdays", "assigned_person", "tags")
+        old_due_date = task.get("due_date")
+        old_due_time = task.get("due_time")
+        old_reminders = task.get("reminders", [])
+
+        allowed = ("title", "completed", "notes", "due_date", "due_time", "priority", "reminders", "recurrence_value", "recurrence_unit", "recurrence_enabled", "recurrence_type", "recurrence_weekdays", "assigned_person", "tags")
         for key, value in kwargs.items():
             if key in allowed:
                 task[key] = value
@@ -271,6 +289,14 @@ class HomeTasksStore:
                     self.on_task_completed(task)
         elif not is_completed and was_completed:
             task["completed_at"] = None
+
+        # Notify reminder scheduler when due date/time or reminders change
+        if self.on_reminders_changed and (
+            task.get("due_date") != old_due_date
+            or task.get("due_time") != old_due_time
+            or task.get("reminders", []) != old_reminders
+        ):
+            self.on_reminders_changed(task)
 
         # Notify about person assignment changes
         new_person = task.get("assigned_person")
