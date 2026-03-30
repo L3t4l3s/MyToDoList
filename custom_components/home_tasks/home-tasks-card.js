@@ -2113,7 +2113,11 @@ class HomeTasksCard extends HTMLElement {
         font-size: 11px; font-weight: 600; text-transform: uppercase;
         color: var(--todo-secondary-text); letter-spacing: 0.5px;
       }
-      .due-input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .due-input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; overflow: hidden; }
+      .due-input-row .field-wrap { min-width: 0; overflow: hidden; }
+      .due-input-row .field-wrap input { padding: 18px 4px 4px 8px; font-size: 13px; }
+      .due-input-row .field-wrap input:focus { padding: 17px 3px 3px 7px; }
+      .due-input-row .field-wrap > span { left: 8px; font-size: 10px; }
       .field-wrap input[type="date"], .field-wrap input[type="time"] { text-align: left; padding-right: 6px; }
       .field-wrap { position: relative; width: 100%; }
       .field-wrap input, .field-wrap textarea { width: 100%; box-sizing: border-box; padding: 20px 12px 6px; border: 1px solid var(--outline-color, var(--divider-color, rgba(255,255,255,0.12))); border-radius: 4px; background: var(--mdc-text-field-fill-color, var(--input-fill-color, transparent)); color: var(--primary-text-color); font-size: 0.875rem; font-family: inherit; outline: none; }
