@@ -210,6 +210,8 @@ class HomeTasksCard extends HTMLElement {
     this._touchBound = {};
     this._lastTitleClick = null;
     this._initialized = false;
+    this._pendingRender = false;
+    this._styleEl = null;
   }
 
   _defaultColState() {
@@ -570,8 +572,8 @@ class HomeTasksCard extends HTMLElement {
     const sortBy = this._columns[colIdx].sortBy;
     switch (sortBy) {
       case "due": return (a, b) => {
-        const da = a.due_date ? a.due_date + (a.due_time || "00:00") : null;
-        const db = b.due_date ? b.due_date + (b.due_time || "00:00") : null;
+        const da = a.due_date ? a.due_date + "T" + (a.due_time || "00:00") : null;
+        const db = b.due_date ? b.due_date + "T" + (b.due_time || "00:00") : null;
         if (da && db) return da < db ? -1 : da > db ? 1 : 0;
         return da ? -1 : db ? 1 : 0;
       };
@@ -639,12 +641,24 @@ class HomeTasksCard extends HTMLElement {
   // --- Render ---
 
   _render() {
+    // Don't tear down DOM while a drag is in progress
+    if (this._draggedTaskId !== null) { this._pendingRender = true; return; }
+    this._pendingRender = false;
+
+    // Remove any stale sort close handler before rebuilding DOM
+    if (this._sortCloseHandler) {
+      document.removeEventListener("click", this._sortCloseHandler);
+      this._sortCloseHandler = null;
+    }
+
     const root = this.shadowRoot;
     root.innerHTML = "";
 
-    const style = document.createElement("style");
-    style.textContent = this._getStyles();
-    root.appendChild(style);
+    if (!this._styleEl) {
+      this._styleEl = document.createElement("style");
+      this._styleEl.textContent = this._getStyles();
+    }
+    root.appendChild(this._styleEl);
 
     const card = this._el("ha-card", {}, [
       this._buildCardContent(),
@@ -653,7 +667,6 @@ class HomeTasksCard extends HTMLElement {
 
     // Close any open sort dropdowns on next outside click
     if (this._columns.some(c => c.sortOpen)) {
-      if (this._sortCloseHandler) document.removeEventListener("click", this._sortCloseHandler);
       this._sortCloseHandler = () => {
         this._sortCloseHandler = null;
         this._columns.forEach(c => { c.sortOpen = false; });
@@ -838,8 +851,9 @@ class HomeTasksCard extends HTMLElement {
       if (!this._draggedTaskId) return;
       const tgtColIdx = parseInt(taskList.dataset.colIdx);
       if (tgtColIdx !== this._draggedColIdx) {
-        const draggedEl = this.shadowRoot.querySelector(`.task[data-task-id="${this._draggedTaskId}"]`);
+        const draggedEl = this.shadowRoot.querySelector(`.task[data-task-id="${CSS.escape(String(this._draggedTaskId))}"]`);
         if (draggedEl && draggedEl.parentNode !== taskList) {
+          if (draggedEl.parentElement) draggedEl.parentElement.removeChild(draggedEl);
           taskList.appendChild(draggedEl);
         }
         taskList.closest(".card-column")?.classList.add("drag-target");
@@ -909,10 +923,15 @@ class HomeTasksCard extends HTMLElement {
         value: task.title,
       });
       editInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") this._updateTaskTitle(task.id, editInput.value, colIdx);
-        else if (e.key === "Escape") { this._editingTaskId = null; this._render(); }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          this._editingTaskId = null;  // clear BEFORE calling so blur skips
+          this._updateTaskTitle(task.id, editInput.value, colIdx);
+        } else if (e.key === "Escape") { this._editingTaskId = null; this._render(); }
       });
-      editInput.addEventListener("blur", () => this._updateTaskTitle(task.id, editInput.value, colIdx));
+      editInput.addEventListener("blur", () => {
+        if (this._editingTaskId === task.id) this._updateTaskTitle(task.id, editInput.value, colIdx);
+      });
       contentChildren.push(editInput);
       setTimeout(() => { editInput.focus(); editInput.select(); }, 0);
     } else {
@@ -1078,7 +1097,6 @@ class HomeTasksCard extends HTMLElement {
       rows: 2,
       value: task.notes || "",
     });
-    notesInput.textContent = task.notes || "";
     let debounceTimer;
     notesInput.addEventListener("input", () => {
       clearTimeout(debounceTimer);
@@ -1095,7 +1113,7 @@ class HomeTasksCard extends HTMLElement {
     const subChildren = [
       this._el("label", { className: "detail-label", textContent: this._t("sub_items") }),
     ];
-    for (const sub of task.sub_items) {
+    for (const sub of (task.sub_items || [])) {
       subChildren.push(this._buildSubItem(task.id, sub, colIdx));
     }
     const addSubBtn = this._el("button", {
@@ -1434,12 +1452,15 @@ class HomeTasksCard extends HTMLElement {
         value: sub.title,
       });
       titleEl.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") this._updateSubItemTitle(taskId, sub.id, titleEl.value, colIdx);
-        else if (e.key === "Escape") { this._editingSubItemId = null; this._render(); }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          this._editingSubItemId = null;  // clear BEFORE calling so blur skips
+          this._updateSubItemTitle(taskId, sub.id, titleEl.value, colIdx);
+        } else if (e.key === "Escape") { this._editingSubItemId = null; this._render(); }
       });
-      titleEl.addEventListener("blur", () =>
-        this._updateSubItemTitle(taskId, sub.id, titleEl.value, colIdx)
-      );
+      titleEl.addEventListener("blur", () => {
+        if (this._editingSubItemId === sub.id) this._updateSubItemTitle(taskId, sub.id, titleEl.value, colIdx);
+      });
       setTimeout(() => { titleEl.focus(); titleEl.select(); }, 0);
     } else {
       let subCls = "sub-title";
@@ -1507,11 +1528,11 @@ class HomeTasksCard extends HTMLElement {
 
     // Determine which column the dragged element ended up in
     const draggedEl = draggedId
-      ? this.shadowRoot.querySelector(`[data-task-id="${draggedId}"]`)
+      ? this.shadowRoot.querySelector(`[data-task-id="${CSS.escape(String(draggedId))}"]`)
       : null;
     const currentTaskList = draggedEl?.closest(".task-list");
-    const tgtColIdx = currentTaskList !== null && currentTaskList !== undefined
-      ? parseInt(currentTaskList.dataset.colIdx ?? srcColIdx)
+    const tgtColIdx = currentTaskList !== null && currentTaskList !== undefined && currentTaskList.dataset.colIdx !== undefined
+      ? parseInt(currentTaskList.dataset.colIdx, 10)
       : srcColIdx;
 
     // Clean up
@@ -1540,6 +1561,8 @@ class HomeTasksCard extends HTMLElement {
         this._reorderTasks(fullOrder, srcColIdx ?? 0);
       }
     }
+
+    if (this._pendingRender) this._render();
   }
 
   _attachDragToTask(taskEl, taskId, dragHandle, colIdx) {
@@ -1559,7 +1582,7 @@ class HomeTasksCard extends HTMLElement {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
       if (!this._draggedTaskId || this._draggedTaskId === taskId) return;
-      const draggedEl = this.shadowRoot.querySelector(`.task[data-task-id="${this._draggedTaskId}"]`);
+      const draggedEl = this.shadowRoot.querySelector(`.task[data-task-id="${CSS.escape(String(this._draggedTaskId))}"]`);
       this._liveMoveTask(draggedEl, taskEl);
       // Visual feedback for cross-column target
       const tgtList = taskEl.closest(".task-list");
@@ -1625,7 +1648,7 @@ class HomeTasksCard extends HTMLElement {
 
       const target = shadowEl ? shadowEl.closest(".task") : null;
       if (target && target.dataset.taskId && target.dataset.taskId !== this._draggedTaskId && !target.classList.contains("drag-clone")) {
-        const draggedEl = this.shadowRoot.querySelector(`.task[data-task-id="${this._draggedTaskId}"]`);
+        const draggedEl = this.shadowRoot.querySelector(`.task[data-task-id="${CSS.escape(String(this._draggedTaskId))}"]`);
         this._liveMoveTask(draggedEl, target);
       }
     };
@@ -1974,6 +1997,13 @@ class HomeTasksCard extends HTMLElement {
   }
 
   // --- Card config ---
+
+  disconnectedCallback() {
+    if (this._sortCloseHandler) {
+      document.removeEventListener("click", this._sortCloseHandler);
+      this._sortCloseHandler = null;
+    }
+  }
 
   static getConfigElement() {
     return document.createElement("home-tasks-card-editor");
@@ -2384,6 +2414,7 @@ class HomeTasksCardEditor extends HTMLElement {
       const checked = defaultOn ? col[configKey] !== false : col[configKey] === true;
       const sw = document.createElement("ha-switch");
       sw.checked = checked;
+      sw.setAttribute("aria-label", this._t(labelKey));
       sw.addEventListener("change", () => updateCol({ [configKey]: sw.checked }));
       return this._el("div", { className: "toggle-row" }, [
         this._el("span", { className: "toggle-label", textContent: this._t(labelKey) }),
@@ -2450,6 +2481,9 @@ class HomeTasksCardEditor extends HTMLElement {
   }
 
   _fireChanged() {
+    // dispatchEvent is synchronous in browsers; HA calls setConfig() within this call,
+    // so _firing is still true when setConfig runs. This guard would break if HA ever
+    // processes config-changed asynchronously (e.g. via microtask).
     this._firing = true;
     this.dispatchEvent(new CustomEvent("config-changed", {
       detail: { config: this._config },
