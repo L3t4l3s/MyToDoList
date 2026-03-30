@@ -1918,7 +1918,9 @@ class HomeTasksCard extends HTMLElement {
         font-size: 11px; font-weight: 600; text-transform: uppercase;
         color: var(--todo-secondary-text); letter-spacing: 0.5px;
       }
-      .due-input-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+      .due-input-row { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
+      .due-input-row .field-wrap { flex: 1 1 120px; }
+      .field-wrap input[type="date"], .field-wrap input[type="time"] { text-align: left; padding-right: 6px; }
       .field-wrap { position: relative; width: 100%; }
       .field-wrap input, .field-wrap textarea { width: 100%; box-sizing: border-box; padding: 20px 12px 6px; border: 1px solid var(--outline-color, var(--divider-color, rgba(255,255,255,0.12))); border-radius: 4px; background: var(--mdc-text-field-fill-color, var(--input-fill-color, transparent)); color: var(--primary-text-color); font-size: 0.875rem; font-family: inherit; outline: none; }
       .field-wrap input:focus, .field-wrap textarea:focus { border: 2px solid var(--primary-color); padding: 19px 11px 5px; }
