@@ -42,16 +42,16 @@ const _TRANSLATIONS = {
     ed_title: "Title (optional)",
     ed_title_placeholder: "Default: List name",
     ed_display: "Display",
-    ed_show_title: "Show title",
-    ed_show_progress: "Show progress",
-    ed_show_due_date: "Show due",
-    ed_show_notes: "Show notes",
-    ed_show_recurrence: "Show recurrence",
-    ed_show_sub_items: "Show sub-items",
-    ed_show_person: "Show assigned person",
-    ed_auto_delete: "Delete completed tasks immediately",
-    ed_compact: "Compact mode",
-    ed_show_tags: "Show tags",
+    ed_show_title: "Title",
+    ed_show_progress: "Progress",
+    ed_show_due_date: "Due date",
+    ed_show_notes: "Notes",
+    ed_show_recurrence: "Recurrence",
+    ed_show_sub_items: "Sub-items",
+    ed_show_person: "Person",
+    ed_auto_delete: "Delete completed immediately",
+    ed_compact: "Compact",
+    ed_show_tags: "Tags",
     ed_hint: "New lists can be created under Settings \u2192 Integrations \u2192 Home Tasks.",
     tags: "Tags",
     add_tag: "+ Add tag",
@@ -63,7 +63,8 @@ const _TRANSLATIONS = {
     sort_priority: "Priority",
     sort_title: "Title (A\u2013Z)",
     sort_person: "Assigned",
-    ed_show_sort: "Show sort button",
+    ed_show_sort: "Sort",
+    ed_show_priority: "Priority",
     ed_default_sort: "Default sort",
     reminder: "Reminders",
     rem_add: "+ Add reminder",
@@ -76,7 +77,7 @@ const _TRANSLATIONS = {
     rem_2h: "2 hours before",
     rem_1d: "1 day before",
     rem_2d: "2 days before",
-    ed_show_reminders: "Show reminders",
+    ed_show_reminders: "Reminders",
     ed_add_column: "Add column",
     ed_move_left: "Move left",
     ed_move_right: "Move right",
@@ -87,9 +88,8 @@ const _TRANSLATIONS = {
     ed_icon: "Icon (optional)",
     ed_card_title: "Card title (optional)",
     ed_card_title_placeholder: "Title shown above columns",
-    ed_sec_content: "Content",
-    ed_sec_view: "View",
-    ed_sec_display: "Display",
+    ed_sec_view: "Display",
+    ed_sec_display: "Configuration",
   },
   de: {
     my_tasks: "Meine Aufgaben",
@@ -112,7 +112,7 @@ const _TRANSLATIONS = {
     rec_short_h: "Std.", rec_short_d: "T.", rec_short_w: "Wo.", rec_short_m: "Mon.",
     priority: "Priorit\u00e4t",
     pri_high: "Hoch", pri_medium: "Mittel", pri_low: "Niedrig",
-    ed_show_priority: "Priorit\u00e4t anzeigen",
+    ed_show_priority: "Priorit\u00e4t",
     rec_hourly: "St\u00fcndl.", rec_daily: "T\u00e4glich", rec_weekly: "W\u00f6chentl.", rec_monthly: "Monatl.",
     rec_type_interval: "Alle \u2026", rec_type_weekdays: "An Wochentagen",
     rec_wd_0: "Mo", rec_wd_1: "Di", rec_wd_2: "Mi", rec_wd_3: "Do", rec_wd_4: "Fr", rec_wd_5: "Sa", rec_wd_6: "So",
@@ -125,16 +125,16 @@ const _TRANSLATIONS = {
     ed_title: "Titel (optional)",
     ed_title_placeholder: "Standard: Listenname",
     ed_display: "Anzeige",
-    ed_show_title: "Titel anzeigen",
-    ed_show_progress: "Fortschritt anzeigen",
-    ed_show_due_date: "F\u00e4lligkeit anzeigen",
-    ed_show_notes: "Notizen anzeigen",
-    ed_show_recurrence: "Wiederholung anzeigen",
-    ed_show_sub_items: "Unterpunkte anzeigen",
-    ed_show_person: "Zugewiesene Person anzeigen",
-    ed_auto_delete: "Erledigte Aufgaben sofort l\u00f6schen",
-    ed_compact: "Kompakte Ansicht",
-    ed_show_tags: "Tags anzeigen",
+    ed_show_title: "Titel",
+    ed_show_progress: "Fortschritt",
+    ed_show_due_date: "F\u00e4lligkeit",
+    ed_show_notes: "Notizen",
+    ed_show_recurrence: "Wiederholung",
+    ed_show_sub_items: "Unterpunkte",
+    ed_show_person: "Person",
+    ed_auto_delete: "Erledigte sofort l\u00f6schen",
+    ed_compact: "Kompakt",
+    ed_show_tags: "Tags",
     ed_hint: "Neue Listen k\u00f6nnen unter Einstellungen \u2192 Integrationen \u2192 Home Tasks erstellt werden.",
     tags: "Tags",
     add_tag: "+ Tag hinzuf\u00fcgen",
@@ -146,7 +146,7 @@ const _TRANSLATIONS = {
     sort_priority: "Priorit\u00e4t",
     sort_title: "Titel (A\u2013Z)",
     sort_person: "Zugewiesen",
-    ed_show_sort: "Sortieren-Button anzeigen",
+    ed_show_sort: "Sortierung",
     ed_default_sort: "Standard-Sortierung",
     reminder: "Erinnerungen",
     rem_add: "+ Erinnerung hinzuf\u00fcgen",
@@ -159,7 +159,7 @@ const _TRANSLATIONS = {
     rem_2h: "2 Std. vorher",
     rem_1d: "1 Tag vorher",
     rem_2d: "2 Tage vorher",
-    ed_show_reminders: "Erinnerungen anzeigen",
+    ed_show_reminders: "Erinnerungen",
     ed_add_column: "Spalte hinzuf\u00fcgen",
     ed_move_left: "Nach links",
     ed_move_right: "Nach rechts",
@@ -170,9 +170,8 @@ const _TRANSLATIONS = {
     ed_icon: "Symbol (optional)",
     ed_card_title: "Kartentitel (optional)",
     ed_card_title_placeholder: "Titel \u00fcber den Spalten",
-    ed_sec_content: "Inhalt",
-    ed_sec_view: "Ansicht",
-    ed_sec_display: "Darstellung",
+    ed_sec_view: "Darstellung",
+    ed_sec_display: "Konfiguration",
   },
 };
 
@@ -1988,6 +1987,7 @@ class HomeTasksCardEditor extends HTMLElement {
     this._listsLoaded = false;
     this._editorTab = 0;
     this._editorCodeMode = {};  // { tabIdx: bool }
+    this._sectionOpen = {};     // { translationKey: bool } — persists across re-renders
   }
 
   _t(key, ...args) {
@@ -2125,20 +2125,19 @@ class HomeTasksCardEditor extends HTMLElement {
       .icon-btn:disabled { opacity: 0.3; cursor: default; }
       .icon-btn-spacer { flex: 1; }
       .toggle-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 16px; }
-      .visual-editor { display: flex; flex-direction: column; }
+      .visual-editor { display: flex; flex-direction: column; gap: 8px; }
       .field { display: flex; flex-direction: column; gap: 6px; }
-      details { border-top: 1px solid var(--divider-color, rgba(255,255,255,0.12)); }
-      details:last-child { border-bottom: 1px solid var(--divider-color, rgba(255,255,255,0.12)); }
-      summary { display: flex; align-items: center; gap: 8px; padding: 14px 0; cursor: pointer; font-size: 14px; font-weight: 500; color: var(--primary-text-color); user-select: none; list-style: none; }
+      details { border: 1px solid var(--divider-color, rgba(255,255,255,0.12)); border-radius: 8px; overflow: hidden; }
+      summary { display: flex; align-items: center; gap: 8px; padding: 12px 16px; cursor: pointer; font-size: 14px; font-weight: 500; color: var(--primary-text-color); user-select: none; list-style: none; }
       summary::-webkit-details-marker { display: none; }
       .sum-chevron { margin-left: auto; display: inline-flex; transition: transform 0.2s; color: var(--secondary-text-color); }
       details[open] .sum-chevron { transform: rotate(180deg); }
-      .section-content { display: flex; flex-direction: column; gap: 16px; padding-bottom: 16px; }
+      .section-content { display: flex; flex-direction: column; gap: 16px; padding: 0 16px 16px; border-top: 1px solid var(--divider-color, rgba(255,255,255,0.12)); }
       label { font-size: 12px; font-weight: 500; color: var(--secondary-text-color); text-transform: uppercase; letter-spacing: 0.5px; }
       ha-textfield { width: 100%; }
       ha-icon-picker { width: 100%; }
       .sel-wrap { position: relative; width: 100%; }
-      .sel-wrap select { width: 100%; height: 56px; padding: 26px 36px 6px 16px; border: 1px solid var(--outline-color, var(--divider-color, rgba(255,255,255,0.12))); border-radius: 4px; background: transparent; color: var(--primary-text-color); font-size: 1rem; font-family: inherit; appearance: none; -webkit-appearance: none; cursor: pointer; outline: none; box-sizing: border-box; }
+      .sel-wrap select { width: 100%; height: 56px; padding: 26px 36px 6px 16px; border: 1px solid var(--outline-color, var(--divider-color, rgba(255,255,255,0.12))); border-radius: 4px; background: var(--secondary-background-color, var(--card-background-color, transparent)); color: var(--primary-text-color); font-size: 1rem; font-family: inherit; appearance: none; -webkit-appearance: none; cursor: pointer; outline: none; box-sizing: border-box; }
       .sel-wrap select:focus { border: 2px solid var(--primary-color); padding-left: 15px; padding-top: 25px; padding-bottom: 5px; }
       .sel-wrap > span { position: absolute; top: 8px; left: 16px; font-size: 12px; color: var(--secondary-text-color); pointer-events: none; transition: color 0.15s; font-weight: normal; text-transform: none; letter-spacing: normal; }
       .sel-wrap select:focus ~ span { color: var(--primary-color); }
@@ -2326,7 +2325,7 @@ class HomeTasksCardEditor extends HTMLElement {
     titleInput.placeholder = this._t("ed_title_placeholder");
     titleInput.value = col.title || "";
     titleInput.style.width = "100%";
-    titleInput.addEventListener("input", (e) => updateCol({ title: e.target.value }));
+    titleInput.addEventListener("change", (e) => updateCol({ title: e.target.value }));
 
     // Icon picker
     const iconPicker = document.createElement("ha-icon-picker");
@@ -2379,9 +2378,11 @@ class HomeTasksCardEditor extends HTMLElement {
 
     const hint = this._el("span", { className: "hint", textContent: this._t("ed_hint") });
 
-    const makeSection = (icon, titleKey, nodes, open = true) => {
+    const makeSection = (icon, titleKey, nodes, defaultOpen = true) => {
       const det = document.createElement("details");
-      if (open) det.open = true;
+      const isOpen = titleKey in this._sectionOpen ? this._sectionOpen[titleKey] : defaultOpen;
+      if (isOpen) det.open = true;
+      det.addEventListener("toggle", () => { this._sectionOpen[titleKey] = det.open; });
       const sum = document.createElement("summary");
       const ico = document.createElement("ha-icon");
       ico.setAttribute("icon", icon);
@@ -2404,12 +2405,10 @@ class HomeTasksCardEditor extends HTMLElement {
     };
 
     return this._el("div", { className: "visual-editor" }, [
-      makeSection("mdi:format-list-checks", "ed_sec_content", [
-        this._el("div", { className: "field" }, [listWrap, hint]),
+      this._el("div", { className: "field" }, [listWrap, hint]),
+      makeSection("mdi:eye", "ed_sec_view", [
         this._el("div", { className: "field" }, [titleInput]),
         this._el("div", { className: "field" }, [iconPicker]),
-      ]),
-      makeSection("mdi:tune-variant", "ed_sec_view", [
         this._el("div", { className: "toggle-grid" }, [
           makeToggle("show-title", "ed_show_title", "show_title", true),
           makeToggle("show-progress", "ed_show_progress", "show_progress", true),
@@ -2420,7 +2419,7 @@ class HomeTasksCardEditor extends HTMLElement {
         this._el("div", { className: "field" }, [filterWrap]),
         this._el("div", { className: "field" }, [sortWrap]),
       ]),
-      makeSection("mdi:eye", "ed_sec_display", [
+      makeSection("mdi:tune", "ed_sec_display", [
         this._el("div", { className: "toggle-grid" }, [
           makeToggle("show-notes", "ed_show_notes", "show_notes", true),
           makeToggle("show-sub-items", "ed_show_sub_items", "show_sub_items", true),
