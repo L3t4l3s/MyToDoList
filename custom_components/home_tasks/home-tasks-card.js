@@ -2379,11 +2379,11 @@ class HomeTasksCardEditor extends HTMLElement {
       this._el("div", { className: "field" }, [titleInput]),
       this._el("div", { className: "field" }, [iconPicker]),
       this._el("div", { className: "toggle-grid" }, [
-        makeToggle("compact", "ed_compact", "compact", false),
         makeToggle("show-title", "ed_show_title", "show_title", true),
         makeToggle("show-progress", "ed_show_progress", "show_progress", true),
         makeToggle("auto-delete", "ed_auto_delete", "auto_delete_completed", false),
         makeToggle("show-sort", "ed_show_sort", "show_sort", true),
+        makeToggle("compact", "ed_compact", "compact", false),
       ]),
       this._el("div", { className: "field" }, [defaultFilterSelect]),
       this._el("div", { className: "field" }, [defaultSortSelect]),
