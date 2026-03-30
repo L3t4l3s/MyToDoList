@@ -2290,24 +2290,18 @@ class HomeTasksCardEditor extends HTMLElement {
     const listSelect = document.createElement("ha-select");
     listSelect.label = this._t("ed_list");
     listSelect.style.width = "100%";
-    if (!col.list_id) {
-      const emptyItem = document.createElement("mwc-list-item");
+    { const emptyItem = document.createElement("mwc-list-item");
       emptyItem.setAttribute("value", "");
-      emptyItem.selected = true;
       emptyItem.textContent = "\u2014";
-      listSelect.appendChild(emptyItem);
-    }
+      listSelect.appendChild(emptyItem); }
     for (const l of this._lists) {
       const item = document.createElement("mwc-list-item");
       item.setAttribute("value", l.id);
-      if (l.id === col.list_id) item.selected = true;
       item.textContent = l.name;
       listSelect.appendChild(item);
     }
-    listSelect.addEventListener("change", () => {
-      const v = listSelect.value;
-      if (v && v !== (col.list_id ?? "")) updateCol({ list_id: v });
-    });
+    setTimeout(() => { listSelect.value = col.list_id || ""; }, 0);
+    listSelect.addEventListener("change", () => { updateCol({ list_id: listSelect.value || undefined }); });
 
     // Title input
     const titleInput = document.createElement("ha-textfield");
@@ -2330,14 +2324,11 @@ class HomeTasksCardEditor extends HTMLElement {
     for (const [val, key] of [["all", "filter_all"], ["open", "filter_open"], ["done", "filter_done"]]) {
       const item = document.createElement("mwc-list-item");
       item.setAttribute("value", val);
-      if ((col.default_filter || "all") === val) item.selected = true;
       item.textContent = this._t(key);
       defaultFilterSelect.appendChild(item);
     }
-    defaultFilterSelect.addEventListener("change", () => {
-      const v = defaultFilterSelect.value;
-      if (v && v !== (col.default_filter || "all")) updateCol({ default_filter: v });
-    });
+    setTimeout(() => { defaultFilterSelect.value = col.default_filter || "all"; }, 0);
+    defaultFilterSelect.addEventListener("change", () => { updateCol({ default_filter: defaultFilterSelect.value }); });
 
     // Default sort select
     const defaultSortSelect = document.createElement("ha-select");
@@ -2349,14 +2340,11 @@ class HomeTasksCardEditor extends HTMLElement {
     ]) {
       const item = document.createElement("mwc-list-item");
       item.setAttribute("value", val);
-      if ((col.default_sort || "manual") === val) item.selected = true;
       item.textContent = this._t(key);
       defaultSortSelect.appendChild(item);
     }
-    defaultSortSelect.addEventListener("change", () => {
-      const v = defaultSortSelect.value;
-      if (v && v !== (col.default_sort || "manual")) updateCol({ default_sort: v });
-    });
+    setTimeout(() => { defaultSortSelect.value = col.default_sort || "manual"; }, 0);
+    defaultSortSelect.addEventListener("change", () => { updateCol({ default_sort: defaultSortSelect.value }); });
 
     // Toggle helper — uses ha-switch for native HA look
     const makeToggle = (_id, labelKey, configKey, defaultOn = true) => {
