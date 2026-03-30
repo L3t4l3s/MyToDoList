@@ -1878,14 +1878,13 @@ class HomeTasksCard extends HTMLElement {
       .recurrence-toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
       .recurrence-input-row { display: flex; align-items: flex-end; gap: 8px; }
       .recurrence-prefix { font-size: 13px; color: var(--todo-secondary-text); white-space: nowrap; }
-      .recurrence-weekday-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+      .recurrence-weekday-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 6px; }
       .weekday-label {
-        display: flex; flex-direction: column; align-items: center; gap: 3px;
-        font-size: 12px; color: var(--todo-secondary-text); cursor: pointer; user-select: none;
+        display: block; font-size: 12px; color: var(--todo-secondary-text); cursor: pointer; user-select: none;
       }
       .weekday-label input[type="checkbox"] { display: none; }
       .weekday-label span {
-        padding: 4px 7px; border-radius: 4px; border: 1px solid var(--todo-divider);
+        display: block; text-align: center; padding: 4px 2px; border-radius: 4px; border: 1px solid var(--todo-divider);
         background: var(--todo-bg); transition: background 0.15s, color 0.15s;
       }
       .weekday-label input[type="checkbox"]:checked + span {
