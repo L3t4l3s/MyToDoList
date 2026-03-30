@@ -16,7 +16,7 @@ from .const import (
     MAX_RECURRENCE_VALUE,
     MAX_REMINDER_OFFSET_MINUTES,
     MAX_REMINDERS_PER_TASK,
-    MAX_SUB_ITEMS_PER_TASK,
+    MAX_SUB_TASKS_PER_TASK,
     MAX_TAG_LENGTH,
     MAX_TAGS_PER_TASK,
     MAX_TASKS_PER_LIST,
@@ -307,7 +307,7 @@ class HomeTasksStore:
         return task
 
     async def async_reopen_task(self, task_id: str) -> dict:
-        """Reopen a completed task and reset its sub-items."""
+        """Reopen a completed task and reset its sub-tasks."""
         task = self.get_task(task_id)
         if not task.get("completed"):
             return task  # already open, nothing to do
@@ -359,26 +359,26 @@ class HomeTasksStore:
             self.on_task_created(task)
         return task
 
-    # --- Sub-item methods ---
+    # --- Sub-task methods ---
 
-    async def async_add_sub_item(self, task_id: str, title: str) -> dict:
-        """Add a sub-item to a task."""
-        title = validate_text(title, MAX_TITLE_LENGTH, "Sub-item title")
+    async def async_add_sub_task(self, task_id: str, title: str) -> dict:
+        """Add a sub-task to a task."""
+        title = validate_text(title, MAX_TITLE_LENGTH, "Sub-task title")
         task = self.get_task(task_id)
-        if len(task["sub_items"]) >= MAX_SUB_ITEMS_PER_TASK:
-            raise ValueError(f"Maximum number of sub-items ({MAX_SUB_ITEMS_PER_TASK}) reached")
-        sub_item = {"id": str(uuid.uuid4()), "title": title, "completed": False}
-        task["sub_items"].append(sub_item)
+        if len(task["sub_items"]) >= MAX_SUB_TASKS_PER_TASK:
+            raise ValueError(f"Maximum number of sub-tasks ({MAX_SUB_TASKS_PER_TASK}) reached")
+        sub_task = {"id": str(uuid.uuid4()), "title": title, "completed": False}
+        task["sub_items"].append(sub_task)
         await self._async_save()
-        return sub_item
+        return sub_task
 
-    async def async_update_sub_item(self, task_id: str, sub_item_id: str, **kwargs) -> dict:
-        """Update a sub-item."""
+    async def async_update_sub_task(self, task_id: str, sub_task_id: str, **kwargs) -> dict:
+        """Update a sub-task."""
         task = self.get_task(task_id)
         for sub in task["sub_items"]:
-            if sub["id"] == sub_item_id:
+            if sub["id"] == sub_task_id:
                 if "title" in kwargs:
-                    kwargs["title"] = validate_text(kwargs["title"], MAX_TITLE_LENGTH, "Sub-item title")
+                    kwargs["title"] = validate_text(kwargs["title"], MAX_TITLE_LENGTH, "Sub-task title")
                 if "completed" in kwargs and not isinstance(kwargs["completed"], bool):
                     raise ValueError("completed must be a boolean")
                 for key, value in kwargs.items():
@@ -386,13 +386,13 @@ class HomeTasksStore:
                         sub[key] = value
                 await self._async_save()
                 return sub
-        raise ValueError("Sub-item not found")
+        raise ValueError("Sub-task not found")
 
-    async def async_delete_sub_item(self, task_id: str, sub_item_id: str) -> None:
-        """Delete a sub-item."""
+    async def async_delete_sub_task(self, task_id: str, sub_task_id: str) -> None:
+        """Delete a sub-task."""
         task = self.get_task(task_id)
         original_len = len(task["sub_items"])
-        task["sub_items"] = [s for s in task["sub_items"] if s["id"] != sub_item_id]
+        task["sub_items"] = [s for s in task["sub_items"] if s["id"] != sub_task_id]
         if len(task["sub_items"]) == original_len:
-            raise ValueError("Sub-item not found")
+            raise ValueError("Sub-task not found")
         await self._async_save()

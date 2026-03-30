@@ -1,4 +1,4 @@
-"""WebSocket API for Home Tasks - extended features (sub-items, reorder)."""
+"""WebSocket API for Home Tasks - extended features (sub-tasks, reorder)."""
 
 import logging
 
@@ -26,9 +26,9 @@ def async_register_websocket_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_update_task)
     websocket_api.async_register_command(hass, ws_delete_task)
     websocket_api.async_register_command(hass, ws_reorder_tasks)
-    websocket_api.async_register_command(hass, ws_add_sub_item)
-    websocket_api.async_register_command(hass, ws_update_sub_item)
-    websocket_api.async_register_command(hass, ws_delete_sub_item)
+    websocket_api.async_register_command(hass, ws_add_sub_task)
+    websocket_api.async_register_command(hass, ws_update_sub_task)
+    websocket_api.async_register_command(hass, ws_delete_sub_task)
     websocket_api.async_register_command(hass, ws_move_task)
 
 
@@ -186,23 +186,23 @@ async def ws_reorder_tasks(hass, connection, msg):
         _handle_error(connection, msg["id"], err)
 
 
-# --- Sub-item commands ---
+# --- Sub-task commands ---
 
 
 @websocket_api.websocket_command(
     {
-        vol.Required("type"): "home_tasks/add_sub_item",
+        vol.Required("type"): "home_tasks/add_sub_task",
         vol.Required("list_id"): _val_id,
         vol.Required("task_id"): _val_id,
         vol.Required("title"): _val_title,
     }
 )
 @websocket_api.async_response
-async def ws_add_sub_item(hass, connection, msg):
-    """Add a sub-item."""
+async def ws_add_sub_task(hass, connection, msg):
+    """Add a sub-task."""
     try:
         store = _get_store(hass, msg["list_id"])
-        sub = await store.async_add_sub_item(msg["task_id"], msg["title"])
+        sub = await store.async_add_sub_task(msg["task_id"], msg["title"])
         connection.send_result(msg["id"], sub)
     except Exception as err:
         _handle_error(connection, msg["id"], err)
@@ -210,24 +210,24 @@ async def ws_add_sub_item(hass, connection, msg):
 
 @websocket_api.websocket_command(
     {
-        vol.Required("type"): "home_tasks/update_sub_item",
+        vol.Required("type"): "home_tasks/update_sub_task",
         vol.Required("list_id"): _val_id,
         vol.Required("task_id"): _val_id,
-        vol.Required("sub_item_id"): _val_id,
+        vol.Required("sub_task_id"): _val_id,
         vol.Optional("title"): _val_title,
         vol.Optional("completed"): bool,
     }
 )
 @websocket_api.async_response
-async def ws_update_sub_item(hass, connection, msg):
-    """Update a sub-item."""
+async def ws_update_sub_task(hass, connection, msg):
+    """Update a sub-task."""
     try:
         store = _get_store(hass, msg["list_id"])
         kwargs = {}
         for key in ("title", "completed"):
             if key in msg:
                 kwargs[key] = msg[key]
-        sub = await store.async_update_sub_item(msg["task_id"], msg["sub_item_id"], **kwargs)
+        sub = await store.async_update_sub_task(msg["task_id"], msg["sub_task_id"], **kwargs)
         connection.send_result(msg["id"], sub)
     except Exception as err:
         _handle_error(connection, msg["id"], err)
@@ -235,18 +235,18 @@ async def ws_update_sub_item(hass, connection, msg):
 
 @websocket_api.websocket_command(
     {
-        vol.Required("type"): "home_tasks/delete_sub_item",
+        vol.Required("type"): "home_tasks/delete_sub_task",
         vol.Required("list_id"): _val_id,
         vol.Required("task_id"): _val_id,
-        vol.Required("sub_item_id"): _val_id,
+        vol.Required("sub_task_id"): _val_id,
     }
 )
 @websocket_api.async_response
-async def ws_delete_sub_item(hass, connection, msg):
-    """Delete a sub-item."""
+async def ws_delete_sub_task(hass, connection, msg):
+    """Delete a sub-task."""
     try:
         store = _get_store(hass, msg["list_id"])
-        await store.async_delete_sub_item(msg["task_id"], msg["sub_item_id"])
+        await store.async_delete_sub_task(msg["task_id"], msg["sub_task_id"])
         connection.send_result(msg["id"])
     except Exception as err:
         _handle_error(connection, msg["id"], err)

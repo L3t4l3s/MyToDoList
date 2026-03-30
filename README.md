@@ -14,7 +14,7 @@ A feature-rich task management integration for [Home Assistant](https://www.home
 
 - **Multi-column card** — display multiple lists side-by-side with cross-list drag & drop
 - **Drag & drop** reordering (desktop and mobile)
-- **Sub-items** with progress tracking
+- **Sub-tasks** with progress tracking
 - **Notes** per task
 - **Due date & time** with overdue highlighting
 - **Reminders** — up to 5 per task, fire as HA events at a configurable offset before the due time
@@ -91,7 +91,7 @@ columns:
     compact: true
     auto_delete_completed: true
     show_notes: false
-    show_sub_items: false
+    show_sub_tasks: false
     show_assigned_person: false
     show_priority: false
     show_tags: false
@@ -119,7 +119,7 @@ columns:
 | `show_progress` | `true` | Show/hide the task progress counter |
 | `show_sort` | `true` | Show/hide the sort button |
 | `show_notes` | `true` | Show/hide the notes field |
-| `show_sub_items` | `true` | Show/hide sub-items |
+| `show_sub_tasks` | `true` | Show/hide sub-tasks |
 | `show_assigned_person` | `true` | Show/hide person assignment |
 | `show_priority` | `true` | Show/hide priority field and badge |
 | `show_tags` | `true` | Show/hide tags, badges, and filter chips |
@@ -168,7 +168,7 @@ columns:
     show_title: false
     show_progress: false
     show_notes: false
-    show_sub_items: false
+    show_sub_tasks: false
     show_assigned_person: false
     show_priority: false
     show_tags: false
@@ -185,7 +185,7 @@ columns:
   <img src="https://raw.githubusercontent.com/L3t4l3s/home-tasks/main/docs/usecase-work.png" width="500" alt="Work and projects list">
 </p>
 
-Focused on deadlines — priorities, due dates, reminders, and sub-items. Person assignment and recurrence hidden to reduce noise.
+Focused on deadlines — priorities, due dates, reminders, and sub-tasks. Person assignment and recurrence hidden to reduce noise.
 
 ```yaml
 type: custom:home-tasks-card
@@ -198,7 +198,7 @@ columns:
     show_priority: true
     show_due_date: true
     show_reminders: true
-    show_sub_items: true
+    show_sub_tasks: true
     show_notes: true
     show_assigned_person: false
     show_tags: false
@@ -228,7 +228,7 @@ columns:
     show_assigned_person: true
     show_tags: true
     show_notes: false
-    show_sub_items: false
+    show_sub_tasks: false
 ```
 
 ---

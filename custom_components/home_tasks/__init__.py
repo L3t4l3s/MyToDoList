@@ -259,7 +259,7 @@ def _schedule_recurrence(hass: HomeAssistant, entry_id: str, task: dict, complet
 
 
 async def _async_reopen_task(hass: HomeAssistant, entry_id: str, task_id: str) -> None:
-    """Reopen a recurring task and reset its sub-items."""
+    """Reopen a recurring task and reset its sub-tasks."""
     stores = hass.data.get(DOMAIN, {})
     store = stores.get(entry_id)
     if store is None:

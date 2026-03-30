@@ -1,6 +1,6 @@
 /**
  * Home Tasks Card for Home Assistant
- * A feature-rich todo list with drag & drop, sub-items, notes, and due dates.
+ * A feature-rich todo list with drag & drop, sub-tasks, notes, and due dates.
  *
  * Security: All user-controlled content is set via textContent or DOM properties,
  * never via innerHTML with unsanitized data.
@@ -20,8 +20,8 @@ const _TRANSLATIONS = {
     due_date: "Due",
     notes: "Notes",
     notes_placeholder: "Add notes here",
-    sub_items: "Sub-items",
-    add_sub_item: "+ Add sub-item",
+    sub_items: "Sub-tasks",
+    add_sub_item: "+ Add sub-task",
     recurrence: "Recurrence",
     recurrence_enabled: "Enabled",
     recurrence_every: "Every",
@@ -47,7 +47,7 @@ const _TRANSLATIONS = {
     ed_show_due_date: "Due date",
     ed_show_notes: "Notes",
     ed_show_recurrence: "Recurrence",
-    ed_show_sub_items: "Sub-items",
+    ed_show_sub_items: "Sub-tasks",
     ed_show_person: "Person",
     ed_auto_delete: "Delete completed immediately",
     ed_compact: "Compact",
@@ -57,7 +57,7 @@ const _TRANSLATIONS = {
     add_tag: "+ Add tag",
     tag_placeholder: "New tag...",
     remove_tag: "Remove",
-    new_sub_item: "New sub-item",
+    new_sub_item: "New sub-task",
     remove_reminder: "Remove reminder",
     sort_label: "Sort",
     sort_manual: "Manual",
@@ -107,8 +107,8 @@ const _TRANSLATIONS = {
     due_date: "F\u00e4lligkeit",
     notes: "Notizen",
     notes_placeholder: "Hier kannst du Notizen hinzuf\u00fcgen",
-    sub_items: "Unterpunkte",
-    add_sub_item: "+ Unterpunkt hinzuf\u00fcgen",
+    sub_items: "Unteraufgaben",
+    add_sub_item: "+ Unteraufgabe hinzuf\u00fcgen",
     recurrence: "Wiederholung",
     recurrence_enabled: "Aktiviert",
     recurrence_every: "Alle",
@@ -134,7 +134,7 @@ const _TRANSLATIONS = {
     ed_show_due_date: "F\u00e4lligkeit",
     ed_show_notes: "Notizen",
     ed_show_recurrence: "Wiederholung",
-    ed_show_sub_items: "Unterpunkte",
+    ed_show_sub_items: "Unteraufgaben",
     ed_show_person: "Person",
     ed_auto_delete: "Erledigte sofort l\u00f6schen",
     ed_compact: "Kompakt",
@@ -144,7 +144,7 @@ const _TRANSLATIONS = {
     add_tag: "+ Tag hinzuf\u00fcgen",
     tag_placeholder: "Neues Tag...",
     remove_tag: "Entfernen",
-    new_sub_item: "Neuer Unterpunkt",
+    new_sub_item: "Neue Unteraufgabe",
     remove_reminder: "Erinnerung entfernen",
     sort_label: "Sortierung",
     sort_manual: "Manuell",
@@ -205,7 +205,7 @@ class HomeTasksCard extends HTMLElement {
     this._columns = [];
     this._expandedTasks = new Set();
     this._editingTaskId = null;
-    this._editingSubItemId = null;
+    this._editingSubTaskId = null;
     this._draggedTaskId = null;
     this._draggedColIdx = null;
     this._touchClone = null;
@@ -470,47 +470,47 @@ class HomeTasksCard extends HTMLElement {
     await this._loadAllTasks();
   }
 
-  async _addSubItem(taskId, colIdx) {
-    const result = await this._callWs("home_tasks/add_sub_item", {
+  async _addSubTask(taskId, colIdx) {
+    const result = await this._callWs("home_tasks/add_sub_task", {
       list_id: this._colListId(colIdx),
       task_id: taskId,
       title: this._t("new_sub_item"),
     });
     if (result) {
-      this._editingSubItemId = result.id;
+      this._editingSubTaskId = result.id;
     }
     await this._loadAllTasks();
   }
 
-  async _toggleSubItem(taskId, subItemId, completed, colIdx) {
-    await this._callWs("home_tasks/update_sub_item", {
+  async _toggleSubTask(taskId, subItemId, completed, colIdx) {
+    await this._callWs("home_tasks/update_sub_task", {
       list_id: this._colListId(colIdx),
       task_id: taskId,
-      sub_item_id: subItemId,
+      sub_task_id: subItemId,
       completed: !completed,
     });
     await this._loadAllTasks();
   }
 
-  async _updateSubItemTitle(taskId, subItemId, title, colIdx) {
+  async _updateSubTaskTitle(taskId, subItemId, title, colIdx) {
     if (!title.trim()) return;
-    const result = await this._callWs("home_tasks/update_sub_item", {
+    const result = await this._callWs("home_tasks/update_sub_task", {
       list_id: this._colListId(colIdx),
       task_id: taskId,
-      sub_item_id: subItemId,
+      sub_task_id: subItemId,
       title: title.trim(),
     });
     if (result) {
-      this._editingSubItemId = null;
+      this._editingSubTaskId = null;
       await this._loadAllTasks();
     }
   }
 
-  async _deleteSubItem(taskId, subItemId, colIdx) {
-    await this._callWs("home_tasks/delete_sub_item", {
+  async _deleteSubTask(taskId, subItemId, colIdx) {
+    await this._callWs("home_tasks/delete_sub_task", {
       list_id: this._colListId(colIdx),
       task_id: taskId,
-      sub_item_id: subItemId,
+      sub_task_id: subItemId,
     });
     await this._loadAllTasks();
   }
@@ -603,7 +603,7 @@ class HomeTasksCard extends HTMLElement {
     return this._columns[colIdx].tasks.filter((t) => t.completed).length;
   }
 
-  _getSubItemProgress(task) {
+  _getSubTaskProgress(task) {
     if (!task.sub_items || task.sub_items.length === 0) return null;
     const done = task.sub_items.filter((s) => s.completed).length;
     return `${done}/${task.sub_items.length}`;
@@ -968,8 +968,8 @@ class HomeTasksCard extends HTMLElement {
         textContent: priLabels[task.priority],
       }));
     }
-    const subProgress = this._getSubItemProgress(task);
-    if (subProgress && col.show_sub_items !== false) {
+    const subProgress = this._getSubTaskProgress(task);
+    if (subProgress && (col.show_sub_tasks ?? col.show_sub_items) !== false) {
       metaChildren.push(this._el("span", { className: "sub-badge", textContent: subProgress }));
     }
     if (task.due_date && col.show_due_date !== false) {
@@ -1118,18 +1118,18 @@ class HomeTasksCard extends HTMLElement {
     ]);
     const notesSection = this._el("div", { className: "detail-section" }, [notesWrap]);
 
-    // Sub-items section
+    // Sub-tasks section
     const subChildren = [
       this._el("label", { className: "detail-label", textContent: this._t("sub_items") }),
     ];
     for (const sub of (task.sub_items || [])) {
-      subChildren.push(this._buildSubItem(task.id, sub, colIdx));
+      subChildren.push(this._buildSubTask(task.id, sub, colIdx));
     }
     const addSubBtn = this._el("button", {
       className: "add-sub-btn",
       textContent: this._t("add_sub_item"),
     });
-    addSubBtn.addEventListener("click", () => this._addSubItem(task.id, colIdx));
+    addSubBtn.addEventListener("click", () => this._addSubTask(task.id, colIdx));
     subChildren.push(addSubBtn);
     const subSection = this._el("div", { className: "detail-section" }, subChildren);
 
@@ -1446,7 +1446,7 @@ class HomeTasksCard extends HTMLElement {
 
     const details = [];
     if (col.show_notes !== false) details.push(notesSection);
-    if (col.show_sub_items !== false) details.push(subSection);
+    if ((col.show_sub_tasks ?? col.show_sub_items) !== false) details.push(subSection);
     if (col.show_assigned_person !== false) details.push(personSection);
     if (col.show_priority !== false) details.push(prioritySection);
     if (col.show_tags !== false) details.push(tagSection);
@@ -1457,12 +1457,12 @@ class HomeTasksCard extends HTMLElement {
     return this._el("div", { className: "task-details" }, details);
   }
 
-  _buildSubItem(taskId, sub, colIdx) {
-    const isEditing = this._editingSubItemId === sub.id;
+  _buildSubTask(taskId, sub, colIdx) {
+    const isEditing = this._editingSubTaskId === sub.id;
 
     const checkbox = this._el("input", { type: "checkbox", checked: sub.completed });
     checkbox.addEventListener("change", () =>
-      this._toggleSubItem(taskId, sub.id, sub.completed, colIdx)
+      this._toggleSubTask(taskId, sub.id, sub.completed, colIdx)
     );
     const checkmark = this._el("span", { className: "checkmark" });
     const label = this._el("label", { className: "checkbox-container small" }, [
@@ -1479,12 +1479,12 @@ class HomeTasksCard extends HTMLElement {
       titleEl.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
           e.preventDefault();
-          this._editingSubItemId = null;  // clear BEFORE calling so blur skips
-          this._updateSubItemTitle(taskId, sub.id, titleEl.value, colIdx);
-        } else if (e.key === "Escape") { this._editingSubItemId = null; this._render(); }
+          this._editingSubTaskId = null;  // clear BEFORE calling so blur skips
+          this._updateSubTaskTitle(taskId, sub.id, titleEl.value, colIdx);
+        } else if (e.key === "Escape") { this._editingSubTaskId = null; this._render(); }
       });
       titleEl.addEventListener("blur", () => {
-        if (this._editingSubItemId === sub.id) this._updateSubItemTitle(taskId, sub.id, titleEl.value, colIdx);
+        if (this._editingSubTaskId === sub.id) this._updateSubTaskTitle(taskId, sub.id, titleEl.value, colIdx);
       });
       setTimeout(() => { titleEl.focus(); titleEl.select(); }, 0);
     } else {
@@ -1492,7 +1492,7 @@ class HomeTasksCard extends HTMLElement {
       if (sub.completed) subCls += " completed";
       titleEl = this._el("span", { className: subCls, textContent: sub.title });
       titleEl.addEventListener("dblclick", () => {
-        this._editingSubItemId = sub.id;
+        this._editingSubTaskId = sub.id;
         this._render();
       });
     }
@@ -1502,9 +1502,9 @@ class HomeTasksCard extends HTMLElement {
       title: this._t("delete_sub"),
       textContent: "\u00D7",
     });
-    deleteBtn.addEventListener("click", () => this._deleteSubItem(taskId, sub.id, colIdx));
+    deleteBtn.addEventListener("click", () => this._deleteSubTask(taskId, sub.id, colIdx));
 
-    return this._el("div", { className: "sub-item" }, [label, titleEl, deleteBtn]);
+    return this._el("div", { className: "sub-task" }, [label, titleEl, deleteBtn]);
   }
 
   // --- Drag & Drop ---
@@ -1920,7 +1920,7 @@ class HomeTasksCard extends HTMLElement {
       }
       .due-input-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
       .field-wrap { position: relative; width: 100%; }
-      .field-wrap input, .field-wrap textarea { width: 100%; box-sizing: border-box; padding: 20px 12px 6px; border: 1px solid var(--outline-color, var(--divider-color, rgba(255,255,255,0.12))); border-radius: 4px; background: var(--secondary-background-color, transparent); color: var(--primary-text-color); font-size: 0.875rem; font-family: inherit; outline: none; }
+      .field-wrap input, .field-wrap textarea { width: 100%; box-sizing: border-box; padding: 20px 12px 6px; border: 1px solid var(--outline-color, var(--divider-color, rgba(255,255,255,0.12))); border-radius: 4px; background: var(--mdc-text-field-fill-color, var(--input-fill-color, transparent)); color: var(--primary-text-color); font-size: 0.875rem; font-family: inherit; outline: none; }
       .field-wrap input:focus, .field-wrap textarea:focus { border: 2px solid var(--primary-color); padding: 19px 11px 5px; }
       .field-wrap input:disabled, .field-wrap textarea:disabled { opacity: 0.4; }
       .field-wrap textarea { resize: vertical; min-height: 60px; }
@@ -1930,7 +1930,7 @@ class HomeTasksCard extends HTMLElement {
       .field-wrap.inline input { padding: 16px 8px 4px; }
       .field-wrap.inline > span { top: 4px; left: 8px; }
       .sel-wrap { position: relative; width: 100%; }
-      .sel-wrap select { width: 100%; height: 48px; padding: 18px 32px 4px 12px; border: 1px solid var(--outline-color, var(--divider-color, rgba(255,255,255,0.12))); border-radius: 4px; background: var(--secondary-background-color, transparent); color: var(--primary-text-color); font-size: 0.875rem; font-family: inherit; appearance: none; -webkit-appearance: none; cursor: pointer; outline: none; box-sizing: border-box; }
+      .sel-wrap select { width: 100%; height: 48px; padding: 18px 32px 4px 12px; border: 1px solid var(--outline-color, var(--divider-color, rgba(255,255,255,0.12))); border-radius: 4px; background: var(--mdc-text-field-fill-color, var(--input-fill-color, transparent)); color: var(--primary-text-color); font-size: 0.875rem; font-family: inherit; appearance: none; -webkit-appearance: none; cursor: pointer; outline: none; box-sizing: border-box; }
       .sel-wrap select:focus { border: 2px solid var(--primary-color); padding: 17px 31px 3px 11px; }
       .sel-wrap select:disabled { opacity: 0.4; cursor: default; }
       .sel-wrap > span { position: absolute; top: 6px; left: 12px; font-size: 11px; font-weight: 600; color: var(--secondary-text-color); text-transform: uppercase; letter-spacing: 0.5px; pointer-events: none; }
@@ -1938,7 +1938,7 @@ class HomeTasksCard extends HTMLElement {
       .sel-wrap.inline { flex: 1; width: auto; }
       .sel-wrap.inline select { height: 40px; padding: 14px 28px 4px 10px; }
       .sel-wrap.inline > span { top: 4px; left: 10px; font-size: 10px; }
-      .sub-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+      .sub-task { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
       .sub-title {
         flex: 1; font-size: 13px; color: var(--todo-text); cursor: default;
         min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -2180,7 +2180,7 @@ class HomeTasksCardEditor extends HTMLElement {
       ha-textfield { width: 100%; }
       ha-icon-picker { width: 100%; }
       .sel-wrap { position: relative; width: 100%; }
-      .sel-wrap select { width: 100%; height: 56px; padding: 26px 36px 6px 16px; border: 1px solid var(--outline-color, var(--divider-color, rgba(255,255,255,0.12))); border-radius: 4px; background: var(--secondary-background-color, var(--card-background-color, transparent)); color: var(--primary-text-color); font-size: 1rem; font-family: inherit; appearance: none; -webkit-appearance: none; cursor: pointer; outline: none; box-sizing: border-box; }
+      .sel-wrap select { width: 100%; height: 56px; padding: 26px 36px 6px 16px; border: 1px solid var(--outline-color, var(--divider-color, rgba(255,255,255,0.12))); border-radius: 4px; background: var(--mdc-text-field-fill-color, var(--input-fill-color, transparent)); color: var(--primary-text-color); font-size: 1rem; font-family: inherit; appearance: none; -webkit-appearance: none; cursor: pointer; outline: none; box-sizing: border-box; }
       .sel-wrap select:focus { border: 2px solid var(--primary-color); padding-left: 15px; padding-top: 25px; padding-bottom: 5px; }
       .sel-wrap > span { position: absolute; top: 8px; left: 16px; font-size: 12px; color: var(--secondary-text-color); pointer-events: none; transition: color 0.15s; font-weight: normal; text-transform: none; letter-spacing: normal; }
       .sel-wrap select:focus ~ span { color: var(--primary-color); }
@@ -2467,7 +2467,7 @@ class HomeTasksCardEditor extends HTMLElement {
       makeSection("config", "mdi:tune", "ed_sec_display", [
         this._el("div", { className: "toggle-grid" }, [
           makeToggle("show-notes", "ed_show_notes", "show_notes", true),
-          makeToggle("show-sub-items", "ed_show_sub_items", "show_sub_items", true),
+          makeToggle("show-sub-tasks", "ed_show_sub_items", "show_sub_tasks", true),
           makeToggle("show-person", "ed_show_person", "show_assigned_person", true),
           makeToggle("show-priority", "ed_show_priority", "show_priority", true),
           makeToggle("show-tags", "ed_show_tags", "show_tags", true),
@@ -2523,6 +2523,6 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "home-tasks-card",
   name: "Home Tasks",
-  description: "A feature-rich todo list with drag & drop, sub-items, notes, and due dates.",
+  description: "A feature-rich todo list with drag & drop, sub-tasks, notes, and due dates.",
   preview: true,
 });
