@@ -278,6 +278,12 @@ class HomeTasksCard extends HTMLElement {
         this._columns[i].tagFilters = new Set();
         this._columns[i].personFilters = new Set();
       }
+      if (col.show_tags === false && prevCol?.show_tags !== false) {
+        this._columns[i].tagFilters = new Set();
+      }
+      if (col.show_assigned_person === false && prevCol?.show_assigned_person !== false) {
+        this._columns[i].personFilters = new Set();
+      }
       if (col.list_id !== prevCol?.list_id || col.default_sort !== prevCol?.default_sort) {
         this._columns[i].sortBy = col.default_sort || "manual";
       }
@@ -1667,7 +1673,7 @@ class HomeTasksCard extends HTMLElement {
   // --- Drag & Drop ---
 
   _getOrderFromDom(colIdx) {
-    const taskList = this.shadowRoot.querySelector(`.task-list[data-col-idx="${colIdx}"]`);
+    const taskList = this.shadowRoot.querySelector(`.task-list[data-col-idx="${CSS.escape(String(colIdx))}"]`);
     if (!taskList) return [];
     return Array.from(taskList.querySelectorAll(".task")).map((el) => el.dataset.taskId);
   }
@@ -2218,6 +2224,8 @@ class HomeTasksCard extends HTMLElement {
       document.removeEventListener("click", this._sortCloseHandler);
       this._sortCloseHandler = null;
     }
+    if (this._touchStartTimer) { clearTimeout(this._touchStartTimer); this._touchStartTimer = null; }
+    if (this._subTouchStartTimer) { clearTimeout(this._subTouchStartTimer); this._subTouchStartTimer = null; }
   }
 
   static getConfigElement() {
