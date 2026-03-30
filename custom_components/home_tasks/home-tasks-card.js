@@ -1982,8 +1982,6 @@ class HomeTasksCardEditor extends HTMLElement {
     this._listsLoaded = false;
     this._editorTab = 0;
     this._editorCodeMode = {};  // { tabIdx: bool }
-    this._editorCodeText = {};  // { tabIdx: string }
-    this._editorCodeError = {}; // { tabIdx: string }
   }
 
   _t(key, ...args) {
@@ -2070,8 +2068,6 @@ class HomeTasksCardEditor extends HTMLElement {
 
   _clearCodeState() {
     this._editorCodeMode = {};
-    this._editorCodeText = {};
-    this._editorCodeError = {};
   }
 
   _render() {
@@ -2100,12 +2096,13 @@ class HomeTasksCardEditor extends HTMLElement {
       .editor-tab.active { color: var(--primary-color); border-bottom: 3px solid var(--primary-color); }
       .editor-tab:hover:not(.active) { color: var(--primary-text-color); background: var(--secondary-background-color); }
       .editor-tab-add {
-        height: 40px; padding: 0 12px; border: none; background: transparent;
-        cursor: pointer; color: var(--secondary-text-color); font-size: 20px; font-family: inherit;
-        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-        transition: color 0.15s;
+        width: 36px; height: 36px; border-radius: 50%; border: none;
+        background: transparent; cursor: pointer;
+        display: inline-flex; align-items: center; justify-content: center;
+        color: var(--secondary-text-color); flex-shrink: 0; padding: 0; margin-left: 4px;
+        transition: background 0.15s, color 0.15s;
       }
-      .editor-tab-add:hover { color: var(--primary-color); }
+      .editor-tab-add:hover { background: var(--secondary-background-color); color: var(--primary-color); }
       .editor-col-controls {
         display: flex; gap: 0; align-items: center;
         padding: 4px 0 8px; margin-bottom: 8px;
@@ -2127,34 +2124,11 @@ class HomeTasksCardEditor extends HTMLElement {
       label { font-size: 12px; font-weight: 500; color: var(--secondary-text-color); text-transform: uppercase; letter-spacing: 0.5px; }
       ha-textfield { width: 100%; }
       ha-icon-picker { width: 100%; }
-      .select-wrapper { position: relative; }
-      .select-wrapper::after {
-        content: ""; pointer-events: none; position: absolute; right: 14px; top: 50%;
-        transform: translateY(-50%); width: 0; height: 0;
-        border-left: 5px solid transparent; border-right: 5px solid transparent;
-        border-top: 6px solid var(--secondary-text-color);
-      }
-      select {
-        width: 100%; padding: 10px 36px 10px 14px;
-        border: 1px solid var(--divider-color, #e0e0e0); border-radius: 4px;
-        font-size: 14px; background: var(--card-background-color, #fff);
-        color: var(--primary-text-color); font-family: inherit;
-        appearance: none; -webkit-appearance: none; cursor: pointer;
-        outline: none; transition: border-color 0.15s;
-      }
-      select:focus { border-color: var(--primary-color); border-width: 2px; padding: 9px 35px 9px 13px; }
+      ha-select { width: 100%; }
       .hint { font-size: 12px; color: var(--secondary-text-color); font-style: italic; margin-top: 2px; }
       .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; min-height: 40px; }
       .toggle-label { font-size: 14px; color: var(--primary-text-color); }
-      .code-editor-wrapper { display: flex; flex-direction: column; gap: 6px; }
-      .code-editor-textarea {
-        width: 100%; min-height: 320px; padding: 10px; border: 1px solid var(--divider-color);
-        border-radius: 4px; font-family: monospace; font-size: 12px;
-        background: var(--secondary-background-color); color: var(--primary-text-color);
-        box-sizing: border-box; resize: vertical; outline: none;
-      }
-      .code-editor-textarea:focus { border-color: var(--primary-color); }
-      .code-editor-error { color: var(--error-color, #db4437); font-size: 12px; }
+      ha-yaml-editor { display: block; }
     `;
     root.appendChild(style);
 
@@ -2228,7 +2202,6 @@ class HomeTasksCardEditor extends HTMLElement {
       isCodeMode ? this._t("ed_visual_editor") : this._t("ed_code_editor"),
       isCodeMode ? "active" : "",
       () => {
-        if (!isCodeMode) this._editorCodeText[activeTab] = JSON.stringify(cols[activeTab], null, 2);
         this._editorCodeMode[activeTab] = !isCodeMode;
         this._render();
       }
@@ -2289,43 +2262,19 @@ class HomeTasksCardEditor extends HTMLElement {
   }
 
   _buildCodeEditor(tabIdx) {
-    const col = this._config.columns[tabIdx];
-    const text = this._editorCodeText[tabIdx] !== undefined
-      ? this._editorCodeText[tabIdx]
-      : JSON.stringify(col, null, 2);
-
-    const textarea = this._el("textarea", { className: "code-editor-textarea" });
-    textarea.value = text;
-
-    textarea.addEventListener("input", () => {
-      this._editorCodeText[tabIdx] = textarea.value;
-      this._editorCodeError[tabIdx] = "";
-    });
-
-    textarea.addEventListener("blur", () => {
-      try {
-        const parsed = JSON.parse(textarea.value);
-        if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-          throw new Error("Must be a JSON object");
-        }
+    const col = this._config.columns[tabIdx] || {};
+    const editor = document.createElement("ha-yaml-editor");
+    editor.defaultValue = col;
+    editor.addEventListener("value-changed", (e) => {
+      const val = e.detail.value;
+      if (val !== undefined && typeof val === "object" && !Array.isArray(val)) {
         const newCols = [...this._config.columns];
-        newCols[tabIdx] = parsed;
+        newCols[tabIdx] = val;
         this._config = { ...this._config, columns: newCols };
-        this._editorCodeText[tabIdx] = textarea.value;
-        this._editorCodeError[tabIdx] = "";
         this._fireChanged();
-      } catch (e) {
-        this._editorCodeError[tabIdx] = e.message;
       }
-      this._render();
     });
-
-    const children = [textarea];
-    const errMsg = this._editorCodeError[tabIdx];
-    if (errMsg) {
-      children.push(this._el("span", { className: "code-editor-error", textContent: errMsg }));
-    }
-    return this._el("div", { className: "code-editor-wrapper" }, children);
+    return editor;
   }
 
   _buildVisualEditor(tabIdx) {
@@ -2339,19 +2288,26 @@ class HomeTasksCardEditor extends HTMLElement {
     };
 
     // List select
-    const listSelect = this._el("select", { id: `list-select-${tabIdx}` });
+    const listSelect = document.createElement("ha-select");
+    listSelect.label = this._t("ed_list");
+    listSelect.style.width = "100%";
     if (!col.list_id) {
-      listSelect.appendChild(this._el("option", { value: "", selected: true, textContent: "\u2014 " + this._t("ed_list") + " \u2014" }));
+      const emptyItem = document.createElement("mwc-list-item");
+      emptyItem.setAttribute("value", "");
+      emptyItem.selected = true;
+      emptyItem.textContent = "\u2014";
+      listSelect.appendChild(emptyItem);
     }
     for (const l of this._lists) {
-      const option = this._el("option", {
-        value: l.id,
-        selected: l.id === col.list_id,
-        textContent: l.name,
-      });
-      listSelect.appendChild(option);
+      const item = document.createElement("mwc-list-item");
+      item.setAttribute("value", l.id);
+      if (l.id === col.list_id) item.selected = true;
+      item.textContent = l.name;
+      listSelect.appendChild(item);
     }
-    listSelect.addEventListener("change", () => updateCol({ list_id: listSelect.value }));
+    listSelect.addEventListener("selected", () => {
+      if (listSelect.value) updateCol({ list_id: listSelect.value });
+    });
 
     // Title input
     const titleInput = document.createElement("ha-textfield");
@@ -2368,25 +2324,33 @@ class HomeTasksCardEditor extends HTMLElement {
     iconPicker.addEventListener("value-changed", (e) => updateCol({ icon: e.detail.value || undefined }));
 
     // Default filter select
-    const defaultFilterSelect = this._el("select");
+    const defaultFilterSelect = document.createElement("ha-select");
+    defaultFilterSelect.label = this._t("ed_default_filter");
+    defaultFilterSelect.style.width = "100%";
     for (const [val, key] of [["all", "filter_all"], ["open", "filter_open"], ["done", "filter_done"]]) {
-      const opt = this._el("option", { value: val, textContent: this._t(key) });
-      if ((col.default_filter || "all") === val) opt.selected = true;
-      defaultFilterSelect.appendChild(opt);
+      const item = document.createElement("mwc-list-item");
+      item.setAttribute("value", val);
+      if ((col.default_filter || "all") === val) item.selected = true;
+      item.textContent = this._t(key);
+      defaultFilterSelect.appendChild(item);
     }
-    defaultFilterSelect.addEventListener("change", () => updateCol({ default_filter: defaultFilterSelect.value }));
+    defaultFilterSelect.addEventListener("selected", () => updateCol({ default_filter: defaultFilterSelect.value }));
 
     // Default sort select
-    const defaultSortSelect = this._el("select");
+    const defaultSortSelect = document.createElement("ha-select");
+    defaultSortSelect.label = this._t("ed_default_sort");
+    defaultSortSelect.style.width = "100%";
     for (const [val, key] of [
       ["manual", "sort_manual"], ["due", "sort_due"], ["priority", "sort_priority"],
       ["title", "sort_title"], ["person", "sort_person"],
     ]) {
-      const opt = this._el("option", { value: val, textContent: this._t(key) });
-      if ((col.default_sort || "manual") === val) opt.selected = true;
-      defaultSortSelect.appendChild(opt);
+      const item = document.createElement("mwc-list-item");
+      item.setAttribute("value", val);
+      if ((col.default_sort || "manual") === val) item.selected = true;
+      item.textContent = this._t(key);
+      defaultSortSelect.appendChild(item);
     }
-    defaultSortSelect.addEventListener("change", () => updateCol({ default_sort: defaultSortSelect.value }));
+    defaultSortSelect.addEventListener("selected", () => updateCol({ default_sort: defaultSortSelect.value }));
 
     // Toggle helper — uses ha-switch for native HA look
     const makeToggle = (_id, labelKey, configKey, defaultOn = true) => {
@@ -2403,21 +2367,11 @@ class HomeTasksCardEditor extends HTMLElement {
     const hint = this._el("span", { className: "hint", textContent: this._t("ed_hint") });
 
     return this._el("div", { className: "visual-editor" }, [
-      this._el("div", { className: "field" }, [
-        this._el("label", { textContent: this._t("ed_list") }),
-        this._el("div", { className: "select-wrapper" }, [listSelect]),
-        hint,
-      ]),
+      this._el("div", { className: "field" }, [listSelect, hint]),
       this._el("div", { className: "field" }, [titleInput]),
       this._el("div", { className: "field" }, [iconPicker]),
-      this._el("div", { className: "field" }, [
-        this._el("label", { textContent: this._t("ed_default_filter") }),
-        this._el("div", { className: "select-wrapper" }, [defaultFilterSelect]),
-      ]),
-      this._el("div", { className: "field" }, [
-        this._el("label", { textContent: this._t("ed_default_sort") }),
-        this._el("div", { className: "select-wrapper" }, [defaultSortSelect]),
-      ]),
+      this._el("div", { className: "field" }, [defaultFilterSelect]),
+      this._el("div", { className: "field" }, [defaultSortSelect]),
       this._el("div", { className: "field" }, [
         this._el("label", { textContent: this._t("ed_display") }),
         makeToggle("compact", "ed_compact", "compact", false),
