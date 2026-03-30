@@ -2115,10 +2115,12 @@ class HomeTasksCardEditor extends HTMLElement {
         color: var(--secondary-text-color); flex-shrink: 0; padding: 0;
         transition: background 0.15s, color 0.15s;
       }
-      .icon-btn:hover { background: var(--secondary-background-color); }
+      .icon-btn:hover:not(:disabled) { background: var(--secondary-background-color); }
       .icon-btn.active { color: var(--primary-color); }
       .icon-btn.del { color: var(--error-color, #db4437); }
+      .icon-btn:disabled { opacity: 0.3; cursor: default; }
       .icon-btn-spacer { flex: 1; }
+      .toggle-grid { display: grid; grid-template-columns: 1fr 1fr; }
       .visual-editor { display: flex; flex-direction: column; gap: 16px; }
       .field { display: flex; flex-direction: column; gap: 6px; }
       label { font-size: 12px; font-weight: 500; color: var(--secondary-text-color); text-transform: uppercase; letter-spacing: 0.5px; }
@@ -2185,10 +2187,11 @@ class HomeTasksCardEditor extends HTMLElement {
     const isCodeMode = this._editorCodeMode[activeTab] === true;
     const controls = this._el("div", { className: "editor-col-controls" });
 
-    const makeIconBtn = (icon, label, cls, handler) => {
+    const makeIconBtn = (icon, label, cls, handler, disabled = false) => {
       const btn = document.createElement("button");
       btn.className = "icon-btn" + (cls ? " " + cls : "");
       btn.title = label;
+      btn.disabled = disabled;
       const haIcon = document.createElement("ha-icon");
       haIcon.setAttribute("icon", icon);
       haIcon.style.setProperty("--mdc-icon-size", "20px");
@@ -2210,29 +2213,27 @@ class HomeTasksCardEditor extends HTMLElement {
     _btnSpacer.className = "icon-btn-spacer";
     controls.appendChild(_btnSpacer);
 
+    // Left/right arrows always visible; disabled when not applicable
+    controls.appendChild(makeIconBtn("mdi:arrow-left", this._t("ed_move_left"), "", () => {
+      this._clearCodeState();
+      const newCols = [...cols];
+      [newCols[activeTab - 1], newCols[activeTab]] = [newCols[activeTab], newCols[activeTab - 1]];
+      this._config = { ...this._config, columns: newCols };
+      this._editorTab = activeTab - 1;
+      this._fireChanged();
+      this._render();
+    }, cols.length < 2 || activeTab === 0));
+    controls.appendChild(makeIconBtn("mdi:arrow-right", this._t("ed_move_right"), "", () => {
+      this._clearCodeState();
+      const newCols = [...cols];
+      [newCols[activeTab], newCols[activeTab + 1]] = [newCols[activeTab + 1], newCols[activeTab]];
+      this._config = { ...this._config, columns: newCols };
+      this._editorTab = activeTab + 1;
+      this._fireChanged();
+      this._render();
+    }, cols.length < 2 || activeTab === cols.length - 1));
+
     if (cols.length > 1) {
-      if (activeTab > 0) {
-        controls.appendChild(makeIconBtn("mdi:arrow-left", this._t("ed_move_left"), "", () => {
-          this._clearCodeState();
-          const newCols = [...cols];
-          [newCols[activeTab - 1], newCols[activeTab]] = [newCols[activeTab], newCols[activeTab - 1]];
-          this._config = { ...this._config, columns: newCols };
-          this._editorTab = activeTab - 1;
-          this._fireChanged();
-          this._render();
-        }));
-      }
-      if (activeTab < cols.length - 1) {
-        controls.appendChild(makeIconBtn("mdi:arrow-right", this._t("ed_move_right"), "", () => {
-          this._clearCodeState();
-          const newCols = [...cols];
-          [newCols[activeTab], newCols[activeTab + 1]] = [newCols[activeTab + 1], newCols[activeTab]];
-          this._config = { ...this._config, columns: newCols };
-          this._editorTab = activeTab + 1;
-          this._fireChanged();
-          this._render();
-        }));
-      }
       controls.appendChild(makeIconBtn("mdi:content-copy", this._t("ed_duplicate"), "", () => {
         this._clearCodeState();
         const newCols = [...cols];
@@ -2306,7 +2307,8 @@ class HomeTasksCardEditor extends HTMLElement {
       listSelect.appendChild(item);
     }
     listSelect.addEventListener("selected", () => {
-      if (listSelect.value) updateCol({ list_id: listSelect.value });
+      const v = listSelect.value;
+      if (v && v !== (col.list_id ?? "")) updateCol({ list_id: v });
     });
 
     // Title input
@@ -2334,7 +2336,10 @@ class HomeTasksCardEditor extends HTMLElement {
       item.textContent = this._t(key);
       defaultFilterSelect.appendChild(item);
     }
-    defaultFilterSelect.addEventListener("selected", () => updateCol({ default_filter: defaultFilterSelect.value }));
+    defaultFilterSelect.addEventListener("selected", () => {
+      const v = defaultFilterSelect.value;
+      if (v && v !== (col.default_filter || "all")) updateCol({ default_filter: v });
+    });
 
     // Default sort select
     const defaultSortSelect = document.createElement("ha-select");
@@ -2350,7 +2355,10 @@ class HomeTasksCardEditor extends HTMLElement {
       item.textContent = this._t(key);
       defaultSortSelect.appendChild(item);
     }
-    defaultSortSelect.addEventListener("selected", () => updateCol({ default_sort: defaultSortSelect.value }));
+    defaultSortSelect.addEventListener("selected", () => {
+      const v = defaultSortSelect.value;
+      if (v && v !== (col.default_sort || "manual")) updateCol({ default_sort: v });
+    });
 
     // Toggle helper — uses ha-switch for native HA look
     const makeToggle = (_id, labelKey, configKey, defaultOn = true) => {
@@ -2370,14 +2378,17 @@ class HomeTasksCardEditor extends HTMLElement {
       this._el("div", { className: "field" }, [listSelect, hint]),
       this._el("div", { className: "field" }, [titleInput]),
       this._el("div", { className: "field" }, [iconPicker]),
+      this._el("div", { className: "toggle-grid" }, [
+        makeToggle("compact", "ed_compact", "compact", false),
+        makeToggle("show-title", "ed_show_title", "show_title", true),
+        makeToggle("show-progress", "ed_show_progress", "show_progress", true),
+        makeToggle("auto-delete", "ed_auto_delete", "auto_delete_completed", false),
+        makeToggle("show-sort", "ed_show_sort", "show_sort", true),
+      ]),
       this._el("div", { className: "field" }, [defaultFilterSelect]),
       this._el("div", { className: "field" }, [defaultSortSelect]),
       this._el("div", { className: "field" }, [
         this._el("label", { textContent: this._t("ed_display") }),
-        makeToggle("compact", "ed_compact", "compact", false),
-        makeToggle("show-title", "ed_show_title", "show_title", true),
-        makeToggle("show-progress", "ed_show_progress", "show_progress", true),
-        makeToggle("show-sort", "ed_show_sort", "show_sort", true),
         makeToggle("show-notes", "ed_show_notes", "show_notes", true),
         makeToggle("show-sub-items", "ed_show_sub_items", "show_sub_items", true),
         makeToggle("show-person", "ed_show_person", "show_assigned_person", true),
@@ -2386,7 +2397,6 @@ class HomeTasksCardEditor extends HTMLElement {
         makeToggle("show-due-date", "ed_show_due_date", "show_due_date", true),
         makeToggle("show-reminders", "ed_show_reminders", "show_reminders", true),
         makeToggle("show-recurrence", "ed_show_recurrence", "show_recurrence", true),
-        makeToggle("auto-delete", "ed_auto_delete", "auto_delete_completed", false),
       ]),
     ]);
   }
