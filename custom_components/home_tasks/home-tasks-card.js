@@ -2120,7 +2120,7 @@ class HomeTasksCardEditor extends HTMLElement {
       .icon-btn.del { color: var(--error-color, #db4437); }
       .icon-btn:disabled { opacity: 0.3; cursor: default; }
       .icon-btn-spacer { flex: 1; }
-      .toggle-grid { display: grid; grid-template-columns: 1fr 1fr; }
+      .toggle-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 16px; }
       .visual-editor { display: flex; flex-direction: column; gap: 16px; }
       .field { display: flex; flex-direction: column; gap: 6px; }
       label { font-size: 12px; font-weight: 500; color: var(--secondary-text-color); text-transform: uppercase; letter-spacing: 0.5px; }
@@ -2306,7 +2306,7 @@ class HomeTasksCardEditor extends HTMLElement {
       item.textContent = l.name;
       listSelect.appendChild(item);
     }
-    listSelect.addEventListener("selected", () => {
+    listSelect.addEventListener("change", () => {
       const v = listSelect.value;
       if (v && v !== (col.list_id ?? "")) updateCol({ list_id: v });
     });
@@ -2336,7 +2336,7 @@ class HomeTasksCardEditor extends HTMLElement {
       item.textContent = this._t(key);
       defaultFilterSelect.appendChild(item);
     }
-    defaultFilterSelect.addEventListener("selected", () => {
+    defaultFilterSelect.addEventListener("change", () => {
       const v = defaultFilterSelect.value;
       if (v && v !== (col.default_filter || "all")) updateCol({ default_filter: v });
     });
@@ -2355,7 +2355,7 @@ class HomeTasksCardEditor extends HTMLElement {
       item.textContent = this._t(key);
       defaultSortSelect.appendChild(item);
     }
-    defaultSortSelect.addEventListener("selected", () => {
+    defaultSortSelect.addEventListener("change", () => {
       const v = defaultSortSelect.value;
       if (v && v !== (col.default_sort || "manual")) updateCol({ default_sort: v });
     });
