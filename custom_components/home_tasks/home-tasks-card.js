@@ -87,6 +87,9 @@ const _TRANSLATIONS = {
     ed_icon: "Icon (optional)",
     ed_card_title: "Card title (optional)",
     ed_card_title_placeholder: "Title shown above columns",
+    ed_sec_content: "Content",
+    ed_sec_view: "View",
+    ed_sec_display: "Display",
   },
   de: {
     my_tasks: "Meine Aufgaben",
@@ -167,6 +170,9 @@ const _TRANSLATIONS = {
     ed_icon: "Symbol (optional)",
     ed_card_title: "Kartentitel (optional)",
     ed_card_title_placeholder: "Titel \u00fcber den Spalten",
+    ed_sec_content: "Inhalt",
+    ed_sec_view: "Ansicht",
+    ed_sec_display: "Darstellung",
   },
 };
 
@@ -2119,8 +2125,15 @@ class HomeTasksCardEditor extends HTMLElement {
       .icon-btn:disabled { opacity: 0.3; cursor: default; }
       .icon-btn-spacer { flex: 1; }
       .toggle-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 16px; }
-      .visual-editor { display: flex; flex-direction: column; gap: 16px; }
+      .visual-editor { display: flex; flex-direction: column; }
       .field { display: flex; flex-direction: column; gap: 6px; }
+      details { border-top: 1px solid var(--divider-color, rgba(255,255,255,0.12)); }
+      details:last-child { border-bottom: 1px solid var(--divider-color, rgba(255,255,255,0.12)); }
+      summary { display: flex; align-items: center; gap: 8px; padding: 14px 0; cursor: pointer; font-size: 14px; font-weight: 500; color: var(--primary-text-color); user-select: none; list-style: none; }
+      summary::-webkit-details-marker { display: none; }
+      .sum-chevron { margin-left: auto; display: inline-flex; transition: transform 0.2s; color: var(--secondary-text-color); }
+      details[open] .sum-chevron { transform: rotate(180deg); }
+      .section-content { display: flex; flex-direction: column; gap: 16px; padding-bottom: 16px; }
       label { font-size: 12px; font-weight: 500; color: var(--secondary-text-color); text-transform: uppercase; letter-spacing: 0.5px; }
       ha-textfield { width: 100%; }
       ha-icon-picker { width: 100%; }
@@ -2366,30 +2379,59 @@ class HomeTasksCardEditor extends HTMLElement {
 
     const hint = this._el("span", { className: "hint", textContent: this._t("ed_hint") });
 
+    const makeSection = (icon, titleKey, nodes, open = true) => {
+      const det = document.createElement("details");
+      if (open) det.open = true;
+      const sum = document.createElement("summary");
+      const ico = document.createElement("ha-icon");
+      ico.setAttribute("icon", icon);
+      ico.style.cssText = "--mdc-icon-size:20px;width:20px;height:20px;flex-shrink:0;";
+      const chevWrap = document.createElement("span");
+      chevWrap.className = "sum-chevron";
+      const chev = document.createElement("ha-icon");
+      chev.setAttribute("icon", "mdi:chevron-down");
+      chev.style.cssText = "--mdc-icon-size:20px;width:20px;height:20px;";
+      chevWrap.appendChild(chev);
+      sum.appendChild(ico);
+      sum.appendChild(document.createTextNode(this._t(titleKey)));
+      sum.appendChild(chevWrap);
+      det.appendChild(sum);
+      const content = document.createElement("div");
+      content.className = "section-content";
+      for (const n of nodes) if (n) content.appendChild(n);
+      det.appendChild(content);
+      return det;
+    };
+
     return this._el("div", { className: "visual-editor" }, [
-      this._el("div", { className: "field" }, [listWrap, hint]),
-      this._el("div", { className: "field" }, [titleInput]),
-      this._el("div", { className: "field" }, [iconPicker]),
-      this._el("div", { className: "toggle-grid" }, [
-        makeToggle("show-title", "ed_show_title", "show_title", true),
-        makeToggle("show-progress", "ed_show_progress", "show_progress", true),
-        makeToggle("auto-delete", "ed_auto_delete", "auto_delete_completed", false),
-        makeToggle("show-sort", "ed_show_sort", "show_sort", true),
-        makeToggle("compact", "ed_compact", "compact", false),
+      makeSection("mdi:format-list-checks", "ed_sec_content", [
+        this._el("div", { className: "field" }, [listWrap, hint]),
+        this._el("div", { className: "field" }, [titleInput]),
+        this._el("div", { className: "field" }, [iconPicker]),
       ]),
-      this._el("div", { className: "field" }, [filterWrap]),
-      this._el("div", { className: "field" }, [sortWrap]),
-      this._el("div", { className: "field" }, [
-        this._el("label", { textContent: this._t("ed_display") }),
-        makeToggle("show-notes", "ed_show_notes", "show_notes", true),
-        makeToggle("show-sub-items", "ed_show_sub_items", "show_sub_items", true),
-        makeToggle("show-person", "ed_show_person", "show_assigned_person", true),
-        makeToggle("show-priority", "ed_show_priority", "show_priority", true),
-        makeToggle("show-tags", "ed_show_tags", "show_tags", true),
-        makeToggle("show-due-date", "ed_show_due_date", "show_due_date", true),
-        makeToggle("show-reminders", "ed_show_reminders", "show_reminders", true),
-        makeToggle("show-recurrence", "ed_show_recurrence", "show_recurrence", true),
+      makeSection("mdi:tune-variant", "ed_sec_view", [
+        this._el("div", { className: "toggle-grid" }, [
+          makeToggle("show-title", "ed_show_title", "show_title", true),
+          makeToggle("show-progress", "ed_show_progress", "show_progress", true),
+          makeToggle("auto-delete", "ed_auto_delete", "auto_delete_completed", false),
+          makeToggle("show-sort", "ed_show_sort", "show_sort", true),
+          makeToggle("compact", "ed_compact", "compact", false),
+        ]),
+        this._el("div", { className: "field" }, [filterWrap]),
+        this._el("div", { className: "field" }, [sortWrap]),
       ]),
+      makeSection("mdi:eye", "ed_sec_display", [
+        this._el("div", { className: "toggle-grid" }, [
+          makeToggle("show-notes", "ed_show_notes", "show_notes", true),
+          makeToggle("show-sub-items", "ed_show_sub_items", "show_sub_items", true),
+          makeToggle("show-person", "ed_show_person", "show_assigned_person", true),
+          makeToggle("show-priority", "ed_show_priority", "show_priority", true),
+          makeToggle("show-tags", "ed_show_tags", "show_tags", true),
+          makeToggle("show-due-date", "ed_show_due_date", "show_due_date", true),
+          makeToggle("show-reminders", "ed_show_reminders", "show_reminders", true),
+          makeToggle("show-recurrence", "ed_show_recurrence", "show_recurrence", true),
+        ]),
+      ], false),
     ]);
   }
 
