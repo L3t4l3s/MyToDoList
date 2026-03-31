@@ -819,7 +819,7 @@ class HomeTasksCard extends HTMLElement {
     const sortBtnWrapper = this._el("div", { className: "sort-btn-wrapper" });
     const sortBtn = this._el("button", {
       className: "sort-btn" + (effectiveSortBy !== "manual" ? " active" : ""),
-      textContent: "\u21C5",
+      textContent: "\u2191 \u2193",
       title: sortLabels[effectiveSortBy],
     });
     sortBtn.addEventListener("click", (e) => {
