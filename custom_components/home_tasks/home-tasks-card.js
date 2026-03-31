@@ -3014,8 +3014,8 @@ class HomeTasksCard extends HTMLElement {
         font-size: 13px; padding: 6px 0; text-align: left; font-family: inherit;
       }
       .add-sub-btn:hover { text-decoration: underline; }
-      .history-list { display: flex; flex-direction: column; gap: 0; max-height: 220px; overflow-y: auto; scrollbar-gutter: stable; padding-right: 4px; }
-      .history-entry { display: grid; grid-template-columns: 18px 1fr auto; align-items: baseline; gap: 6px; padding: 5px 0; border-bottom: 1px solid var(--divider-color, rgba(128,128,128,0.15)); font-size: 12px; }
+      .history-list { display: flex; flex-direction: column; gap: 0; max-height: 220px; overflow-y: auto; }
+      .history-entry { display: grid; grid-template-columns: 18px 1fr auto; align-items: baseline; gap: 6px; padding: 5px 14px 5px 0; border-bottom: 1px solid var(--divider-color, rgba(128,128,128,0.15)); font-size: 12px; }
       .history-entry:last-child { border-bottom: none; }
       .history-icon { color: var(--secondary-text-color); text-align: center; font-size: 11px; }
       .history-text { color: var(--primary-text-color); }
