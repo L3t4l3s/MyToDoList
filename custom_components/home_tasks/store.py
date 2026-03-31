@@ -333,15 +333,13 @@ class HomeTasksStore:
                 task["recurrence_remaining_count"] = max(0, remaining)
                 if remaining <= 0:
                     task["recurrence_enabled"] = False
-            # Notify recurrence scheduler (only if still enabled after decrement)
-            if self.on_task_completed and task.get("recurrence_enabled"):
-                rec_type = task.get("recurrence_type", "interval")
-                if rec_type == "weekdays" and task.get("recurrence_weekdays"):
-                    self.on_task_completed(task)
-                elif rec_type == "interval" and task.get("recurrence_unit"):
-                    self.on_task_completed(task)
+            # Notify: fires event + schedules recurrence (no-op if recurrence not configured)
+            if self.on_task_completed:
+                self.on_task_completed(task)
         elif not is_completed and was_completed:
             task["completed_at"] = None
+            if self.on_task_reopened:
+                self.on_task_reopened(task)
 
         # History tracking
         if any(k in kwargs for k in _HISTORY_FIELDS) or "completed" in kwargs:
