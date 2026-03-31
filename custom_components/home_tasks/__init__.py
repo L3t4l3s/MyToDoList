@@ -149,13 +149,12 @@ def _async_register_due_checker(hass: HomeAssistant) -> None:
     if hass.data.get(DATA_DUE_CHECK_UNSUB):
         return
 
-    async def _periodic_check(_now=None) -> None:
-        await _async_check_due_dates(hass)
+    def _periodic_check(_now=None) -> None:
+        hass.async_create_task(_async_check_due_dates(hass))
 
     unsub = async_track_time_interval(hass, _periodic_check, DUE_CHECK_INTERVAL)
     hass.data[DATA_DUE_CHECK_UNSUB] = unsub
-    # Also run once on startup
-    hass.async_create_task(_async_check_due_dates(hass))
+    _LOGGER.debug("Due-date checker registered, interval=%s", DUE_CHECK_INTERVAL)
 
 
 async def _async_check_due_dates(hass: HomeAssistant, _now=None) -> None:
@@ -163,6 +162,8 @@ async def _async_check_due_dates(hass: HomeAssistant, _now=None) -> None:
     today = date.today().isoformat()
     fired = hass.data.setdefault(DATA_DUE_FIRED, {})
     stores = hass.data.get(DOMAIN, {})
+    store_count = sum(1 for s in stores.values() if isinstance(s, HomeTasksStore))
+    _LOGGER.debug("Due-date check: today=%s, stores=%d", today, store_count)
 
     for entry_id, store in stores.items():
         if not isinstance(store, HomeTasksStore):
@@ -179,11 +180,18 @@ async def _async_check_due_dates(hass: HomeAssistant, _now=None) -> None:
             event_data = _build_event_data(entry_id, task)
 
             if dd == today and task_fired.get("due") != today:
+                _LOGGER.info("Firing task_due for '%s' (due=%s)", task.get("title"), dd)
                 hass.bus.async_fire(f"{DOMAIN}_task_due", event_data)
                 task_fired["due"] = today
             elif dd < today and task_fired.get("overdue") != today:
+                _LOGGER.info("Firing task_overdue for '%s' (due=%s)", task.get("title"), dd)
                 hass.bus.async_fire(f"{DOMAIN}_task_overdue", event_data)
                 task_fired["overdue"] = today
+            else:
+                _LOGGER.debug(
+                    "Skipping task '%s': due=%s, fired=%s",
+                    task.get("title"), dd, task_fired,
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -666,6 +674,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Recover any pending timers from before restart
     _recover_recurrence_timers(hass, entry.entry_id, store)
     _recover_reminder_timers(hass, entry.entry_id, store)
+
+    # Run due-date check now that this store is loaded
+    hass.async_create_task(_async_check_due_dates(hass))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
