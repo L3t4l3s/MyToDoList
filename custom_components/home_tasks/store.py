@@ -43,23 +43,23 @@ def validate_text(value: str, max_length: int, field_name: str) -> str:
     return value
 
 
-def validate_date(value: str | None) -> str | None:
+def validate_date(value: str | None, field_name: str = "due_date") -> str | None:
     """Validate a date string (YYYY-MM-DD) or None."""
     if value is None:
         return None
     if not isinstance(value, str):
-        raise ValueError("due_date must be a string or null")
+        raise ValueError(f"{field_name} must be a string or null")
     value = value.strip()
     if not value:
         return None
     if not _DATE_PATTERN.match(value):
-        raise ValueError("due_date must be in YYYY-MM-DD format")
+        raise ValueError(f"{field_name} must be in YYYY-MM-DD format")
     try:
         year, month, day = int(value[:4]), int(value[5:7]), int(value[8:10])
         if not (1900 <= year <= 2100 and 1 <= month <= 12 and 1 <= day <= 31):
-            raise ValueError("due_date contains invalid date components")
+            raise ValueError(f"{field_name} contains invalid date components")
     except (IndexError, TypeError) as err:
-        raise ValueError("due_date must be in YYYY-MM-DD format") from err
+        raise ValueError(f"{field_name} must be in YYYY-MM-DD format") from err
     return value
 
 
@@ -133,6 +133,11 @@ class HomeTasksStore:
             task.setdefault("recurrence_enabled", False)
             task.setdefault("recurrence_type", "interval")
             task.setdefault("recurrence_weekdays", [])
+            task.setdefault("recurrence_time", None)
+            task.setdefault("recurrence_end_type", "none")
+            task.setdefault("recurrence_end_date", None)
+            task.setdefault("recurrence_max_count", None)
+            task.setdefault("recurrence_remaining_count", None)
             task.setdefault("completed_at", None)
             task.setdefault("assigned_person", None)
             task.setdefault("tags", [])
@@ -170,6 +175,11 @@ class HomeTasksStore:
             "recurrence_enabled": False,
             "recurrence_type": "interval",
             "recurrence_weekdays": [],
+            "recurrence_time": None,
+            "recurrence_end_type": "none",
+            "recurrence_end_date": None,
+            "recurrence_max_count": None,
+            "recurrence_remaining_count": None,
             "completed_at": None,
             "assigned_person": None,
             "tags": [],
@@ -231,6 +241,22 @@ class HomeTasksStore:
             if not all(isinstance(d, int) and 0 <= d <= 6 for d in val):
                 raise ValueError("recurrence_weekdays entries must be integers 0–6")
             kwargs["recurrence_weekdays"] = sorted(set(val))
+        if "recurrence_time" in kwargs:
+            kwargs["recurrence_time"] = validate_time(kwargs["recurrence_time"])
+        if "recurrence_end_type" in kwargs:
+            val = kwargs["recurrence_end_type"]
+            if val not in ("none", "date", "count"):
+                raise ValueError("recurrence_end_type must be 'none', 'date', or 'count'")
+        if "recurrence_end_date" in kwargs:
+            kwargs["recurrence_end_date"] = validate_date(kwargs["recurrence_end_date"], "recurrence_end_date")
+        if "recurrence_max_count" in kwargs:
+            val = kwargs["recurrence_max_count"]
+            if val is not None and (not isinstance(val, int) or val < 1):
+                raise ValueError("recurrence_max_count must be a positive integer or null")
+        if "recurrence_remaining_count" in kwargs:
+            val = kwargs["recurrence_remaining_count"]
+            if val is not None and (not isinstance(val, int) or val < 0):
+                raise ValueError("recurrence_remaining_count must be a non-negative integer or null")
         if "assigned_person" in kwargs:
             val = kwargs["assigned_person"]
             if val is not None and (not isinstance(val, str) or len(val) > MAX_TITLE_LENGTH):
@@ -271,16 +297,26 @@ class HomeTasksStore:
         old_due_time = task.get("due_time")
         old_reminders = task.get("reminders", [])
 
-        allowed = ("title", "completed", "notes", "due_date", "due_time", "priority", "reminders", "recurrence_value", "recurrence_unit", "recurrence_enabled", "recurrence_type", "recurrence_weekdays", "assigned_person", "tags")
+        allowed = ("title", "completed", "notes", "due_date", "due_time", "priority", "reminders", "recurrence_value", "recurrence_unit", "recurrence_enabled", "recurrence_type", "recurrence_weekdays", "recurrence_time", "recurrence_end_type", "recurrence_end_date", "recurrence_max_count", "recurrence_remaining_count", "assigned_person", "tags")
         for key, value in kwargs.items():
             if key in allowed:
                 task[key] = value
+
+        # When max_count is set without an explicit remaining override, reset remaining to match
+        if "recurrence_max_count" in kwargs and "recurrence_remaining_count" not in kwargs:
+            task["recurrence_remaining_count"] = task.get("recurrence_max_count")
 
         # Track completed_at timestamp
         is_completed = task.get("completed", False)
         if is_completed and not was_completed:
             task["completed_at"] = datetime.now(timezone.utc).isoformat()
-            # Notify recurrence scheduler
+            # Decrement remaining recurrence count
+            if task.get("recurrence_end_type") == "count" and task.get("recurrence_remaining_count") is not None:
+                remaining = task["recurrence_remaining_count"] - 1
+                task["recurrence_remaining_count"] = max(0, remaining)
+                if remaining <= 0:
+                    task["recurrence_enabled"] = False
+            # Notify recurrence scheduler (only if still enabled after decrement)
             if self.on_task_completed and task.get("recurrence_enabled"):
                 rec_type = task.get("recurrence_type", "interval")
                 if rec_type == "weekdays" and task.get("recurrence_weekdays"):

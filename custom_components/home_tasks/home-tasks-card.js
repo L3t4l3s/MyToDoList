@@ -95,6 +95,8 @@ const _TRANSLATIONS = {
     due_time_lbl: "Time",
     due_date_lbl: "Date",
     rec_mode_lbl: "Mode",
+    rec_time: "Reactivation time", rec_end: "End", rec_end_never: "Never", rec_end_date: "On date", rec_end_count: "After N times",
+    rec_end_date_lbl: "End date", rec_max_count_lbl: "max", rec_remaining: "{0} left",
   },
   nl: {
     my_tasks: "Mijn taken",
@@ -139,6 +141,8 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "Titel boven kolommen",
     ed_sec_view: "Weergave", ed_sec_display: "Configuratie",
     due_time_lbl: "Tijd", due_date_lbl: "Datum", rec_mode_lbl: "Modus",
+    rec_time: "Tijdstip", rec_end: "Einde", rec_end_never: "Nooit", rec_end_date: "Op datum", rec_end_count: "Na N keer",
+    rec_end_date_lbl: "Einddatum", rec_max_count_lbl: "max", rec_remaining: "nog {0}",
   },
   it: {
     my_tasks: "Le mie attivit\u00e0",
@@ -183,6 +187,8 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "Titolo sopra le colonne",
     ed_sec_view: "Visualizzazione", ed_sec_display: "Configurazione",
     due_time_lbl: "Ora", due_date_lbl: "Data", rec_mode_lbl: "Modalit\u00e0",
+    rec_time: "Orario", rec_end: "Fine", rec_end_never: "Mai", rec_end_date: "Alla data", rec_end_count: "Dopo N volte",
+    rec_end_date_lbl: "Data di fine", rec_max_count_lbl: "max", rec_remaining: "ancora {0}",
   },
   pl: {
     my_tasks: "Moje zadania",
@@ -227,6 +233,8 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "Tytu\u0142 nad kolumnami",
     ed_sec_view: "Wy\u015bwietlanie", ed_sec_display: "Konfiguracja",
     due_time_lbl: "Czas", due_date_lbl: "Data", rec_mode_lbl: "Tryb",
+    rec_time: "Godzina", rec_end: "Koniec", rec_end_never: "Nigdy", rec_end_date: "W dniu", rec_end_count: "Po N razach",
+    rec_end_date_lbl: "Data ko\u0144cowa", rec_max_count_lbl: "max", rec_remaining: "jeszcze {0}",
   },
   sv: {
     my_tasks: "Mina uppgifter",
@@ -271,6 +279,8 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "Titel ovanf\u00f6r kolumner",
     ed_sec_view: "Visning", ed_sec_display: "Konfiguration",
     due_time_lbl: "Tid", due_date_lbl: "Datum", rec_mode_lbl: "L\u00e4ge",
+    rec_time: "Tid", rec_end: "Slut", rec_end_never: "Aldrig", rec_end_date: "P\u00e5 datum", rec_end_count: "Efter N g\u00e5nger",
+    rec_end_date_lbl: "Slutdatum", rec_max_count_lbl: "max", rec_remaining: "{0} kvar",
   },
   fr: {
     my_tasks: "Mes t\u00e2ches",
@@ -315,6 +325,8 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "Titre au-dessus des colonnes",
     ed_sec_view: "Affichage", ed_sec_display: "Configuration",
     due_time_lbl: "Heure", due_date_lbl: "Date", rec_mode_lbl: "Mode",
+    rec_time: "Heure", rec_end: "Fin", rec_end_never: "Jamais", rec_end_date: "\u00c0 la date", rec_end_count: "Apr\u00e8s N fois",
+    rec_end_date_lbl: "Date de fin", rec_max_count_lbl: "max", rec_remaining: "encore {0}",
   },
   pt: {
     my_tasks: "Minhas tarefas",
@@ -359,6 +371,8 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "T\u00edtulo acima das colunas",
     ed_sec_view: "Exibi\u00e7\u00e3o", ed_sec_display: "Configura\u00e7\u00e3o",
     due_time_lbl: "Hora", due_date_lbl: "Data", rec_mode_lbl: "Modo",
+    rec_time: "Hora", rec_end: "Fim", rec_end_never: "Nunca", rec_end_date: "Em data", rec_end_count: "Ap\u00f3s N vezes",
+    rec_end_date_lbl: "Data de fim", rec_max_count_lbl: "max", rec_remaining: "ainda {0}",
   },
   es: {
     my_tasks: "Mis tareas",
@@ -403,6 +417,8 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "T\u00edtulo sobre las columnas",
     ed_sec_view: "Visualizaci\u00f3n", ed_sec_display: "Configuraci\u00f3n",
     due_time_lbl: "Hora", due_date_lbl: "Fecha", rec_mode_lbl: "Modo",
+    rec_time: "Hora", rec_end: "Fin", rec_end_never: "Nunca", rec_end_date: "En fecha", rec_end_count: "Despu\u00e9s de N veces",
+    rec_end_date_lbl: "Fecha de fin", rec_max_count_lbl: "max", rec_remaining: "a\u00fan {0}",
   },
   ru: {
     my_tasks: "\u041c\u043e\u0438 \u0437\u0430\u0434\u0430\u0447\u0438",
@@ -447,6 +463,8 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "\u0417\u0430\u0433\u043e\u043b\u043e\u0432\u043e\u043a \u043d\u0430\u0434 \u0441\u0442\u043e\u043b\u0431\u0446\u0430\u043c\u0438",
     ed_sec_view: "\u041e\u0442\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435", ed_sec_display: "\u041a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044f",
     due_time_lbl: "\u0412\u0440\u0435\u043c\u044f", due_date_lbl: "\u0414\u0430\u0442\u0430", rec_mode_lbl: "\u0420\u0435\u0436\u0438\u043c",
+    rec_time: "\u0412\u0440\u0435\u043c\u044f", rec_end: "\u041e\u043a\u043e\u043d\u0447\u0430\u043d\u0438\u0435", rec_end_never: "\u041d\u0438\u043a\u043e\u0433\u0434\u0430", rec_end_date: "\u041f\u043e \u0434\u0430\u0442\u0435", rec_end_count: "\u041f\u043e\u0441\u043b\u0435 N \u0440\u0430\u0437",
+    rec_end_date_lbl: "\u0414\u0430\u0442\u0430 \u043e\u043a\u043e\u043d\u0447\u0430\u043d\u0438\u044f", rec_max_count_lbl: "max", rec_remaining: "\u0435\u0449\u0451 {0}",
   },
   cs: {
     my_tasks: "Moje \u00fakoly",
@@ -491,6 +509,8 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "N\u00e1zev nad sloupci",
     ed_sec_view: "Zobrazen\u00ed", ed_sec_display: "Konfigurace",
     due_time_lbl: "\u010cas", due_date_lbl: "Datum", rec_mode_lbl: "Re\u017eim",
+    rec_time: "\u010cas", rec_end: "Konec", rec_end_never: "Nikdy", rec_end_date: "K datu", rec_end_count: "Po N kr\u00e1t",
+    rec_end_date_lbl: "Datum konce", rec_max_count_lbl: "max", rec_remaining: "je\u0161t\u011b {0}",
   },
   da: {
     my_tasks: "Mine opgaver",
@@ -535,6 +555,8 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "Titel over kolonner",
     ed_sec_view: "Visning", ed_sec_display: "Konfiguration",
     due_time_lbl: "Tid", due_date_lbl: "Dato", rec_mode_lbl: "Tilstand",
+    rec_time: "Tidspunkt", rec_end: "Slut", rec_end_never: "Aldrig", rec_end_date: "P\u00e5 dato", rec_end_count: "Efter N gange",
+    rec_end_date_lbl: "Slutdato", rec_max_count_lbl: "max", rec_remaining: "{0} tilbage",
   },
   no: {
     my_tasks: "Mine oppgaver",
@@ -579,6 +601,8 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "Tittel over kolonner",
     ed_sec_view: "Visning", ed_sec_display: "Konfigurasjon",
     due_time_lbl: "Tid", due_date_lbl: "Dato", rec_mode_lbl: "Modus",
+    rec_time: "Klokkeslett", rec_end: "Slutt", rec_end_never: "Aldri", rec_end_date: "P\u00e5 dato", rec_end_count: "Etter N ganger",
+    rec_end_date_lbl: "Sluttdato", rec_max_count_lbl: "max", rec_remaining: "{0} igjen",
   },
   fi: {
     my_tasks: "Omat teht\u00e4v\u00e4t",
@@ -623,6 +647,8 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "Otsikko sarakkeiden yl\u00e4puolella",
     ed_sec_view: "N\u00e4ytt\u00f6", ed_sec_display: "Konfiguraatio",
     due_time_lbl: "Aika", due_date_lbl: "P\u00e4iv\u00e4m\u00e4\u00e4r\u00e4", rec_mode_lbl: "Tila",
+    rec_time: "Aika", rec_end: "Loppu", rec_end_never: "Ei koskaan", rec_end_date: "P\u00e4iv\u00e4m\u00e4\u00e4r\u00e4n\u00e4", rec_end_count: "N kerran j\u00e4lkeen",
+    rec_end_date_lbl: "Loppup\u00e4iv\u00e4", rec_max_count_lbl: "max", rec_remaining: "{0} j\u00e4ljell\u00e4",
   },
   hu: {
     my_tasks: "Feladataim",
@@ -667,6 +693,8 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "C\u00edm az oszlopok felett",
     ed_sec_view: "Megjelen\u00edt\u00e9s", ed_sec_display: "Konfigur\u00e1ci\u00f3",
     due_time_lbl: "Id\u0151pont", due_date_lbl: "D\u00e1tum", rec_mode_lbl: "M\u00f3d",
+    rec_time: "Id\u0151pont", rec_end: "V\u00e9ge", rec_end_never: "Soha", rec_end_date: "D\u00e1tumon", rec_end_count: "N alkalom ut\u00e1n",
+    rec_end_date_lbl: "V\u00e9gdatum", rec_max_count_lbl: "max", rec_remaining: "m\u00e9g {0}",
   },
   de: {
     my_tasks: "Meine Aufgaben",
@@ -754,6 +782,8 @@ const _TRANSLATIONS = {
     due_time_lbl: "Uhrzeit",
     due_date_lbl: "Datum",
     rec_mode_lbl: "Modus",
+    rec_time: "Uhrzeit", rec_end: "Ende", rec_end_never: "Nie", rec_end_date: "An Datum", rec_end_count: "Nach X mal",
+    rec_end_date_lbl: "Enddatum", rec_max_count_lbl: "max", rec_remaining: "noch {0}",
   },
 };
 
@@ -1651,10 +1681,11 @@ class HomeTasksCard extends HTMLElement {
         recLabel = val === 1 ? singleLabels[task.recurrence_unit] : `${val} ${unitLabels[task.recurrence_unit] || task.recurrence_unit}`;
       }
       if (recLabel) {
-        metaChildren.push(this._el("span", {
-          className: "recurrence-badge",
-          textContent: "\u21BB " + recLabel,
-        }));
+        let badgeText = "\u21BB " + recLabel;
+        if (task.recurrence_end_type === "count" && task.recurrence_remaining_count != null) {
+          badgeText += " \u00b7 " + this._t("rec_remaining", task.recurrence_remaining_count);
+        }
+        metaChildren.push(this._el("span", { className: "recurrence-badge", textContent: badgeText }));
       }
     }
     if (task.assigned_person && col.show_assigned_person !== false) {
@@ -1830,6 +1861,11 @@ class HomeTasksCard extends HTMLElement {
     const recurrenceUnit = task.recurrence_unit || "days";
     const recurrenceType = task.recurrence_type || "interval";
     const recurrenceWeekdays = task.recurrence_weekdays || [];
+    const recurrenceTime = task.recurrence_time || "";
+    const recurrenceEndType = task.recurrence_end_type || "none";
+    const recurrenceEndDate = task.recurrence_end_date || "";
+    const recurrenceMaxCount = task.recurrence_max_count ?? null;
+    const recurrenceRemainingCount = task.recurrence_remaining_count ?? task.recurrence_max_count ?? null;
 
     const recSwitch = document.createElement("ha-switch");
     recSwitch.checked = recurrenceEnabled;
@@ -1851,10 +1887,7 @@ class HomeTasksCard extends HTMLElement {
       this._el("span", { textContent: this._t("rec_mode_lbl") }),
     ]);
 
-    const recurrenceValueInput = this._el("input", {
-      type: "number",
-      value: recurrenceValue,
-    });
+    const recurrenceValueInput = this._el("input", { type: "number", value: recurrenceValue });
     recurrenceValueInput.min = 1;
     recurrenceValueInput.max = 365;
 
@@ -1891,10 +1924,7 @@ class HomeTasksCard extends HTMLElement {
       recurrenceUnitSelect,
       this._el("span", { textContent: this._t("recurrence_every") }),
     ]);
-    const recurrenceIntervalRow = this._el("div", { className: "recurrence-input-row" }, [
-      recValueWrap,
-      recUnitWrap,
-    ]);
+    const recurrenceIntervalRow = this._el("div", { className: "recurrence-input-row" }, [recValueWrap, recUnitWrap]);
 
     const weekdayCheckboxes = [];
     const recurrenceWeekdayRow = this._el("div", { className: "recurrence-weekday-row" });
@@ -1908,11 +1938,69 @@ class HomeTasksCard extends HTMLElement {
       recurrenceWeekdayRow.appendChild(lbl);
     }
 
-    const applyModeVisibility = (type) => {
-      recurrenceIntervalRow.style.display = type === "interval" ? "" : "none";
-      recurrenceWeekdayRow.style.display = type === "weekdays" ? "" : "none";
+    // Reactivation time input (hidden for hours mode)
+    const recurrenceTimeInput = this._el("input", { type: "time", value: recurrenceTime });
+    const recurrenceTimeWrap = this._el("div", { className: "field-wrap" }, [
+      recurrenceTimeInput,
+      this._el("span", { textContent: this._t("rec_time") }),
+    ]);
+
+    // End condition
+    const recurrenceEndSelect = this._el("select", {});
+    for (const [val, key] of [["none", "rec_end_never"], ["date", "rec_end_date"], ["count", "rec_end_count"]]) {
+      const opt = this._el("option", { value: val, textContent: this._t(key) });
+      if (val === recurrenceEndType) opt.selected = true;
+      recurrenceEndSelect.appendChild(opt);
+    }
+    const recurrenceEndWrap = this._el("div", { className: "sel-wrap" }, [
+      recurrenceEndSelect,
+      this._el("span", { textContent: this._t("rec_end") }),
+    ]);
+
+    const recurrenceEndDateInput = this._el("input", { type: "date", value: recurrenceEndDate });
+    const recurrenceEndDateWrap = this._el("div", { className: "field-wrap" }, [
+      recurrenceEndDateInput,
+      this._el("span", { textContent: this._t("rec_end_date_lbl") }),
+    ]);
+
+    const recurrenceMaxCountInput = this._el("input", { type: "number", value: recurrenceMaxCount !== null ? recurrenceMaxCount : "" });
+    recurrenceMaxCountInput.min = 1;
+    recurrenceMaxCountInput.max = 999;
+    const spinUp2 = this._el("button", { className: "spin-btn spin-up", textContent: "\u25b4", type: "button" });
+    const spinDown2 = this._el("button", { className: "spin-btn spin-down", textContent: "\u25be", type: "button" });
+    spinUp2.addEventListener("click", () => {
+      const v = Math.min(999, (parseInt(recurrenceMaxCountInput.value) || 1) + 1);
+      recurrenceMaxCountInput.value = v;
+      recurrenceMaxCountInput.dispatchEvent(new Event("change"));
+    });
+    spinDown2.addEventListener("click", () => {
+      const v = Math.max(1, (parseInt(recurrenceMaxCountInput.value) || 1) - 1);
+      recurrenceMaxCountInput.value = v;
+      recurrenceMaxCountInput.dispatchEvent(new Event("change"));
+    });
+    const recRemainingSpan = this._el("span", { className: "rec-remaining" });
+    if (recurrenceRemainingCount !== null) {
+      recRemainingSpan.textContent = this._t("rec_remaining", recurrenceRemainingCount);
+    }
+    const recMaxCountWrap = this._el("div", { className: "field-wrap inline" }, [
+      recurrenceMaxCountInput,
+      this._el("span", { textContent: this._t("rec_max_count_lbl") }),
+      this._el("div", { className: "spin-btns" }, [spinUp2, spinDown2]),
+    ]);
+    const recurrenceCountRow = this._el("div", { className: "recurrence-input-row" }, [recMaxCountWrap, recRemainingSpan]);
+
+    const applyRowVisibility = (mode, unit) => {
+      recurrenceIntervalRow.style.display = mode === "interval" ? "" : "none";
+      recurrenceWeekdayRow.style.display = mode === "weekdays" ? "" : "none";
+      recurrenceTimeWrap.style.display = (mode === "weekdays" || (mode === "interval" && unit !== "hours")) ? "" : "none";
     };
-    applyModeVisibility(recurrenceType);
+    applyRowVisibility(recurrenceType, recurrenceUnit);
+
+    const applyEndTypeVisibility = (endType) => {
+      recurrenceEndDateWrap.style.display = endType === "date" ? "" : "none";
+      recurrenceCountRow.style.display = endType === "count" ? "" : "none";
+    };
+    applyEndTypeVisibility(recurrenceEndType);
 
     const applyEnabledState = (enabled) => {
       recurrenceModeSelect.disabled = !enabled;
@@ -1921,6 +2009,12 @@ class HomeTasksCard extends HTMLElement {
       spinUp.disabled = !enabled;
       spinDown.disabled = !enabled;
       weekdayCheckboxes.forEach(cb => { cb.disabled = !enabled; });
+      recurrenceTimeInput.disabled = !enabled;
+      recurrenceEndSelect.disabled = !enabled;
+      recurrenceEndDateInput.disabled = !enabled;
+      recurrenceMaxCountInput.disabled = !enabled;
+      spinUp2.disabled = !enabled;
+      spinDown2.disabled = !enabled;
     };
     applyEnabledState(recurrenceEnabled);
 
@@ -1936,11 +2030,31 @@ class HomeTasksCard extends HTMLElement {
     const saveInterval = () => {
       const val = Math.max(1, Math.min(365, parseInt(recurrenceValueInput.value) || 1));
       recurrenceValueInput.value = val;
+      applyRowVisibility(recurrenceModeSelect.value, recurrenceUnitSelect.value);
       this._callWs("home_tasks/update_task", {
         list_id: listId,
         task_id: task.id,
         recurrence_value: val,
         recurrence_unit: recurrenceUnitSelect.value,
+      })?.then(() => this._loadAllTasks());
+    };
+
+    const saveRecurrenceTime = () => {
+      this._callWs("home_tasks/update_task", {
+        list_id: listId,
+        task_id: task.id,
+        recurrence_time: recurrenceTimeInput.value || null,
+      })?.then(() => this._loadAllTasks());
+    };
+
+    const saveEndCondition = () => {
+      const endType = recurrenceEndSelect.value;
+      this._callWs("home_tasks/update_task", {
+        list_id: listId,
+        task_id: task.id,
+        recurrence_end_type: endType,
+        recurrence_end_date: endType === "date" ? (recurrenceEndDateInput.value || null) : null,
+        recurrence_max_count: endType === "count" ? (parseInt(recurrenceMaxCountInput.value) || null) : null,
       })?.then(() => this._loadAllTasks());
     };
 
@@ -1950,6 +2064,7 @@ class HomeTasksCard extends HTMLElement {
       const mode = recurrenceModeSelect.value;
       const val = Math.max(1, Math.min(365, parseInt(recurrenceValueInput.value) || 1));
       const selected = weekdayCheckboxes.map((cb, i) => cb.checked ? i : -1).filter(i => i >= 0);
+      const endType = recurrenceEndSelect.value;
       this._callWs("home_tasks/update_task", {
         list_id: listId,
         task_id: task.id,
@@ -1958,12 +2073,16 @@ class HomeTasksCard extends HTMLElement {
         recurrence_value: val,
         recurrence_unit: recurrenceUnitSelect.value,
         recurrence_weekdays: selected,
+        recurrence_time: recurrenceTimeInput.value || null,
+        recurrence_end_type: endType,
+        recurrence_end_date: endType === "date" ? (recurrenceEndDateInput.value || null) : null,
+        recurrence_max_count: endType === "count" ? (parseInt(recurrenceMaxCountInput.value) || null) : null,
       })?.then(() => this._loadAllTasks());
     });
 
     recurrenceModeSelect.addEventListener("change", () => {
       const mode = recurrenceModeSelect.value;
-      applyModeVisibility(mode);
+      applyRowVisibility(mode, recurrenceUnitSelect.value);
       this._callWs("home_tasks/update_task", {
         list_id: listId,
         task_id: task.id,
@@ -1974,12 +2093,20 @@ class HomeTasksCard extends HTMLElement {
     recurrenceValueInput.addEventListener("change", saveInterval);
     recurrenceUnitSelect.addEventListener("change", saveInterval);
     weekdayCheckboxes.forEach(cb => cb.addEventListener("change", saveWeekdays));
+    recurrenceTimeInput.addEventListener("change", saveRecurrenceTime);
+    recurrenceEndSelect.addEventListener("change", () => { applyEndTypeVisibility(recurrenceEndSelect.value); saveEndCondition(); });
+    recurrenceEndDateInput.addEventListener("change", saveEndCondition);
+    recurrenceMaxCountInput.addEventListener("change", saveEndCondition);
 
     const recurrenceSection = this._el("div", { className: "detail-section" }, [
       recurrenceToggleRow,
       recurrenceModeWrap,
       recurrenceIntervalRow,
       recurrenceWeekdayRow,
+      recurrenceTimeWrap,
+      recurrenceEndWrap,
+      recurrenceEndDateWrap,
+      recurrenceCountRow,
     ]);
 
     // Assigned person section
@@ -2664,6 +2791,7 @@ class HomeTasksCard extends HTMLElement {
       .remove-tag-btn:hover { opacity: 1; }
       .recurrence-toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
       .recurrence-input-row { display: flex; align-items: flex-end; gap: 8px; }
+      .rec-remaining { font-size: 12px; color: var(--secondary-text-color); align-self: center; flex-shrink: 0; }
       .recurrence-prefix { font-size: 13px; color: var(--todo-secondary-text); white-space: nowrap; }
       .recurrence-weekday-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 6px; }
       .weekday-label {

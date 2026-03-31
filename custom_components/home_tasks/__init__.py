@@ -186,15 +186,41 @@ async def _async_check_due_dates(hass: HomeAssistant, _now=None) -> None:
 #  Recurrence scheduling
 # ---------------------------------------------------------------------------
 
+def _parse_rec_time(task: dict) -> tuple[int, int]:
+    """Return (hour, minute) for recurrence_time, defaulting to midnight."""
+    rec_time = task.get("recurrence_time")
+    if rec_time and isinstance(rec_time, str) and len(rec_time) == 5:
+        try:
+            return int(rec_time[:2]), int(rec_time[3:5])
+        except ValueError:
+            pass
+    return 0, 0
+
+
+def _check_end_date(task: dict, target: datetime) -> bool:
+    """Return True if target exceeds the recurrence end date (meaning: stop)."""
+    if task.get("recurrence_end_type") != "date":
+        return False
+    end_date_str = task.get("recurrence_end_date")
+    if not end_date_str:
+        return False
+    try:
+        end_date = date.fromisoformat(end_date_str)
+        return target.date() > end_date
+    except ValueError:
+        return False
+
+
 def _compute_reopen_delay(task: dict, completed_at: datetime) -> float | None:
     """Compute seconds from now until the task should reopen.
 
     - hours: exact elapsed-based interval (e.g. every 3 h → reopen 3 h after completion)
-    - days / weeks / months / weekdays: midnight (local time) of the target day
-    Returns None if recurrence is not configured. Negative means already overdue.
+    - days / weeks / months / weekdays: recurrence_time (or midnight) of the target day
+    Returns None if recurrence is not configured or end conditions are met.
     """
     rec_type = task.get("recurrence_type", "interval")
     now = datetime.now(timezone.utc)
+    t_h, t_m = _parse_rec_time(task)
 
     if rec_type == "weekdays":
         weekdays = task.get("recurrence_weekdays", [])
@@ -204,8 +230,10 @@ def _compute_reopen_delay(task: dict, completed_at: datetime) -> float | None:
         completed_weekday = local_completed.weekday()  # local weekday, not UTC
         min_days = min((w - completed_weekday) % 7 or 7 for w in weekdays)
         target = (local_completed + timedelta(days=min_days)).replace(
-            hour=0, minute=0, second=0, microsecond=0
+            hour=t_h, minute=t_m, second=0, microsecond=0
         )
+        if _check_end_date(task, target):
+            return None
         return (target.astimezone(timezone.utc) - now).total_seconds()
 
     unit = task.get("recurrence_unit")
@@ -217,7 +245,7 @@ def _compute_reopen_delay(task: dict, completed_at: datetime) -> float | None:
         elapsed = (now - completed_at).total_seconds()
         return float(RECURRENCE_UNIT_SECONDS["hours"] * value) - elapsed
 
-    # days / weeks / months → midnight of target day in local timezone
+    # days / weeks / months → recurrence_time (or midnight) of target day in local timezone
     local_completed = completed_at.astimezone()
     if unit == "days":
         target_local = local_completed + timedelta(days=value)
@@ -230,8 +258,10 @@ def _compute_reopen_delay(task: dict, completed_at: datetime) -> float | None:
         day = min(local_completed.day, calendar.monthrange(year, month)[1])
         target_local = local_completed.replace(year=year, month=month, day=day)
 
-    target_midnight = target_local.replace(hour=0, minute=0, second=0, microsecond=0)
-    return (target_midnight.astimezone(timezone.utc) - now).total_seconds()
+    target_time = target_local.replace(hour=t_h, minute=t_m, second=0, microsecond=0)
+    if _check_end_date(task, target_time):
+        return None
+    return (target_time.astimezone(timezone.utc) - now).total_seconds()
 
 
 def _schedule_recurrence(hass: HomeAssistant, entry_id: str, task: dict, completed_at: datetime | None = None) -> None:
