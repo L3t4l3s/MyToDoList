@@ -1870,9 +1870,22 @@ class HomeTasksCard extends HTMLElement {
       recurrenceUnitSelect.appendChild(optEl);
     }
 
+    const spinUp = this._el("button", { className: "spin-btn spin-up", textContent: "\u25b4", type: "button" });
+    const spinDown = this._el("button", { className: "spin-btn spin-down", textContent: "\u25be", type: "button" });
+    spinUp.addEventListener("click", () => {
+      const v = Math.min(365, (parseInt(recurrenceValueInput.value) || 1) + 1);
+      recurrenceValueInput.value = v;
+      recurrenceValueInput.dispatchEvent(new Event("change"));
+    });
+    spinDown.addEventListener("click", () => {
+      const v = Math.max(1, (parseInt(recurrenceValueInput.value) || 1) - 1);
+      recurrenceValueInput.value = v;
+      recurrenceValueInput.dispatchEvent(new Event("change"));
+    });
     const recValueWrap = this._el("div", { className: "field-wrap inline" }, [
       recurrenceValueInput,
       this._el("span", { textContent: "#" }),
+      this._el("div", { className: "spin-btns" }, [spinUp, spinDown]),
     ]);
     const recUnitWrap = this._el("div", { className: "sel-wrap inline" }, [
       recurrenceUnitSelect,
@@ -1905,6 +1918,8 @@ class HomeTasksCard extends HTMLElement {
       recurrenceModeSelect.disabled = !enabled;
       recurrenceValueInput.disabled = !enabled;
       recurrenceUnitSelect.disabled = !enabled;
+      spinUp.disabled = !enabled;
+      spinDown.disabled = !enabled;
       weekdayCheckboxes.forEach(cb => { cb.disabled = !enabled; });
     };
     applyEnabledState(recurrenceEnabled);
@@ -2707,9 +2722,13 @@ class HomeTasksCard extends HTMLElement {
       .field-wrap input:focus ~ span, .field-wrap textarea:focus ~ span { color: var(--primary-color); }
       .field-wrap.inline { flex: 1; width: auto; }
       .field-wrap.inline input { height: 40px; padding: 16px 8px 4px; box-sizing: border-box; }
-      .field-wrap.inline input[type="number"] { padding-right: 2px; }
-      .field-wrap.inline input[type="number"]::-webkit-inner-spin-button { height: 32px; opacity: 1; cursor: pointer; }
+      .field-wrap.inline input[type="number"] { padding-right: 28px; -moz-appearance: textfield; }
+      .field-wrap.inline input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
       .field-wrap.inline > span { top: 4px; left: 8px; }
+      .spin-btns { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; }
+      .spin-btn { background: none; border: none; padding: 2px 4px; cursor: pointer; color: var(--secondary-text-color); line-height: 1; font-size: 12px; }
+      .spin-btn:hover { color: var(--primary-color); }
+      .spin-btn:disabled { opacity: 0.4; cursor: default; }
       .sel-wrap { position: relative; width: 100%; }
       .sel-wrap select { width: 100%; height: 48px; padding: 18px 32px 4px 12px; border: 1px solid var(--outline-color, var(--divider-color, rgba(255,255,255,0.12))); border-radius: 4px; background: var(--mdc-text-field-fill-color, var(--input-fill-color, transparent)); color: var(--primary-text-color); font-size: 0.875rem; font-family: inherit; appearance: none; -webkit-appearance: none; cursor: pointer; outline: none; box-sizing: border-box; }
       .sel-wrap select:focus { border: 2px solid var(--primary-color); padding: 17px 31px 3px 11px; }
