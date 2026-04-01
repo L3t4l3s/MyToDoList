@@ -1466,23 +1466,17 @@ class HomeTasksCard extends HTMLElement {
         cs.sortBy = key;
         cs.sortOpen = false;
         this._render();
-        // FLIP: animate tasks from old positions to new
+        // FLIP: animate tasks from old positions to new via Web Animations API
         if (before.size > 0) {
           this.shadowRoot.querySelectorAll(`.task-list[data-col-idx="${colIdx}"] .task`).forEach(el => {
             const id = el.dataset.taskId;
             if (!id || !before.has(id)) return;
             const dy = before.get(id) - el.getBoundingClientRect().top;
             if (Math.abs(dy) < 1) return;
-            el.style.transition = "none";
-            el.style.transform = `translateY(${dy}px)`;
-            requestAnimationFrame(() => {
-              el.style.transition = "transform 0.3s ease";
-              el.style.transform = "";
-              el.addEventListener("transitionend", () => {
-                el.style.transition = "";
-                el.style.transform = "";
-              }, { once: true });
-            });
+            el.animate(
+              [{ transform: `translateY(${dy}px)` }, { transform: "translateY(0)" }],
+              { duration: 300, easing: "ease" }
+            );
           });
         }
       });
@@ -1517,15 +1511,16 @@ class HomeTasksCard extends HTMLElement {
         for (const tag of [...allTags].sort()) {
           const isActive = cs.tagFilters.has(tag);
           const chip = this._el("button", {
-            className: "tag-chip" + (isActive ? " active" : "") + (this._animChipTag === tag ? " chip-anim" : ""),
+            className: "tag-chip" + (isActive ? " active" : ""),
             textContent: "#" + tag,
+            "data-tag": tag,
           });
           chip.addEventListener("click", () => {
             if (cs.tagFilters.has(tag)) cs.tagFilters.delete(tag);
             else cs.tagFilters.add(tag);
-            this._animChipTag = tag;
             this._render();
-            this._animChipTag = null;
+            this.shadowRoot.querySelectorAll(`.tag-chip[data-tag="${CSS.escape(tag)}"]`)
+              .forEach(c => c.classList.add("chip-anim"));
           });
           chipChildren.push(chip);
         }
@@ -1549,15 +1544,16 @@ class HomeTasksCard extends HTMLElement {
             name = this._hass.states[eid].attributes?.friendly_name || eid;
           }
           const chip = this._el("button", {
-            className: "person-chip" + (isActive ? " active" : "") + (this._animChipPerson === eid ? " chip-anim" : ""),
+            className: "person-chip" + (isActive ? " active" : ""),
             textContent: "\uD83D\uDC64 " + name,
+            "data-eid": eid,
           });
           chip.addEventListener("click", () => {
             if (cs.personFilters.has(eid)) cs.personFilters.delete(eid);
             else cs.personFilters.add(eid);
-            this._animChipPerson = eid;
             this._render();
-            this._animChipPerson = null;
+            this.shadowRoot.querySelectorAll(`.person-chip[data-eid="${CSS.escape(eid)}"]`)
+              .forEach(c => c.classList.add("chip-anim"));
           });
           chipChildren.push(chip);
         }
@@ -1845,23 +1841,15 @@ class HomeTasksCard extends HTMLElement {
     if (isExpanded) {
       const detailsEl = this._buildTaskDetails(task, colIdx);
       if (this._justExpandedTaskId === task.id) {
-        // Use a padding-free wrapper for height animation — avoids padding-stutter with box-sizing: content-box
-        const wrapper = document.createElement("div");
-        wrapper.style.cssText = "overflow:hidden;height:0;";
-        taskEl.appendChild(wrapper);
-        wrapper.appendChild(detailsEl);
-        // scrollHeight of inner element is unaffected by wrapper's height:0 constraint
-        const h = detailsEl.scrollHeight;
-        // Double rAF: first ensures style is committed, second ensures layout is complete
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          wrapper.animate(
-            [{ height: "0px" }, { height: h + "px" }],
-            { duration: 250, easing: "ease-out" }
-          ).onfinish = () => {
-            taskEl.insertBefore(detailsEl, wrapper);
-            wrapper.remove();
-          };
-        }));
+        // Append at natural size first so offsetHeight is accurate, then animate
+        // from 0 using fill:"backwards" which applies the first keyframe immediately
+        // (before first paint) — no wrapper, no double-rAF, no delay.
+        taskEl.appendChild(detailsEl);
+        const h = detailsEl.offsetHeight;
+        detailsEl.animate(
+          [{ height: "0px", overflow: "hidden" }, { height: h + "px", overflow: "hidden" }],
+          { duration: 220, easing: "ease-out", fill: "backwards" }
+        );
       } else {
         taskEl.appendChild(detailsEl);
       }
@@ -2627,10 +2615,6 @@ class HomeTasksCard extends HTMLElement {
     if (!targetList) return;
 
     const siblings = [...targetList.querySelectorAll(".task:not(.dragging)")];
-    // Clear any in-progress transforms before FLIP snapshot to avoid stale offsets
-    siblings.forEach(el => { el.style.transition = "none"; el.style.transform = ""; });
-
-    // FLIP: snapshot Y positions of non-dragging siblings before move
     const before = new Map(siblings.map(el => [el, el.getBoundingClientRect().top]));
 
     const targetRect = targetEl.getBoundingClientRect();
@@ -2663,9 +2647,6 @@ class HomeTasksCard extends HTMLElement {
     if (!list) return;
 
     const siblings = [...list.querySelectorAll(".sub-task:not(.dragging)")];
-    // Clear any in-progress transforms before FLIP snapshot
-    siblings.forEach(el => { el.style.transition = "none"; el.style.transform = ""; });
-
     const before = new Map(siblings.map(el => [el, el.getBoundingClientRect().top]));
 
     const r2 = targetEl.getBoundingClientRect();
@@ -3081,6 +3062,7 @@ class HomeTasksCard extends HTMLElement {
       .task-details {
         padding: 8px 12px 12px 12px; border-top: 1px solid var(--todo-divider);
         display: flex; flex-direction: column; gap: 12px; overflow-x: hidden;
+        box-sizing: border-box;
       }
       .detail-section { display: flex; flex-direction: column; gap: 6px; }
       .detail-label {
