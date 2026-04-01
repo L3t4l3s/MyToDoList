@@ -1474,7 +1474,7 @@ class HomeTasksCard extends HTMLElement {
             if (Math.abs(dy) < 1) return;
             el.animate(
               [{ transform: `translateY(${dy}px)` }, { transform: "translateY(0)" }],
-              { duration: 300, easing: "ease" }
+              { duration: 300, easing: "ease", fill: "backwards" }
             );
           });
         }
@@ -1814,15 +1814,20 @@ class HomeTasksCard extends HTMLElement {
       if (e.target.closest(".assigned-badge")) return;
       if (e.target.closest(".edit-title-input")) return;
       if (this._expandedTasks.has(task.id)) {
-        // Animate close, then re-render
+        // Animate close: CSS transition from current height to 0, then re-render
         const detailsEl = taskEl.querySelector(".task-details");
         if (detailsEl) {
-          const h = detailsEl.scrollHeight;
-          detailsEl.animate(
-            [{ height: h + "px", overflow: "hidden" }, { height: "0px", overflow: "hidden" }],
-            { duration: 200, easing: "ease-in" }
-          );
-          setTimeout(() => { this._expandedTasks.delete(task.id); this._render(); }, 200);
+          const h = detailsEl.offsetHeight;
+          if (!h) { this._expandedTasks.delete(task.id); this._render(); return; }
+          detailsEl.style.cssText = `height:${h}px;overflow:hidden;box-sizing:border-box;`;
+          requestAnimationFrame(() => {
+            detailsEl.style.transition = "height 0.2s ease-in";
+            detailsEl.style.height = "0";
+            detailsEl.addEventListener("transitionend", () => {
+              this._expandedTasks.delete(task.id);
+              this._render();
+            }, { once: true });
+          });
         } else {
           this._expandedTasks.delete(task.id);
           this._render();
@@ -1840,15 +1845,17 @@ class HomeTasksCard extends HTMLElement {
     if (isExpanded) {
       const detailsEl = this._buildTaskDetails(task, colIdx);
       if (this._justExpandedTaskId === task.id) {
-        // Append at natural size first so offsetHeight is accurate, then animate
-        // from 0 using fill:"backwards" which applies the first keyframe immediately
-        // (before first paint) — no wrapper, no double-rAF, no delay.
+        // Use max-height animation: avoids needing an exact height measurement,
+        // which is unreliable when HA web components render asynchronously.
         taskEl.appendChild(detailsEl);
-        const h = detailsEl.offsetHeight;
-        detailsEl.animate(
-          [{ height: "0px", overflow: "hidden" }, { height: h + "px", overflow: "hidden" }],
-          { duration: 220, easing: "ease-out", fill: "backwards" }
-        );
+        detailsEl.style.cssText = "max-height:0;overflow:hidden;";
+        requestAnimationFrame(() => {
+          detailsEl.style.transition = "max-height 0.28s ease-out";
+          detailsEl.style.maxHeight = "800px";
+          detailsEl.addEventListener("transitionend", () => {
+            detailsEl.style.cssText = "";
+          }, { once: true });
+        });
       } else {
         taskEl.appendChild(detailsEl);
       }
@@ -2989,7 +2996,7 @@ class HomeTasksCard extends HTMLElement {
       .tag-chip {
         padding: 4px 12px; border: 1px solid rgba(76, 175, 80, 0.3); border-radius: 16px;
         background: transparent; color: var(--success-color, #4caf50); font-size: 12px;
-        cursor: pointer; font-family: inherit; transition: all 0.2s;
+        cursor: pointer; font-family: inherit; transition: background-color 0.2s, color 0.2s, border-color 0.2s;
       }
       .tag-chip:hover { background: rgba(76, 175, 80, 0.1); }
       .tag-chip.active { background: var(--success-color, #4caf50); color: #fff; border-color: var(--success-color, #4caf50); }
@@ -3005,7 +3012,7 @@ class HomeTasksCard extends HTMLElement {
       .person-chip {
         padding: 4px 12px; border: 1px solid var(--primary-color, #2196f3); border-radius: 16px;
         background: transparent; color: var(--primary-color, #2196f3); font-size: 12px;
-        cursor: pointer; font-family: inherit; transition: all 0.2s;
+        cursor: pointer; font-family: inherit; transition: background-color 0.2s, color 0.2s, border-color 0.2s;
       }
       .person-chip:hover { background: var(--todo-surface); }
       .person-chip.active { background: var(--primary-color, #2196f3); color: #fff; }
@@ -3217,6 +3224,7 @@ class HomeTasksCardEditor extends HTMLElement {
     this._editorTab = 0;
     this._editorCodeMode = {};  // { tabIdx: bool }
     this._sectionOpen = {};     // { translationKey: bool } — persists across re-renders
+    this._ownConfigJson = null; // JSON of config we last fired, to skip the echo setConfig call
   }
 
   _t(key, ...args) {
@@ -3268,7 +3276,14 @@ class HomeTasksCardEditor extends HTMLElement {
       this._editorTab = this._config.columns.length - 1;
     }
 
-    if (this._listsLoaded && !this._firing) {
+    // Skip re-render if this setConfig is the echo of our own _fireChanged call
+    const incomingJson = JSON.stringify(this._config);
+    if (this._ownConfigJson !== null && this._ownConfigJson === incomingJson) {
+      this._ownConfigJson = null;
+      return;
+    }
+    this._ownConfigJson = null;
+    if (this._listsLoaded) {
       this._render();
     }
   }
@@ -3362,7 +3377,7 @@ class HomeTasksCardEditor extends HTMLElement {
       summary::-webkit-details-marker { display: none; }
       .sum-chevron { margin-left: auto; display: inline-flex; transition: transform 0.2s; color: var(--secondary-text-color); }
       details[open] .sum-chevron { transform: rotate(180deg); }
-      .section-content { display: flex; flex-direction: column; gap: 16px; padding: 16px 16px; border-top: 1px solid var(--divider-color, rgba(255,255,255,0.12)); }
+      .section-content { display: flex; flex-direction: column; gap: 16px; padding: 16px 16px; border-top: 1px solid var(--divider-color, rgba(255,255,255,0.12)); box-sizing: border-box; }
       label { font-size: 12px; font-weight: 500; color: var(--secondary-text-color); text-transform: uppercase; letter-spacing: 0.5px; }
       ha-textfield { width: 100%; }
       ha-icon-picker { width: 100%; }
@@ -3633,30 +3648,29 @@ class HomeTasksCardEditor extends HTMLElement {
       sum.addEventListener("click", (e) => {
         e.preventDefault();
         if (det.open) {
+          // Mark closed immediately so re-renders triggered mid-animation keep it closed
+          this._sectionOpen[sectionId] = false;
           const h = content.scrollHeight;
-          if (!h) { det.open = false; content.style.cssText = ""; this._sectionOpen[sectionId] = false; return; }
-          content.style.height = h + "px";
-          content.style.overflow = "hidden";
+          if (!h) { det.open = false; content.style.cssText = ""; return; }
+          content.style.cssText = `max-height:${h}px;overflow:hidden;box-sizing:border-box;`;
           requestAnimationFrame(() => {
-            content.style.transition = "height 0.2s ease-in";
-            content.style.height = "0";
+            content.style.transition = "max-height 0.22s ease-in";
+            content.style.maxHeight = "0";
             content.addEventListener("transitionend", () => {
               det.open = false;
               content.style.cssText = "";
-              this._sectionOpen[sectionId] = false;
             }, { once: true });
           });
         } else {
+          // Mark open immediately so re-renders triggered mid-animation keep it open
+          this._sectionOpen[sectionId] = true;
           det.open = true;
-          const h = content.scrollHeight;
-          if (!h) { content.style.cssText = ""; this._sectionOpen[sectionId] = true; return; }
-          content.style.cssText = "height:0;overflow:hidden;";
+          content.style.cssText = "max-height:0;overflow:hidden;";
           requestAnimationFrame(() => {
-            content.style.transition = "height 0.25s ease-out";
-            content.style.height = h + "px";
+            content.style.transition = "max-height 0.28s ease-out";
+            content.style.maxHeight = "800px";
             content.addEventListener("transitionend", () => {
               content.style.cssText = "";
-              this._sectionOpen[sectionId] = true;
             }, { once: true });
           });
         }
@@ -3697,16 +3711,14 @@ class HomeTasksCardEditor extends HTMLElement {
   }
 
   _fireChanged() {
-    // dispatchEvent is synchronous in browsers; HA calls setConfig() within this call,
-    // so _firing is still true when setConfig runs. This guard would break if HA ever
-    // processes config-changed asynchronously (e.g. via microtask).
-    this._firing = true;
+    // Save a JSON snapshot of the config we're about to fire. When HA echoes it
+    // back via setConfig() (sync or async), we compare and skip the re-render.
+    this._ownConfigJson = JSON.stringify(this._config);
     this.dispatchEvent(new CustomEvent("config-changed", {
       detail: { config: this._config },
       bubbles: true,
       composed: true,
     }));
-    this._firing = false;
   }
 }
 
