@@ -1465,17 +1465,27 @@ class HomeTasksCard extends HTMLElement {
         cs.sortBy = key;
         cs.sortOpen = false;
         this._render();
-        // FLIP: animate tasks from old positions to new via Web Animations API
-        if (before.size > 0) {
-          this.shadowRoot.querySelectorAll(`.task-list[data-col-idx="${colIdx}"] .task`).forEach(el => {
-            const id = el.dataset.taskId;
-            if (!id || !before.has(id)) return;
-            const dy = before.get(id) - el.getBoundingClientRect().top;
-            if (Math.abs(dy) < 1) return;
-            el.animate(
-              [{ transform: `translateY(${dy}px)` }, { transform: "translateY(0)" }],
-              { duration: 300, easing: "ease", fill: "backwards" }
-            );
+        // FLIP: CSS transition — set transform synchronously so the browser
+        // sees the old position, force ONE reflow to commit it, then transition to 0.
+        const flipEls = [];
+        this.shadowRoot.querySelectorAll(`.task-list[data-col-idx="${colIdx}"] .task`).forEach(el => {
+          const id = el.dataset.taskId;
+          if (!id || !before.has(id)) return;
+          const dy = before.get(id) - el.getBoundingClientRect().top;
+          if (Math.abs(dy) < 1) return;
+          el.style.transition = "none";
+          el.style.transform = `translateY(${dy}px)`;
+          flipEls.push(el);
+        });
+        if (flipEls.length) {
+          flipEls[0].getBoundingClientRect(); // single forced reflow for all
+          flipEls.forEach(el => {
+            el.style.transition = "transform 0.3s ease";
+            el.style.transform = "";
+            el.addEventListener("transitionend", () => {
+              el.style.transition = "";
+              el.style.transform = "";
+            }, { once: true });
           });
         }
       });
@@ -1518,8 +1528,11 @@ class HomeTasksCard extends HTMLElement {
             if (cs.tagFilters.has(tag)) cs.tagFilters.delete(tag);
             else cs.tagFilters.add(tag);
             this._render();
+            // Force reflow before adding the class — without it the browser never
+            // sees the freshly-created element WITHOUT the class, so the animation
+            // would not fire.
             this.shadowRoot.querySelectorAll(`.tag-chip[data-tag="${CSS.escape(tag)}"]`)
-              .forEach(c => c.classList.add("chip-anim"));
+              .forEach(c => { void c.offsetWidth; c.classList.add("chip-anim"); });
           });
           chipChildren.push(chip);
         }
@@ -1552,7 +1565,7 @@ class HomeTasksCard extends HTMLElement {
             else cs.personFilters.add(eid);
             this._render();
             this.shadowRoot.querySelectorAll(`.person-chip[data-eid="${CSS.escape(eid)}"]`)
-              .forEach(c => c.classList.add("chip-anim"));
+              .forEach(c => { void c.offsetWidth; c.classList.add("chip-anim"); });
           });
           chipChildren.push(chip);
         }
@@ -1761,7 +1774,7 @@ class HomeTasksCard extends HTMLElement {
         else cs.personFilters.add(task.assigned_person);
         this._render();
         this.shadowRoot.querySelectorAll(`.assigned-badge[data-eid="${CSS.escape(task.assigned_person)}"]`)
-          .forEach(b => b.classList.add("chip-anim"));
+          .forEach(b => { void b.offsetWidth; b.classList.add("chip-anim"); });
       });
       metaChildren.push(assignedBadge);
     }
@@ -1779,7 +1792,7 @@ class HomeTasksCard extends HTMLElement {
           else cs.tagFilters.add(tag);
           this._render();
           this.shadowRoot.querySelectorAll(`.tag-badge[data-tag="${CSS.escape(tag)}"]`)
-            .forEach(b => b.classList.add("chip-anim"));
+            .forEach(b => { void b.offsetWidth; b.classList.add("chip-anim"); });
         });
         metaChildren.push(tagBadge);
       }
@@ -1814,16 +1827,20 @@ class HomeTasksCard extends HTMLElement {
       if (e.target.closest(".assigned-badge")) return;
       if (e.target.closest(".edit-title-input")) return;
       if (this._expandedTasks.has(task.id)) {
-        // Animate close: CSS transition from current height to 0, then re-render
+        // Animate close via a zero-padding wrapper — max-height:0 on the wrapper
+        // truly collapses to 0 (unlike on the padded .task-details element itself).
         const detailsEl = taskEl.querySelector(".task-details");
         if (detailsEl) {
           const h = detailsEl.offsetHeight;
           if (!h) { this._expandedTasks.delete(task.id); this._render(); return; }
-          detailsEl.style.cssText = `height:${h}px;overflow:hidden;box-sizing:border-box;`;
+          const wrap = document.createElement("div");
+          wrap.style.cssText = `overflow:hidden;max-height:${h}px;`;
+          detailsEl.replaceWith(wrap);
+          wrap.appendChild(detailsEl);
           requestAnimationFrame(() => {
-            detailsEl.style.transition = "height 0.2s ease-in";
-            detailsEl.style.height = "0";
-            detailsEl.addEventListener("transitionend", () => {
+            wrap.style.transition = "max-height 0.22s ease-in";
+            wrap.style.maxHeight = "0";
+            wrap.addEventListener("transitionend", () => {
               this._expandedTasks.delete(task.id);
               this._render();
             }, { once: true });
@@ -1845,15 +1862,18 @@ class HomeTasksCard extends HTMLElement {
     if (isExpanded) {
       const detailsEl = this._buildTaskDetails(task, colIdx);
       if (this._justExpandedTaskId === task.id) {
-        // Use max-height animation: avoids needing an exact height measurement,
-        // which is unreliable when HA web components render asynchronously.
-        taskEl.appendChild(detailsEl);
-        detailsEl.style.cssText = "max-height:0;overflow:hidden;";
+        // Wrap in a zero-padding div and animate the WRAPPER's max-height.
+        // Animating max-height on the padded .task-details directly would start
+        // at padding-height (not 0) because max-height doesn't include padding.
+        const wrap = document.createElement("div");
+        wrap.style.cssText = "overflow:hidden;max-height:0;";
+        taskEl.appendChild(wrap);
+        wrap.appendChild(detailsEl);
         requestAnimationFrame(() => {
-          detailsEl.style.transition = "max-height 0.28s ease-out";
-          detailsEl.style.maxHeight = "800px";
-          detailsEl.addEventListener("transitionend", () => {
-            detailsEl.style.cssText = "";
+          wrap.style.transition = "max-height 0.28s ease-out";
+          wrap.style.maxHeight = "800px";
+          wrap.addEventListener("transitionend", () => {
+            wrap.replaceWith(detailsEl); // unwrap after animation completes
           }, { once: true });
         });
       } else {
@@ -3643,34 +3663,39 @@ class HomeTasksCardEditor extends HTMLElement {
       const content = document.createElement("div");
       content.className = "section-content";
       for (const n of nodes) if (n) content.appendChild(n);
-      det.appendChild(content);
+      // Zero-padding wrapper: animating max-height on the padded section-content
+      // would leave the padding visible at max-height:0. The wrapper has no
+      // padding so max-height:0 truly collapses to 0.
+      const wrap = document.createElement("div");
+      wrap.appendChild(content);
+      det.appendChild(wrap);
 
       sum.addEventListener("click", (e) => {
         e.preventDefault();
         if (det.open) {
-          // Mark closed immediately so re-renders triggered mid-animation keep it closed
+          // Mark closed immediately so any mid-animation re-render preserves state
           this._sectionOpen[sectionId] = false;
-          const h = content.scrollHeight;
-          if (!h) { det.open = false; content.style.cssText = ""; return; }
-          content.style.cssText = `max-height:${h}px;overflow:hidden;box-sizing:border-box;`;
+          const h = wrap.offsetHeight;
+          if (!h) { det.open = false; return; }
+          wrap.style.cssText = `overflow:hidden;max-height:${h}px;`;
           requestAnimationFrame(() => {
-            content.style.transition = "max-height 0.22s ease-in";
-            content.style.maxHeight = "0";
-            content.addEventListener("transitionend", () => {
+            wrap.style.transition = "max-height 0.22s ease-in";
+            wrap.style.maxHeight = "0";
+            wrap.addEventListener("transitionend", () => {
               det.open = false;
-              content.style.cssText = "";
+              wrap.style.cssText = "";
             }, { once: true });
           });
         } else {
-          // Mark open immediately so re-renders triggered mid-animation keep it open
+          // Mark open immediately so any mid-animation re-render preserves state
           this._sectionOpen[sectionId] = true;
           det.open = true;
-          content.style.cssText = "max-height:0;overflow:hidden;";
+          wrap.style.cssText = "overflow:hidden;max-height:0;";
           requestAnimationFrame(() => {
-            content.style.transition = "max-height 0.28s ease-out";
-            content.style.maxHeight = "800px";
-            content.addEventListener("transitionend", () => {
-              content.style.cssText = "";
+            wrap.style.transition = "max-height 0.28s ease-out";
+            wrap.style.maxHeight = "800px";
+            wrap.addEventListener("transitionend", () => {
+              wrap.style.cssText = "";
             }, { once: true });
           });
         }
