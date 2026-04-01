@@ -1458,9 +1458,33 @@ class HomeTasksCard extends HTMLElement {
       });
       opt.addEventListener("click", (e) => {
         e.stopPropagation();
+        // Snapshot task positions before re-render for FLIP animation
+        const before = new Map();
+        this.shadowRoot.querySelectorAll(`.task-list[data-col-idx="${colIdx}"] .task`).forEach(el => {
+          if (el.dataset.taskId) before.set(el.dataset.taskId, el.getBoundingClientRect().top);
+        });
         cs.sortBy = key;
         cs.sortOpen = false;
         this._render();
+        // FLIP: animate tasks from old positions to new
+        if (before.size > 0) {
+          this.shadowRoot.querySelectorAll(`.task-list[data-col-idx="${colIdx}"] .task`).forEach(el => {
+            const id = el.dataset.taskId;
+            if (!id || !before.has(id)) return;
+            const dy = before.get(id) - el.getBoundingClientRect().top;
+            if (Math.abs(dy) < 1) return;
+            el.style.transition = "none";
+            el.style.transform = `translateY(${dy}px)`;
+            requestAnimationFrame(() => {
+              el.style.transition = "transform 0.3s ease";
+              el.style.transform = "";
+              el.addEventListener("transitionend", () => {
+                el.style.transition = "";
+                el.style.transform = "";
+              }, { once: true });
+            });
+          });
+        }
       });
       sortDropdown.appendChild(opt);
     }
@@ -1493,13 +1517,15 @@ class HomeTasksCard extends HTMLElement {
         for (const tag of [...allTags].sort()) {
           const isActive = cs.tagFilters.has(tag);
           const chip = this._el("button", {
-            className: "tag-chip" + (isActive ? " active" : ""),
+            className: "tag-chip" + (isActive ? " active" : "") + (this._animChipTag === tag ? " chip-anim" : ""),
             textContent: "#" + tag,
           });
           chip.addEventListener("click", () => {
             if (cs.tagFilters.has(tag)) cs.tagFilters.delete(tag);
             else cs.tagFilters.add(tag);
+            this._animChipTag = tag;
             this._render();
+            this._animChipTag = null;
           });
           chipChildren.push(chip);
         }
@@ -1523,13 +1549,15 @@ class HomeTasksCard extends HTMLElement {
             name = this._hass.states[eid].attributes?.friendly_name || eid;
           }
           const chip = this._el("button", {
-            className: "person-chip" + (isActive ? " active" : ""),
+            className: "person-chip" + (isActive ? " active" : "") + (this._animChipPerson === eid ? " chip-anim" : ""),
             textContent: "\uD83D\uDC64 " + name,
           });
           chip.addEventListener("click", () => {
             if (cs.personFilters.has(eid)) cs.personFilters.delete(eid);
             else cs.personFilters.add(eid);
+            this._animChipPerson = eid;
             this._render();
+            this._animChipPerson = null;
           });
           chipChildren.push(chip);
         }
@@ -1653,6 +1681,9 @@ class HomeTasksCard extends HTMLElement {
         className: "edit-title-input",
         value: task.title,
       });
+      // Stop mousedown from reaching the draggable taskEl — otherwise the browser's
+      // drag-detection system intercepts mousedown and prevents cursor positioning.
+      editInput.addEventListener("mousedown", (e) => { e.stopPropagation(); });
       editInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
           e.preventDefault();
@@ -1727,12 +1758,15 @@ class HomeTasksCard extends HTMLElement {
       const assignedBadge = this._el("span", {
         className: "assigned-badge" + (isActivePerson ? " active" : ""),
         textContent: "\uD83D\uDC64 " + personName,
+        "data-eid": task.assigned_person,
       });
       assignedBadge.addEventListener("click", (e) => {
         e.stopPropagation();
         if (cs.personFilters.has(task.assigned_person)) cs.personFilters.delete(task.assigned_person);
         else cs.personFilters.add(task.assigned_person);
         this._render();
+        this.shadowRoot.querySelectorAll(`.assigned-badge[data-eid="${CSS.escape(task.assigned_person)}"]`)
+          .forEach(b => b.classList.add("chip-anim"));
       });
       metaChildren.push(assignedBadge);
     }
@@ -1742,12 +1776,15 @@ class HomeTasksCard extends HTMLElement {
         const tagBadge = this._el("span", {
           className: "tag-badge" + (isActive ? " active" : ""),
           textContent: "#" + tag,
+          "data-tag": tag,
         });
         tagBadge.addEventListener("click", (e) => {
           e.stopPropagation();
           if (cs.tagFilters.has(tag)) cs.tagFilters.delete(tag);
           else cs.tagFilters.add(tag);
           this._render();
+          this.shadowRoot.querySelectorAll(`.tag-badge[data-tag="${CSS.escape(tag)}"]`)
+            .forEach(b => b.classList.add("chip-anim"));
         });
         metaChildren.push(tagBadge);
       }
@@ -1808,16 +1845,23 @@ class HomeTasksCard extends HTMLElement {
     if (isExpanded) {
       const detailsEl = this._buildTaskDetails(task, colIdx);
       if (this._justExpandedTaskId === task.id) {
-        detailsEl.style.height = "0px";
-        detailsEl.style.overflow = "hidden";
-        taskEl.appendChild(detailsEl);
+        // Use a padding-free wrapper for height animation — avoids padding-stutter with box-sizing: content-box
+        const wrapper = document.createElement("div");
+        wrapper.style.cssText = "overflow:hidden;height:0;";
+        taskEl.appendChild(wrapper);
+        wrapper.appendChild(detailsEl);
+        // scrollHeight of inner element is unaffected by wrapper's height:0 constraint
         const h = detailsEl.scrollHeight;
-        requestAnimationFrame(() => {
-          detailsEl.animate(
-            [{ height: "0px", overflow: "hidden" }, { height: h + "px", overflow: "hidden" }],
+        // Double rAF: first ensures style is committed, second ensures layout is complete
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          wrapper.animate(
+            [{ height: "0px" }, { height: h + "px" }],
             { duration: 250, easing: "ease-out" }
-          ).onfinish = () => { detailsEl.style.height = ""; detailsEl.style.overflow = ""; };
-        });
+          ).onfinish = () => {
+            taskEl.insertBefore(detailsEl, wrapper);
+            wrapper.remove();
+          };
+        }));
       } else {
         taskEl.appendChild(detailsEl);
       }
@@ -2501,7 +2545,7 @@ class HomeTasksCard extends HTMLElement {
       e.dataTransfer.dropEffect = "move";
       if (!this._draggedSubTaskId || this._draggedSubTaskId === sub.id) return;
       const draggedEl = this.shadowRoot.querySelector(`.sub-task[data-sub-task-id="${CSS.escape(this._draggedSubTaskId)}"]`);
-      this._liveMoveSubTask(draggedEl, subEl);
+      this._liveMoveSubTask(draggedEl, subEl, e.clientY);
     });
     subEl.addEventListener("drop", (e) => { e.preventDefault(); this._finishSubDrag(taskId, colIdx); });
 
@@ -2535,7 +2579,7 @@ class HomeTasksCard extends HTMLElement {
       const target = shadowEl?.closest(".sub-task");
       if (target && target.dataset.subTaskId && target.dataset.subTaskId !== this._draggedSubTaskId) {
         const draggedEl = this.shadowRoot.querySelector(`.sub-task[data-sub-task-id="${CSS.escape(this._draggedSubTaskId)}"]`);
-        this._liveMoveSubTask(draggedEl, target);
+        this._liveMoveSubTask(draggedEl, target, touch.clientY);
       }
     };
     const onSubTouchEnd = () => {
@@ -2577,21 +2621,23 @@ class HomeTasksCard extends HTMLElement {
     return fullOrder;
   }
 
-  _liveMoveTask(draggedEl, targetEl) {
+  _liveMoveTask(draggedEl, targetEl, clientY) {
     if (!draggedEl || !targetEl || draggedEl === targetEl) return;
     const targetList = targetEl.parentNode;
     if (!targetList) return;
 
-    // FLIP: snapshot Y positions of non-dragging siblings before move
     const siblings = [...targetList.querySelectorAll(".task:not(.dragging)")];
+    // Clear any in-progress transforms before FLIP snapshot to avoid stale offsets
+    siblings.forEach(el => { el.style.transition = "none"; el.style.transform = ""; });
+
+    // FLIP: snapshot Y positions of non-dragging siblings before move
     const before = new Map(siblings.map(el => [el, el.getBoundingClientRect().top]));
 
-    const draggedRect = draggedEl.getBoundingClientRect();
     const targetRect = targetEl.getBoundingClientRect();
-    if (draggedRect.top < targetRect.top) {
-      targetList.insertBefore(draggedEl, targetEl.nextSibling);
-    } else {
+    if (clientY < targetRect.top + targetRect.height / 2) {
       targetList.insertBefore(draggedEl, targetEl);
+    } else {
+      targetList.insertBefore(draggedEl, targetEl.nextSibling);
     }
 
     // FLIP: animate siblings from their previous position to the new one
@@ -2611,20 +2657,22 @@ class HomeTasksCard extends HTMLElement {
     });
   }
 
-  _liveMoveSubTask(draggedEl, targetEl) {
+  _liveMoveSubTask(draggedEl, targetEl, clientY) {
     if (!draggedEl || !targetEl || draggedEl === targetEl) return;
     const list = targetEl.parentNode;
     if (!list) return;
 
     const siblings = [...list.querySelectorAll(".sub-task:not(.dragging)")];
+    // Clear any in-progress transforms before FLIP snapshot
+    siblings.forEach(el => { el.style.transition = "none"; el.style.transform = ""; });
+
     const before = new Map(siblings.map(el => [el, el.getBoundingClientRect().top]));
 
-    const r1 = draggedEl.getBoundingClientRect();
     const r2 = targetEl.getBoundingClientRect();
-    if (r1.top < r2.top) {
-      list.insertBefore(draggedEl, targetEl.nextSibling);
-    } else {
+    if (clientY < r2.top + r2.height / 2) {
       list.insertBefore(draggedEl, targetEl);
+    } else {
+      list.insertBefore(draggedEl, targetEl.nextSibling);
     }
 
     siblings.forEach(el => {
@@ -2717,7 +2765,7 @@ class HomeTasksCard extends HTMLElement {
       e.dataTransfer.dropEffect = "move";
       if (!this._draggedTaskId || this._draggedTaskId === taskId) return;
       const draggedEl = this.shadowRoot.querySelector(`.task[data-task-id="${CSS.escape(String(this._draggedTaskId))}"]`);
-      this._liveMoveTask(draggedEl, taskEl);
+      this._liveMoveTask(draggedEl, taskEl, e.clientY);
       // Visual feedback for cross-column target
       const tgtList = taskEl.closest(".task-list");
       const tgtColIdx = tgtList ? parseInt(tgtList.dataset.colIdx) : colIdx;
@@ -2781,7 +2829,7 @@ class HomeTasksCard extends HTMLElement {
       const target = shadowEl ? shadowEl.closest(".task") : null;
       if (target && target.dataset.taskId && target.dataset.taskId !== this._draggedTaskId && !target.classList.contains("drag-clone")) {
         const draggedEl = this.shadowRoot.querySelector(`.task[data-task-id="${CSS.escape(String(this._draggedTaskId))}"]`);
-        this._liveMoveTask(draggedEl, target);
+        this._liveMoveTask(draggedEl, target, touch.clientY);
       }
     };
 
@@ -2965,6 +3013,12 @@ class HomeTasksCard extends HTMLElement {
       }
       .tag-chip:hover { background: rgba(76, 175, 80, 0.1); }
       .tag-chip.active { background: var(--success-color, #4caf50); color: #fff; border-color: var(--success-color, #4caf50); }
+      @keyframes chip-pop {
+        0%   { transform: scale(0.78); }
+        55%  { transform: scale(1.16); }
+        100% { transform: scale(1); }
+      }
+      .chip-anim { animation: chip-pop 0.22s ease-out; }
       .person-chips { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }
       .person-chips-row { display: flex; align-items: flex-start; gap: 4px; margin-bottom: 12px; }
       .person-chips-row .person-chips { flex: 1; margin-bottom: 0; }
@@ -3576,7 +3630,6 @@ class HomeTasksCardEditor extends HTMLElement {
       const det = document.createElement("details");
       const isOpen = sectionId in this._sectionOpen ? this._sectionOpen[sectionId] : defaultOpen;
       if (isOpen) det.open = true;
-      det.addEventListener("toggle", () => { this._sectionOpen[sectionId] = det.open; });
       const sum = document.createElement("summary");
       const ico = document.createElement("ha-icon");
       ico.setAttribute("icon", icon);
@@ -3595,6 +3648,37 @@ class HomeTasksCardEditor extends HTMLElement {
       content.className = "section-content";
       for (const n of nodes) if (n) content.appendChild(n);
       det.appendChild(content);
+
+      sum.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (det.open) {
+          // Animate close: fix current height, then transition to 0
+          content.style.height = content.scrollHeight + "px";
+          content.style.overflow = "hidden";
+          requestAnimationFrame(() => {
+            content.style.transition = "height 0.2s ease-in";
+            content.style.height = "0";
+            content.addEventListener("transitionend", () => {
+              det.open = false;
+              content.style.cssText = "";
+              this._sectionOpen[sectionId] = false;
+            }, { once: true });
+          });
+        } else {
+          det.open = true;
+          const h = content.scrollHeight;
+          content.style.cssText = "height:0;overflow:hidden;";
+          requestAnimationFrame(() => {
+            content.style.transition = "height 0.25s ease-out";
+            content.style.height = h + "px";
+            content.addEventListener("transitionend", () => {
+              content.style.cssText = "";
+              this._sectionOpen[sectionId] = true;
+            }, { once: true });
+          });
+        }
+      });
+
       return det;
     };
 
