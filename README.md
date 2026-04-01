@@ -358,6 +358,12 @@ automation:
           list_name: "Household"
           tag: "weekend"
 ```
+## Support
+
+If Home-Tasks is useful to you, consider buying me a coffee — it keeps the motivation going and helps fund future projects. 🙏
+
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-%23EA4AAA?logo=github)](https://github.com/sponsors/L3t4l3s)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-%23FFDD00?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/l3t4l3s)
 
 ## License
 
