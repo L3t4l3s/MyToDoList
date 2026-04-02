@@ -3,7 +3,7 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://github.com/hacs/integration)
 [![Validate](https://github.com/L3t4l3s/home-tasks/actions/workflows/validate.yaml/badge.svg)](https://github.com/L3t4l3s/home-tasks/actions/workflows/validate.yaml)
 
-A feature-rich, highly customizable task management solution for Home Assistant — combining a native **integration** (sensors, events, services) with a versatile Lovelace **dashboard card**.
+A feature-rich, highly customizable task management solution for Home Assistant — combining a native **integration** (sensors, events, services) with a versatile Lovelace **dashboard card**. Supports linking **external todo lists** from CalDAV, Google Tasks, Todoist, and other providers.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/L3t4l3s/home-tasks/main/docs/header-light.png" width="400" alt="Home Tasks in light mode">
@@ -32,6 +32,27 @@ Every task can carry up to 20 individual attributes:
 - **Maximum repetitions**
 - **Completion state** with timestamp
 - **Task history / audit log** — every field change recorded with actor and timestamp
+
+### External Todo Lists
+
+Display tasks from **any HA todo integration** alongside native Home Tasks lists — on the same card, in the same UI.
+
+- Link external todo entities via **Settings > Integrations > Home Tasks > Link external todo list**
+- Base fields (title, status, due date, description) are **synced** to the external provider via HA's standard todo services
+- Home Tasks extra fields (priority, tags, sub-tasks, etc.) are stored **locally** in an overlay — they work in HA but are not synced to the provider
+- The card editor **auto-configures visibility** based on the provider's capabilities when you select an external list
+- You can manually enable overlay fields (e.g. priority, tags) for external lists if you want them locally
+
+#### Verified Providers
+
+| Provider | HA Integration | Due Date | Due Time | Description | Reorder | Notes |
+|----------|---------------|----------|----------|-------------|---------|-------|
+| **CalDAV** (Nextcloud, etc.) | [CalDAV](https://www.home-assistant.io/integrations/caldav/) (Core) | yes | yes | yes | no | |
+| **Google Tasks** | [Google Tasks](https://www.home-assistant.io/integrations/google_tasks/) (Core) | yes | no | yes | yes | Google Tasks API does not support times |
+| **Todoist** | [Todoist](https://www.home-assistant.io/integrations/todoist/) (Core) | yes | yes | yes | no | |
+| **Microsoft ToDo** | [MS365-ToDo](https://github.com/RogerSelwyn/MS365-ToDo) (HACS) | yes | yes | yes | no | Custom integration, not HA Core |
+
+Any other integration that creates `todo.*` entities following HA's standard `TodoListEntity` should also work. The extra fields (priority, tags, sub-tasks, assigned person, reminders, recurrence) are always available via the local overlay, regardless of what the provider supports.
 
 ### Dashboard Card
 
@@ -82,10 +103,22 @@ English · German · French · Spanish · Portuguese · Italian · Dutch · Poli
 
 ## Setup
 
+### Native Lists
+
 1. Go to **Settings** → **Devices & Services** → **Add Integration**
 2. Search for **Home Tasks**
-3. Enter a name for your list
-4. Repeat for additional lists
+3. Choose **Create a new task list**
+4. Enter a name for your list
+5. Repeat for additional lists
+
+### External Lists
+
+1. Set up the external provider's HA integration first (e.g. CalDAV, Google Tasks, Todoist)
+2. Go to **Settings** → **Devices & Services** → **Add Integration**
+3. Search for **Home Tasks**
+4. Choose **Link an external todo list**
+5. Select the todo entity from the dropdown
+6. The external list is now available in the card editor
 
 The Lovelace card is automatically registered — just add it to your dashboard.
 
@@ -99,7 +132,8 @@ All options are available in the visual card editor. The examples below cover th
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `list_id` | *(required)* | The list to display |
+| `list_id` | — | The native list to display (use this **or** `entity_id`) |
+| `entity_id` | — | An external todo entity to display (use this **or** `list_id`) |
 | `title` | List name | Custom column title |
 | `icon` | — | MDI icon shown next to the column title (e.g. `mdi:home`) |
 | `default_filter` | `all` | Initial filter: `all`, `open`, or `done` |
@@ -217,6 +251,47 @@ columns:
 
 </td>
 </tr>
+<tr>
+<td width="50%" valign="top">
+
+#### External: Nextcloud CalDAV
+
+Display a Nextcloud todo list in the Home Tasks card. The external provider handles title, status, due date, and description. Local overlay adds priority and tags.
+
+```yaml
+type: custom:home-tasks-card
+columns:
+  - entity_id: "todo.nextcloud_tasks"
+    title: Nextcloud Tasks
+    icon: mdi:cloud-sync
+    show_priority: true
+    show_tags: true
+    show_sub_tasks: false
+    show_assigned_person: false
+    show_reminders: false
+    show_recurrence: false
+```
+
+</td>
+<td width="50%" valign="top">
+
+#### Mixed: Native + External
+
+Combine a native Home Tasks list with a synced Google Tasks list on the same card. Each column is independently configured.
+
+```yaml
+type: custom:home-tasks-card
+columns:
+  - list_id: "your-native-list-id"
+    title: Home
+    icon: mdi:home
+  - entity_id: "todo.google_tasks_my_tasks"
+    title: Google
+    icon: mdi:google
+```
+
+</td>
+</tr>
 </table>
 
 ---
@@ -262,6 +337,7 @@ grid_options:
 | `home_tasks_task_reminder` | Fired at the configured offset before a task's due time |
 
 All events include: `entry_id`, `task_id`, `task_title`, and (if set) `assigned_person`, `due_date`, `tags`.
+Events for external lists additionally include `entity_id` (the external todo entity).
 The `home_tasks_task_reminder` event additionally includes `reminder_offset_minutes`.
 
 ### Services

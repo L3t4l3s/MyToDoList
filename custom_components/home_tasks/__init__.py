@@ -9,7 +9,7 @@ import voluptuous as vol
 from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.core import HassJob, HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.event import async_call_later, async_track_time_interval
 
@@ -157,7 +157,7 @@ def _async_register_due_checker(hass: HomeAssistant) -> None:
     def _periodic_check(_now=None) -> None:
         hass.async_create_task(_async_check_due_dates(hass))
 
-    unsub = async_track_time_interval(hass, _periodic_check, DUE_CHECK_INTERVAL)
+    unsub = async_track_time_interval(hass, _periodic_check, DUE_CHECK_INTERVAL, cancel_on_shutdown=True)
     hass.data[DATA_DUE_CHECK_UNSUB] = unsub
     _LOGGER.debug("Due-date checker registered, interval=%s", DUE_CHECK_INTERVAL)
 
@@ -176,7 +176,7 @@ def _schedule_startup_due_check(hass: HomeAssistant) -> None:
     def _delayed_check(_now):
         hass.async_create_task(_async_check_due_dates(hass))
 
-    async_call_later(hass, 120, _delayed_check)
+    async_call_later(hass, 120, HassJob(_delayed_check, "startup_due_check", cancel_on_shutdown=True))
     _LOGGER.debug("Startup due-date check scheduled in 120s")
 
 
