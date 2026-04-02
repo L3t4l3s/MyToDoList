@@ -16,6 +16,7 @@ from homeassistant.helpers.event import async_call_later, async_track_time_inter
 from .const import DOMAIN, RECURRENCE_UNIT_SECONDS
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+from .overlay_store import ExternalTaskOverlayStore
 from .store import HomeTasksStore
 from .websocket_api import async_register_websocket_commands
 
@@ -98,6 +99,8 @@ def _build_event_data(entry_id: str, task: dict) -> dict:
         "task_id": task["id"],
         "task_title": task.get("title", ""),
     }
+    if task.get("_entity_id"):
+        data["entity_id"] = task["_entity_id"]
     if task.get("assigned_person"):
         data["assigned_person"] = task["assigned_person"]
     if task.get("due_date"):
@@ -159,6 +162,24 @@ def _async_register_due_checker(hass: HomeAssistant) -> None:
     _LOGGER.debug("Due-date checker registered, interval=%s", DUE_CHECK_INTERVAL)
 
 
+def _schedule_startup_due_check(hass: HomeAssistant) -> None:
+    """Schedule a single delayed due-date check after startup (once globally).
+
+    Delayed by 120s so external todo entities from other integrations have time
+    to finish loading before we try to read their tasks.
+    """
+    if hass.data.get(DATA_DUE_STARTUP_DONE):
+        return
+    hass.data[DATA_DUE_STARTUP_DONE] = True
+
+    @callback
+    def _delayed_check(_now):
+        hass.async_create_task(_async_check_due_dates(hass))
+
+    async_call_later(hass, 120, _delayed_check)
+    _LOGGER.debug("Startup due-date check scheduled in 120s")
+
+
 async def _async_check_due_dates(hass: HomeAssistant, _now=None) -> None:
     """Check all tasks for due/overdue and fire events once per day per task."""
     today = date.today().isoformat()
@@ -171,29 +192,57 @@ async def _async_check_due_dates(hass: HomeAssistant, _now=None) -> None:
         if not isinstance(store, HomeTasksStore):
             continue
         for task in store.tasks:
-            if task.get("completed"):
-                continue
-            dd = task.get("due_date")
-            if not dd:
-                continue
-            task_id = task["id"]
-            task_fired = fired.setdefault(task_id, {})
+            _check_task_due(hass, entry_id, task, today, fired)
 
-            event_data = _build_event_data(entry_id, task)
+    # Also check external entities for due dates
+    _check_external_due_dates(hass, today, fired)
 
-            if dd == today and task_fired.get("due") != today:
-                _LOGGER.info("Firing task_due for '%s' (due=%s)", task.get("title"), dd)
-                hass.bus.async_fire(f"{DOMAIN}_task_due", event_data)
-                task_fired["due"] = today
-            elif dd < today and task_fired.get("overdue") != today:
-                _LOGGER.info("Firing task_overdue for '%s' (due=%s)", task.get("title"), dd)
-                hass.bus.async_fire(f"{DOMAIN}_task_overdue", event_data)
-                task_fired["overdue"] = today
-            else:
-                _LOGGER.debug(
-                    "Skipping task '%s': due=%s, fired=%s",
-                    task.get("title"), dd, task_fired,
-                )
+
+def _check_task_due(hass: HomeAssistant, entry_id: str, task: dict, today: str, fired: dict) -> None:
+    """Check a single task for due/overdue and fire events."""
+    if task.get("completed"):
+        return
+    dd = task.get("due_date")
+    if not dd:
+        return
+    task_id = task["id"]
+    task_fired = fired.setdefault(task_id, {})
+
+    event_data = _build_event_data(entry_id, task)
+
+    if dd == today and task_fired.get("due") != today:
+        _LOGGER.info("Firing task_due for '%s' (due=%s)", task.get("title"), dd)
+        hass.bus.async_fire(f"{DOMAIN}_task_due", event_data)
+        task_fired["due"] = today
+    elif dd < today and task_fired.get("overdue") != today:
+        _LOGGER.info("Firing task_overdue for '%s' (due=%s)", task.get("title"), dd)
+        hass.bus.async_fire(f"{DOMAIN}_task_overdue", event_data)
+        task_fired["overdue"] = today
+    else:
+        _LOGGER.debug(
+            "Skipping task '%s': due=%s, fired=%s",
+            task.get("title"), dd, task_fired,
+        )
+
+
+def _check_external_due_dates(hass: HomeAssistant, today: str, fired: dict) -> None:
+    """Check external todo entities for due/overdue tasks."""
+    stores = hass.data.get(DOMAIN, {})
+    for entry_id, store in stores.items():
+        if not isinstance(store, ExternalTaskOverlayStore):
+            continue
+        entity_id = store.entity_id
+        # Read tasks from the external entity via HA state
+        try:
+            from .websocket_api import _get_external_todo_items, _merge_tasks_with_overlays
+            external_items = _get_external_todo_items(hass, entity_id)
+            tasks = _merge_tasks_with_overlays(external_items, store)
+            for task in tasks:
+                # Inject entity_id so events carry the external entity reference
+                task["_entity_id"] = entity_id
+                _check_task_due(hass, entry_id, task, today, fired)
+        except (ValueError, Exception) as err:
+            _LOGGER.debug("Could not check due dates for external entity %s: %s", entity_id, err)
 
 
 # ---------------------------------------------------------------------------
@@ -667,6 +716,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await _async_register_card(hass)
     _async_register_services(hass)
 
+    if entry.data.get("type") == "external":
+        return await _async_setup_external_entry(hass, entry)
+
+    return await _async_setup_native_entry(hass, entry)
+
+
+async def _async_setup_native_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up a native Home Tasks list from a config entry."""
     store = HomeTasksStore(hass, entry.entry_id)
     await store.async_load()
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = store
@@ -683,19 +740,42 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _recover_recurrence_timers(hass, entry.entry_id, store)
     _recover_reminder_timers(hass, entry.entry_id, store)
 
-    # Run due-date check once after all entries are loaded (iterates all stores)
-    if not hass.data.get(DATA_DUE_STARTUP_DONE):
-        hass.data[DATA_DUE_STARTUP_DONE] = True
-        hass.async_create_task(_async_check_due_dates(hass))
+    # Schedule a delayed due-date check (120s) to let all integrations finish loading.
+    # This ensures external todo entities are available when we check their tasks.
+    _schedule_startup_due_check(hass)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
+async def _async_setup_external_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up a linked external todo entity with an overlay store."""
+    entity_id = entry.data.get("entity_id")
+    if not entity_id:
+        _LOGGER.error("External entry %s has no entity_id", entry.entry_id)
+        return False
+
+    overlay_store = ExternalTaskOverlayStore(hass, entity_id)
+    await overlay_store.async_load()
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = overlay_store
+
+    _LOGGER.info("Linked external todo entity: %s", entity_id)
+    # External entries do NOT forward to platforms (todo/sensor/binary_sensor)
+    # because those entities are already managed by the external integration.
+
+    _schedule_startup_due_check(hass)
+    return True
+
+
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
+    if entry.data.get("type") == "external":
+        # External entries don't have platforms to unload
+        hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
+        return True
+
     store = hass.data.get(DOMAIN, {}).get(entry.entry_id)
-    if store:
+    if store and isinstance(store, HomeTasksStore):
         fired = hass.data.get(DATA_DUE_FIRED, {})
         for task in store.tasks:
             _cancel_recurrence(hass, task["id"])

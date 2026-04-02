@@ -118,6 +118,13 @@ class HomeTasksStore:
         else:
             self._data = data
             self._backfill_recurrence_fields()
+            self._migrate_v1_to_v2()
+
+    def _migrate_v1_to_v2(self) -> None:
+        """Add external sync fields (v1 → v2)."""
+        for task in self._data.get("tasks", []):
+            task.setdefault("external_id", None)
+            task.setdefault("sync_source", None)
 
     def _backfill_recurrence_fields(self) -> None:
         """Add missing recurrence fields and migrate old format."""
@@ -199,6 +206,8 @@ class HomeTasksStore:
             "assigned_person": None,
             "tags": [],
             "history": [created_entry],
+            "external_id": None,
+            "sync_source": None,
         }
         self._data["tasks"].append(task)
         await self._async_save()

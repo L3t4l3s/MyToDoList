@@ -19,6 +19,8 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up sensor entities from a config entry."""
+    if entry.data.get("type") == "external":
+        return  # External entries do not get sensors
     store = hass.data[DOMAIN][entry.entry_id]
     async_add_entities([HomeTasksOpenTasksSensor(entry, store)])
 

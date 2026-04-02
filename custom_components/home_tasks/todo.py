@@ -21,6 +21,8 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up todo list entity from a config entry."""
+    if entry.data.get("type") == "external":
+        return  # External entries do not get a todo entity (managed by other integration)
     store = hass.data[DOMAIN][entry.entry_id]
     entity = HomeTasksEntity(entry, store)
     async_add_entities([entity])

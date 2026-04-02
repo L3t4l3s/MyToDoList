@@ -53,6 +53,8 @@ const _TRANSLATIONS = {
     ed_compact: "Compact",
     ed_show_tags: "Tags",
     ed_hint: "New lists can be created under Settings \u2192 Integrations \u2192 Home Tasks.",
+    ed_external_lists: "External",
+    move_external_blocked: "Cannot move tasks to/from external lists",
     tags: "Tags",
     add_tag: "+ Add tag",
     tag_placeholder: "New tag...",
@@ -850,6 +852,7 @@ class HomeTasksCard extends HTMLElement {
     this._config = { columns: [{}] };
     this._hass = null;
     this._lists = [];
+    this._externalLists = [];
     // Per-column state: [{filter, sortBy, sortOpen, tagFilters, personFilters, tasks, newTaskTitle}]
     this._columns = [];
     this._expandedTasks = new Set();
@@ -924,7 +927,8 @@ class HomeTasksCard extends HTMLElement {
     for (let i = 0; i < config.columns.length; i++) {
       const col = config.columns[i];
       const prevCol = prevConfig.columns?.[i];
-      if (col.list_id !== prevCol?.list_id || col.default_filter !== prevCol?.default_filter) {
+      const colSourceChanged = col.list_id !== prevCol?.list_id || col.entity_id !== prevCol?.entity_id;
+      if (colSourceChanged || col.default_filter !== prevCol?.default_filter) {
         this._columns[i].filter = col.default_filter || "all";
         this._columns[i].tagFilters = new Set();
         this._columns[i].personFilters = new Set();
@@ -935,7 +939,7 @@ class HomeTasksCard extends HTMLElement {
       if (col.show_assigned_person === false && prevCol?.show_assigned_person !== false) {
         this._columns[i].personFilters = new Set();
       }
-      if (col.list_id !== prevCol?.list_id || col.default_sort !== prevCol?.default_sort) {
+      if (colSourceChanged || col.default_sort !== prevCol?.default_sort) {
         this._columns[i].sortBy = col.default_sort || "manual";
       }
     }
@@ -1020,6 +1024,108 @@ class HomeTasksCard extends HTMLElement {
     }
   }
 
+  // --- External entity routing helpers ---
+
+  _isExternalCol(colIdx) {
+    return !!this._config.columns[colIdx]?.entity_id;
+  }
+
+  _colEntityId(colIdx) {
+    return this._config.columns[colIdx]?.entity_id;
+  }
+
+  /**
+   * Route a task update to the correct backend.
+   * For native columns: single WS call to home_tasks/update_task.
+   * For external columns: base fields go via HA todo services, overlay fields via our overlay WS.
+   */
+  async _updateTaskRouted(colIdx, taskId, fields) {
+    if (!this._isExternalCol(colIdx)) {
+      return this._callWs("home_tasks/update_task", {
+        list_id: this._colListId(colIdx),
+        task_id: taskId,
+        ...fields,
+      });
+    }
+
+    const entityId = this._colEntityId(colIdx);
+    // HA's todo.update_item uses: rename, status, due_date, due_datetime, description
+    const BASE_KEYS = new Set(["title", "completed", "due_date", "notes"]);
+    const baseUpdate = {};
+    const overlayUpdate = {};
+
+    for (const [k, v] of Object.entries(fields)) {
+      if (BASE_KEYS.has(k)) {
+        if (k === "completed") {
+          baseUpdate.status = v ? "completed" : "needs_action";
+        } else if (k === "due_date") {
+          // Combine with due_time if present for due_datetime support
+          const dueTime = fields.due_time;
+          if (v && dueTime) {
+            baseUpdate.due_datetime = `${v} ${dueTime}`;
+          } else if (v) {
+            baseUpdate.due_date = v;
+          } else {
+            // Clear due date: send empty string
+            baseUpdate.due_date = "";
+          }
+        } else if (k === "notes") {
+          baseUpdate.description = v || "";
+        } else if (k === "title") {
+          baseUpdate.rename = v;
+        }
+      } else {
+        overlayUpdate[k] = v;
+      }
+    }
+
+    // Update base fields via HA's standard todo service
+    if (Object.keys(baseUpdate).length > 0) {
+      try {
+        await this._hass.callService("todo", "update_item", {
+          entity_id: entityId,
+          item: taskId,
+          ...baseUpdate,
+        });
+      } catch (err) {
+        console.warn("Failed to update external task base fields:", err);
+      }
+    }
+
+    // Update overlay fields via our overlay store
+    if (Object.keys(overlayUpdate).length > 0) {
+      await this._callWs("home_tasks/update_external_overlay", {
+        entity_id: entityId,
+        task_uid: taskId,
+        ...overlayUpdate,
+      });
+    }
+  }
+
+  async _deleteTaskCmd(colIdx, taskId) {
+    if (this._isExternalCol(colIdx)) {
+      try {
+        await this._hass.callService("todo", "remove_item", {
+          entity_id: this._colEntityId(colIdx),
+          item: taskId,
+        });
+      } catch (err) {
+        console.warn("Failed to delete external task:", err);
+        return; // Don't clean up overlay if deletion failed
+      }
+      // Clean up overlay data only on successful deletion
+      await this._callWs("home_tasks/delete_external_overlay", {
+        entity_id: this._colEntityId(colIdx),
+        task_uid: taskId,
+      });
+    } else {
+      await this._callWs("home_tasks/delete_task", {
+        list_id: this._colListId(colIdx),
+        task_id: taskId,
+      });
+    }
+  }
+
   _showError(message) {
     const root = this.shadowRoot;
     if (!root) return;
@@ -1031,26 +1137,41 @@ class HomeTasksCard extends HTMLElement {
   }
 
   async _loadLists() {
-    const result = await this._callWs("home_tasks/get_lists");
-    if (result && Array.isArray(result.lists)) {
-      this._lists = result.lists;
-      // Auto-select first list if no column has a list configured
-      const hasAnyList = this._config.columns.some(c => c.list_id);
-      if (!hasAnyList && this._lists.length > 0) {
-        const newCols = [...this._config.columns];
-        newCols[0] = { ...newCols[0], list_id: this._lists[0].id };
-        this._config = { ...this._config, columns: newCols };
-        this._columns[0].filter = newCols[0].default_filter || "all";
-      }
+    const [nativeResult, externalResult] = await Promise.all([
+      this._callWs("home_tasks/get_lists"),
+      this._callWs("home_tasks/get_external_lists"),
+    ]);
+    if (nativeResult && Array.isArray(nativeResult.lists)) {
+      this._lists = nativeResult.lists;
+    }
+    this._externalLists = (externalResult && Array.isArray(externalResult.external_lists))
+      ? externalResult.external_lists.filter(l => l.linked)
+      : [];
+
+    // Auto-select first list if no column has a list configured
+    const hasAnyList = this._config.columns.some(c => c.list_id || c.entity_id);
+    if (!hasAnyList && this._lists.length > 0) {
+      const newCols = [...this._config.columns];
+      newCols[0] = { ...newCols[0], list_id: this._lists[0].id };
+      this._config = { ...this._config, columns: newCols };
+      this._columns[0].filter = newCols[0].default_filter || "all";
     }
     await this._loadAllTasks();
   }
 
   async _loadAllTasks() {
     await Promise.all(this._config.columns.map(async (col, i) => {
-      if (!col.list_id) { this._columns[i].tasks = []; return; }
-      const r = await this._callWs("home_tasks/get_tasks", { list_id: col.list_id });
-      this._columns[i].tasks = r?.tasks ?? [];
+      if (col.entity_id) {
+        // External column — fetch from external entity + overlay
+        const r = await this._callWs("home_tasks/get_external_tasks", { entity_id: col.entity_id });
+        this._columns[i].tasks = r?.tasks ?? [];
+      } else if (col.list_id) {
+        // Native column
+        const r = await this._callWs("home_tasks/get_tasks", { list_id: col.list_id });
+        this._columns[i].tasks = r?.tasks ?? [];
+      } else {
+        this._columns[i].tasks = [];
+      }
     }));
     this._render();
   }
@@ -1062,7 +1183,8 @@ class HomeTasksCard extends HTMLElement {
   async _addTask(colIdx) {
     const cs = this._columns[colIdx];
     const title = cs.newTaskTitle.trim();
-    if (!title || !this._colListId(colIdx)) return;
+    if (!title) return;
+    if (!this._colListId(colIdx) && !this._colEntityId(colIdx)) return;
 
     // Capture add-input position for the entry animation
     const colEl = this.shadowRoot.querySelector(`.task-list[data-col-idx="${colIdx}"]`)
@@ -1073,13 +1195,28 @@ class HomeTasksCard extends HTMLElement {
     // Snapshot existing task positions (they may shift when new task is inserted)
     const before = this._captureListFlip(colIdx);
 
-    const result = await this._callWs("home_tasks/add_task", {
-      list_id: this._colListId(colIdx),
-      title,
-    });
+    let result;
+    if (this._isExternalCol(colIdx)) {
+      // Create task via HA's standard todo service
+      try {
+        await this._hass.callService("todo", "add_item", {
+          entity_id: this._colEntityId(colIdx),
+          item: title,
+        });
+        result = { id: "pending" }; // HA doesn't return the new item ID directly
+      } catch (err) {
+        console.warn("Failed to create external task:", err);
+      }
+    } else {
+      result = await this._callWs("home_tasks/add_task", {
+        list_id: this._colListId(colIdx),
+        title,
+      });
+    }
+
     if (result) {
       cs.newTaskTitle = "";
-      this._justAddedTaskId = String(result.id);
+      this._justAddedTaskId = result.id ? String(result.id) : null;
       this._addInputRect = addInputRect;
       await this._loadAllTasks();
       this._justAddedTaskId = null;
@@ -1104,34 +1241,20 @@ class HomeTasksCard extends HTMLElement {
     // Snapshot all visible task positions for FLIP (completion/reopen moves the task)
     const before = this._captureListFlip(colIdx);
 
-    await this._callWs("home_tasks/update_task", {
-      list_id: this._colListId(colIdx),
-      task_id: taskId,
-      completed: newCompleted,
-    });
+    await this._updateTaskRouted(colIdx, taskId, { completed: newCompleted });
     await this._loadAllTasks();
     this._applyFlip(before, colIdx, 0.28);
   }
 
   async _updateTaskTitle(taskId, title, colIdx) {
     if (!title.trim()) return;
-    const result = await this._callWs("home_tasks/update_task", {
-      list_id: this._colListId(colIdx),
-      task_id: taskId,
-      title: title.trim(),
-    });
-    if (result) {
-      this._editingTaskId = null;
-      await this._loadAllTasks();
-    }
+    await this._updateTaskRouted(colIdx, taskId, { title: title.trim() });
+    this._editingTaskId = null;
+    await this._loadAllTasks();
   }
 
   async _updateTaskNotes(taskId, notes, colIdx) {
-    await this._callWs("home_tasks/update_task", {
-      list_id: this._colListId(colIdx),
-      task_id: taskId,
-      notes,
-    });
+    await this._updateTaskRouted(colIdx, taskId, { notes });
     const tasks = this._columns[colIdx]?.tasks;
     if (tasks) {
       const t = tasks.find(t => t.id === taskId);
@@ -1140,9 +1263,7 @@ class HomeTasksCard extends HTMLElement {
   }
 
   async _updateTaskDue(taskId, dueDate, dueTime, colIdx) {
-    await this._callWs("home_tasks/update_task", {
-      list_id: this._colListId(colIdx),
-      task_id: taskId,
+    await this._updateTaskRouted(colIdx, taskId, {
       due_date: dueDate || null,
       due_time: dueDate ? (dueTime || null) : null,
     });
@@ -1168,31 +1289,34 @@ class HomeTasksCard extends HTMLElement {
         setTimeout(resolve, 250); // safety fallback
       });
 
-      await this._callWs("home_tasks/delete_task", {
-        list_id: this._colListId(colIdx),
-        task_id: taskId,
-      });
+      await this._deleteTaskCmd(colIdx, taskId);
       this._expandedTasks.delete(taskId);
       await this._loadAllTasks();
       this._applyFlip(before, colIdx, 0.22);
 
     } else {
       // Fallback: task not in DOM, delete without animation
-      await this._callWs("home_tasks/delete_task", {
-        list_id: this._colListId(colIdx),
-        task_id: taskId,
-      });
+      await this._deleteTaskCmd(colIdx, taskId);
       this._expandedTasks.delete(taskId);
       await this._loadAllTasks();
     }
   }
 
   async _addSubTask(taskId, colIdx) {
-    const result = await this._callWs("home_tasks/add_sub_task", {
-      list_id: this._colListId(colIdx),
-      task_id: taskId,
-      title: this._t("new_sub_item"),
-    });
+    let result;
+    if (this._isExternalCol(colIdx)) {
+      result = await this._callWs("home_tasks/add_external_sub_task", {
+        entity_id: this._colEntityId(colIdx),
+        task_uid: taskId,
+        title: this._t("new_sub_item"),
+      });
+    } else {
+      result = await this._callWs("home_tasks/add_sub_task", {
+        list_id: this._colListId(colIdx),
+        task_id: taskId,
+        title: this._t("new_sub_item"),
+      });
+    }
     if (result) {
       this._editingSubTaskId = result.id;
     }
@@ -1200,23 +1324,42 @@ class HomeTasksCard extends HTMLElement {
   }
 
   async _toggleSubTask(taskId, subItemId, completed, colIdx) {
-    await this._callWs("home_tasks/update_sub_task", {
-      list_id: this._colListId(colIdx),
-      task_id: taskId,
-      sub_task_id: subItemId,
-      completed: !completed,
-    });
+    if (this._isExternalCol(colIdx)) {
+      await this._callWs("home_tasks/update_external_sub_task", {
+        entity_id: this._colEntityId(colIdx),
+        task_uid: taskId,
+        sub_task_id: subItemId,
+        completed: !completed,
+      });
+    } else {
+      await this._callWs("home_tasks/update_sub_task", {
+        list_id: this._colListId(colIdx),
+        task_id: taskId,
+        sub_task_id: subItemId,
+        completed: !completed,
+      });
+    }
     await this._loadAllTasks();
   }
 
   async _updateSubTaskTitle(taskId, subItemId, title, colIdx) {
     if (!title.trim()) return;
-    const result = await this._callWs("home_tasks/update_sub_task", {
-      list_id: this._colListId(colIdx),
-      task_id: taskId,
-      sub_task_id: subItemId,
-      title: title.trim(),
-    });
+    let result;
+    if (this._isExternalCol(colIdx)) {
+      result = await this._callWs("home_tasks/update_external_sub_task", {
+        entity_id: this._colEntityId(colIdx),
+        task_uid: taskId,
+        sub_task_id: subItemId,
+        title: title.trim(),
+      });
+    } else {
+      result = await this._callWs("home_tasks/update_sub_task", {
+        list_id: this._colListId(colIdx),
+        task_id: taskId,
+        sub_task_id: subItemId,
+        title: title.trim(),
+      });
+    }
     if (result) {
       this._editingSubTaskId = null;
       await this._loadAllTasks();
@@ -1224,20 +1367,36 @@ class HomeTasksCard extends HTMLElement {
   }
 
   async _deleteSubTask(taskId, subItemId, colIdx) {
-    await this._callWs("home_tasks/delete_sub_task", {
-      list_id: this._colListId(colIdx),
-      task_id: taskId,
-      sub_task_id: subItemId,
-    });
+    if (this._isExternalCol(colIdx)) {
+      await this._callWs("home_tasks/delete_external_sub_task", {
+        entity_id: this._colEntityId(colIdx),
+        task_uid: taskId,
+        sub_task_id: subItemId,
+      });
+    } else {
+      await this._callWs("home_tasks/delete_sub_task", {
+        list_id: this._colListId(colIdx),
+        task_id: taskId,
+        sub_task_id: subItemId,
+      });
+    }
     await this._loadAllTasks();
   }
 
   async _reorderSubTasks(taskId, subTaskIds, colIdx) {
-    await this._callWs("home_tasks/reorder_sub_tasks", {
-      list_id: this._colListId(colIdx),
-      task_id: taskId,
-      sub_task_ids: subTaskIds,
-    });
+    if (this._isExternalCol(colIdx)) {
+      await this._callWs("home_tasks/reorder_external_sub_tasks", {
+        entity_id: this._colEntityId(colIdx),
+        task_uid: taskId,
+        sub_task_ids: subTaskIds,
+      });
+    } else {
+      await this._callWs("home_tasks/reorder_sub_tasks", {
+        list_id: this._colListId(colIdx),
+        task_id: taskId,
+        sub_task_ids: subTaskIds,
+      });
+    }
     const tasks = this._columns[colIdx]?.tasks;
     if (tasks) {
       const task = tasks.find(t => t.id === taskId);
@@ -1249,16 +1408,33 @@ class HomeTasksCard extends HTMLElement {
   }
 
   async _reorderTasks(taskIds, colIdx) {
-    const listId = this._colListId(colIdx);
-    if (!listId) return;
-    await this._callWs("home_tasks/reorder_tasks", {
-      list_id: listId,
-      task_ids: taskIds,
-    });
+    if (this._isExternalCol(colIdx)) {
+      // Persist sort order in overlay — fire all updates in parallel
+      await Promise.all(taskIds.map((uid, i) =>
+        this._callWs("home_tasks/update_external_overlay", {
+          entity_id: this._colEntityId(colIdx),
+          task_uid: uid,
+          sort_order: i,
+        })
+      ));
+    } else {
+      const listId = this._colListId(colIdx);
+      if (!listId) return;
+      await this._callWs("home_tasks/reorder_tasks", {
+        list_id: listId,
+        task_ids: taskIds,
+      });
+    }
     await this._loadAllTasks();
   }
 
   async _moveTask(srcColIdx, tgtColIdx, taskId, targetTaskIds) {
+    // Cross-list move is only supported between native lists
+    if (this._isExternalCol(srcColIdx) || this._isExternalCol(tgtColIdx)) {
+      this._showError(this._t("move_external_blocked"));
+      await this._loadAllTasks();
+      return;
+    }
     const srcListId = this._colListId(srcColIdx);
     const tgtListId = this._colListId(tgtColIdx);
     if (!srcListId || !tgtListId) {
@@ -1476,6 +1652,10 @@ class HomeTasksCard extends HTMLElement {
   _getListName(colIdx) {
     const col = this._config.columns[colIdx];
     if (col.title) return col.title;
+    if (col.entity_id) {
+      const ext = (this._externalLists || []).find(l => l.entity_id === col.entity_id);
+      return ext ? ext.name : col.entity_id;
+    }
     const list = this._lists.find((l) => l.id === col.list_id);
     return list ? list.name : this._t("my_tasks");
   }
@@ -2082,7 +2262,6 @@ class HomeTasksCard extends HTMLElement {
 
   _buildTaskDetails(task, colIdx) {
     const col = this._config.columns[colIdx];
-    const listId = this._colListId(colIdx);
 
     // Due section
     const dateInput = this._el("input", {
@@ -2168,9 +2347,7 @@ class HomeTasksCard extends HTMLElement {
         textContent: this._t(key),
       });
       btn.addEventListener("click", () => {
-        this._callWs("home_tasks/update_task", {
-          list_id: listId,
-          task_id: task.id,
+        this._updateTaskRouted(colIdx, task.id, {
           priority: currentPriority === val ? null : val,
         })?.then(() => this._loadAllTasks());
       });
@@ -2362,9 +2539,7 @@ class HomeTasksCard extends HTMLElement {
 
     const saveWeekdays = () => {
       const selected = weekdayCheckboxes.map((cb, i) => cb.checked ? i : -1).filter(i => i >= 0);
-      this._callWs("home_tasks/update_task", {
-        list_id: listId,
-        task_id: task.id,
+      this._updateTaskRouted(colIdx, task.id, {
         recurrence_weekdays: selected,
       })?.then(() => this._loadAllTasks());
     };
@@ -2373,35 +2548,27 @@ class HomeTasksCard extends HTMLElement {
       const val = Math.max(1, Math.min(365, parseInt(recurrenceValueInput.value) || 1));
       recurrenceValueInput.value = val;
       applyRowVisibility(recurrenceModeSelect.value, recurrenceUnitSelect.value);
-      this._callWs("home_tasks/update_task", {
-        list_id: listId,
-        task_id: task.id,
+      this._updateTaskRouted(colIdx, task.id, {
         recurrence_value: val,
         recurrence_unit: recurrenceUnitSelect.value,
       })?.then(() => this._loadAllTasks());
     };
 
     const saveStartDate = () => {
-      this._callWs("home_tasks/update_task", {
-        list_id: listId,
-        task_id: task.id,
+      this._updateTaskRouted(colIdx, task.id, {
         recurrence_start_date: recurrenceStartDateInput.value || null,
       })?.then(() => this._loadAllTasks());
     };
 
     const saveRecurrenceTime = () => {
-      this._callWs("home_tasks/update_task", {
-        list_id: listId,
-        task_id: task.id,
+      this._updateTaskRouted(colIdx, task.id, {
         recurrence_time: recurrenceTimeInput.value || null,
       })?.then(() => this._loadAllTasks());
     };
 
     const saveEndCondition = () => {
       const endType = recurrenceEndSelect.value;
-      this._callWs("home_tasks/update_task", {
-        list_id: listId,
-        task_id: task.id,
+      this._updateTaskRouted(colIdx, task.id, {
         recurrence_end_type: endType,
         recurrence_end_date: endType === "date" ? (recurrenceEndDateInput.value || null) : null,
         recurrence_max_count: endType === "count" ? (parseInt(recurrenceMaxCountInput.value) || null) : null,
@@ -2415,9 +2582,7 @@ class HomeTasksCard extends HTMLElement {
       const val = Math.max(1, Math.min(365, parseInt(recurrenceValueInput.value) || 1));
       const selected = weekdayCheckboxes.map((cb, i) => cb.checked ? i : -1).filter(i => i >= 0);
       const endType = recurrenceEndSelect.value;
-      this._callWs("home_tasks/update_task", {
-        list_id: listId,
-        task_id: task.id,
+      this._updateTaskRouted(colIdx, task.id, {
         recurrence_enabled: enabled,
         recurrence_type: mode,
         recurrence_value: val,
@@ -2434,9 +2599,7 @@ class HomeTasksCard extends HTMLElement {
     recurrenceModeSelect.addEventListener("change", () => {
       const mode = recurrenceModeSelect.value;
       applyRowVisibility(mode, recurrenceUnitSelect.value);
-      this._callWs("home_tasks/update_task", {
-        list_id: listId,
-        task_id: task.id,
+      this._updateTaskRouted(colIdx, task.id, {
         recurrence_type: mode,
       })?.then(() => this._loadAllTasks());
     });
@@ -2479,9 +2642,7 @@ class HomeTasksCard extends HTMLElement {
       }
     }
     personSelect.addEventListener("change", () => {
-      this._callWs("home_tasks/update_task", {
-        list_id: listId,
-        task_id: task.id,
+      this._updateTaskRouted(colIdx, task.id, {
         assigned_person: personSelect.value || null,
       })?.then(() => this._loadAllTasks());
     });
@@ -2506,9 +2667,7 @@ class HomeTasksCard extends HTMLElement {
         });
         removeBtn.addEventListener("click", () => {
           const newTags = taskTags.filter((t) => t !== tag);
-          this._callWs("home_tasks/update_task", {
-            list_id: listId,
-            task_id: task.id,
+          this._updateTaskRouted(colIdx, task.id, {
             tags: newTags,
           })?.then(() => this._loadAllTasks());
         });
@@ -2529,9 +2688,7 @@ class HomeTasksCard extends HTMLElement {
       if (e.key === "Enter") {
         const val = tagInput.value.trim().toLowerCase();
         if (val && !taskTags.includes(val)) {
-          this._callWs("home_tasks/update_task", {
-            list_id: listId,
-            task_id: task.id,
+          this._updateTaskRouted(colIdx, task.id, {
             tags: [...taskTags, val],
           })?.then(() => this._loadAllTasks());
         }
@@ -2551,9 +2708,7 @@ class HomeTasksCard extends HTMLElement {
       this._el("label", { className: "detail-label", textContent: this._t("reminder") }),
     ];
     const _rebuildReminders = (newReminders) => {
-      this._callWs("home_tasks/update_task", {
-        list_id: listId,
-        task_id: task.id,
+      this._updateTaskRouted(colIdx, task.id, {
         reminders: newReminders,
       })?.then(() => this._loadAllTasks());
     };
@@ -3456,6 +3611,7 @@ class HomeTasksCardEditor extends HTMLElement {
     this._config = { columns: [{}] };
     this._hass = null;
     this._lists = [];
+    this._externalLists = [];
     this._listsLoaded = false;
     this._editorTab = 0;
     this._editorCodeMode = {};  // { tabIdx: bool }
@@ -3531,19 +3687,25 @@ class HomeTasksCardEditor extends HTMLElement {
 
   async _loadLists() {
     try {
-      const result = await this._hass.callWS({ type: "home_tasks/get_lists" });
-      if (result && Array.isArray(result.lists)) {
-        this._lists = result.lists;
-        this._listsLoaded = true;
-        // Auto-select first list for first column if none set
-        if (!this._config.columns[0]?.list_id && this._lists.length > 0) {
-          const newCols = [...this._config.columns];
-          newCols[0] = { ...newCols[0], list_id: this._lists[0].id };
-          this._config = { ...this._config, columns: newCols };
-          this._fireChanged();
-        }
-        this._render();
+      const [nativeResult, externalResult] = await Promise.all([
+        this._hass.callWS({ type: "home_tasks/get_lists" }),
+        this._hass.callWS({ type: "home_tasks/get_external_lists" }).catch(() => null),
+      ]);
+      if (nativeResult && Array.isArray(nativeResult.lists)) {
+        this._lists = nativeResult.lists;
       }
+      this._externalLists = (externalResult && Array.isArray(externalResult.external_lists))
+        ? externalResult.external_lists.filter(l => l.linked)
+        : [];
+      this._listsLoaded = true;
+      // Auto-select first list for first column if none set
+      if (!this._config.columns[0]?.list_id && !this._config.columns[0]?.entity_id && this._lists.length > 0) {
+        const newCols = [...this._config.columns];
+        newCols[0] = { ...newCols[0], list_id: this._lists[0].id };
+        this._config = { ...this._config, columns: newCols };
+        this._fireChanged();
+      }
+      this._render();
     } catch (e) {
       // Integration might not be loaded yet
     }
@@ -3646,6 +3808,7 @@ class HomeTasksCardEditor extends HTMLElement {
     for (let i = 0; i < cols.length; i++) {
       const colName = cols[i].title ||
         this._lists.find(l => l.id === cols[i].list_id)?.name ||
+        (cols[i].entity_id && (this._externalLists || []).find(l => l.entity_id === cols[i].entity_id)?.name) ||
         String(i + 1);
       const tab = this._el("button", {
         className: "editor-tab" + (i === activeTab ? " active" : ""),
@@ -3796,24 +3959,77 @@ class HomeTasksCardEditor extends HTMLElement {
       return [label, sel];
     };
 
-    // List select (has an extra blank option when no list is configured)
+    // List select — native lists + linked external entities
     const listLabel = this._el("label", { textContent: this._t("ed_list") });
     const listSelect = document.createElement("select");
     listSelect.className = "editor-native-select";
-    if (!col.list_id) {
+    const currentSource = col.entity_id ? `ext:${col.entity_id}` : (col.list_id || "");
+    if (!col.list_id && !col.entity_id) {
       const opt = document.createElement("option");
       opt.value = ""; opt.textContent = "\u2014"; opt.selected = true;
       listSelect.appendChild(opt);
     }
+    // Native lists
     for (const l of this._lists) {
       const opt = document.createElement("option");
       opt.value = l.id; opt.textContent = l.name;
-      if (l.id === col.list_id) opt.selected = true;
+      if (l.id === col.list_id && !col.entity_id) opt.selected = true;
       listSelect.appendChild(opt);
     }
+    // External lists (linked)
+    if (this._externalLists && this._externalLists.length > 0) {
+      const optGroup = document.createElement("optgroup");
+      optGroup.label = this._t("ed_external_lists") || "External";
+      for (const el of this._externalLists) {
+        const opt = document.createElement("option");
+        opt.value = `ext:${el.entity_id}`;
+        opt.textContent = `${el.name} \u2197`;
+        if (col.entity_id === el.entity_id) opt.selected = true;
+        optGroup.appendChild(opt);
+      }
+      listSelect.appendChild(optGroup);
+    }
     listSelect.addEventListener("change", () => {
-      const newVal = listSelect.value || undefined;
-      if (newVal !== col.list_id) updateCol({ list_id: newVal });
+      const val = listSelect.value || "";
+      if (val.startsWith("ext:")) {
+        const entityId = val.slice(4);
+        // Find the external list's supported_features
+        const extList = (this._externalLists || []).find(l => l.entity_id === entityId);
+        const features = extList?.supported_features || 0;
+        // Auto-set visibility defaults for external lists:
+        // - Overlay-only fields (no provider support) → OFF by default
+        // - Provider-supported fields → ON based on feature flags
+        const HAS_DUE = (features & 16) || (features & 32);  // SET_DUE_DATE or SET_DUE_DATETIME
+        const HAS_DESC = !!(features & 64);                   // SET_DESCRIPTION
+        updateCol({
+          entity_id: entityId,
+          list_id: undefined,
+          show_due_date: !!HAS_DUE,
+          show_notes: HAS_DESC,
+          show_priority: false,
+          show_tags: false,
+          show_sub_tasks: false,
+          show_assigned_person: false,
+          show_reminders: false,
+          show_recurrence: false,
+          show_history: false,
+        });
+      } else {
+        // Native list: restore default visibility (all features ON)
+        updateCol({
+          list_id: val || undefined,
+          entity_id: undefined,
+          show_due_date: true,
+          show_notes: true,
+          show_priority: true,
+          show_tags: true,
+          show_sub_tasks: true,
+          show_assigned_person: true,
+          show_reminders: true,
+          show_recurrence: true,
+          show_history: undefined,  // default off for native too
+        });
+      }
     });
 
     // Title input

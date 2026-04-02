@@ -2,20 +2,38 @@
   "config": {
     "step": {
       "user": {
+        "title": "Home Tasks",
+        "description": "Choose what you want to set up.",
+        "menu_options": {
+          "native": "Create a new task list",
+          "external": "Link an external todo list"
+        }
+      },
+      "native": {
         "title": "Create Task List",
         "description": "Enter a name for the new task list.",
         "data": {
           "name": "List name"
+        }
+      },
+      "external": {
+        "title": "Link External Todo List",
+        "description": "Select an external todo entity to enhance with Home Tasks features (priority, tags, sub-tasks, etc.).",
+        "data": {
+          "entity_id": "Todo entity"
         }
       }
     },
     "error": {
       "empty_name": "The name must not be empty.",
       "name_too_long": "The name is too long (max 100 characters).",
-      "duplicate_name": "A list with this name already exists."
+      "duplicate_name": "A list with this name already exists.",
+      "empty_entity": "Please select an entity.",
+      "already_linked": "This entity is already linked."
     },
     "abort": {
-      "already_configured": "This list is already configured."
+      "already_configured": "This list is already configured.",
+      "no_external_entities": "No external todo entities found. Please set up a CalDAV, Google Tasks, or Microsoft ToDo integration first."
     }
   }
 }
