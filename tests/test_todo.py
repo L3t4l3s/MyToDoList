@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
-from homeassistant.components.todo import TodoItemStatus
+from homeassistant.components.todo import TodoItem, TodoItemStatus
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
@@ -78,3 +78,135 @@ async def test_todo_items_status_needs_action(hass: HomeAssistant, mock_config_e
         if entity:
             items = entity.todo_items or []
             assert all(i.status == TodoItemStatus.NEEDS_ACTION for i in items)
+
+
+async def test_todo_create_via_service(hass: HomeAssistant, mock_config_entry, store) -> None:
+    """todo.add_item service calls async_create_todo_item and adds task to store."""
+    entity_id = _get_todo_entity_id(hass, mock_config_entry.entry_id)
+    await hass.services.async_call(
+        "todo", "add_item",
+        {"entity_id": entity_id, "item": "Via service"},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert any(t["title"] == "Via service" for t in store.tasks)
+
+
+async def test_todo_create_with_due_date(hass: HomeAssistant, mock_config_entry, store) -> None:
+    """todo.add_item with due_date stores the date on the task."""
+    entity_id = _get_todo_entity_id(hass, mock_config_entry.entry_id)
+    await hass.services.async_call(
+        "todo", "add_item",
+        {"entity_id": entity_id, "item": "With due", "due_date": date(2026, 6, 15)},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    tasks = [t for t in store.tasks if t["title"] == "With due"]
+    assert tasks and tasks[0]["due_date"] == "2026-06-15"
+
+
+async def test_todo_update_via_service(hass: HomeAssistant, mock_config_entry, store) -> None:
+    """todo.update_item service calls async_update_todo_item and updates task."""
+    task = await store.async_add_task("To rename")
+    await hass.async_block_till_done()
+
+    entity_id = _get_todo_entity_id(hass, mock_config_entry.entry_id)
+    await hass.services.async_call(
+        "todo", "update_item",
+        {"entity_id": entity_id, "item": task["id"], "rename": "Renamed"},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert store.get_task(task["id"])["title"] == "Renamed"
+
+
+async def test_todo_update_status_completed(hass: HomeAssistant, mock_config_entry, store) -> None:
+    """Updating a todo item status to completed marks it done."""
+    task = await store.async_add_task("Mark complete")
+    await hass.async_block_till_done()
+
+    entity_id = _get_todo_entity_id(hass, mock_config_entry.entry_id)
+    await hass.services.async_call(
+        "todo", "update_item",
+        {"entity_id": entity_id, "item": task["id"], "status": "completed"},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert store.get_task(task["id"])["completed"] is True
+
+
+async def test_todo_delete_via_service(hass: HomeAssistant, mock_config_entry, store) -> None:
+    """todo.remove_item service calls async_delete_todo_items and removes task."""
+    task = await store.async_add_task("To delete")
+    await hass.async_block_till_done()
+
+    entity_id = _get_todo_entity_id(hass, mock_config_entry.entry_id)
+    await hass.services.async_call(
+        "todo", "remove_item",
+        {"entity_id": entity_id, "item": [task["id"]]},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert all(t["id"] != task["id"] for t in store.tasks)
+
+
+async def test_todo_create_with_description(hass: HomeAssistant, mock_config_entry, store) -> None:
+    """todo.add_item with description stores it as notes on the task."""
+    entity_id = _get_todo_entity_id(hass, mock_config_entry.entry_id)
+    await hass.services.async_call(
+        "todo", "add_item",
+        {"entity_id": entity_id, "item": "With notes", "description": "My note"},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    tasks = [t for t in store.tasks if t["title"] == "With notes"]
+    assert tasks and tasks[0]["notes"] == "My note"
+
+
+async def test_todo_create_as_completed(hass: HomeAssistant, mock_config_entry, store) -> None:
+    """async_create_todo_item with COMPLETED status creates the task as completed."""
+    entity_id = _get_todo_entity_id(hass, mock_config_entry.entry_id)
+    entity_comp = hass.data.get("todo")
+    if entity_comp and hasattr(entity_comp, "get_entity"):
+        entity = entity_comp.get_entity(entity_id)
+        if entity:
+            item = TodoItem(summary="Already done", status=TodoItemStatus.COMPLETED)
+            await entity.async_create_todo_item(item)
+            await hass.async_block_till_done()
+            tasks = [t for t in store.tasks if t["title"] == "Already done"]
+            assert tasks and tasks[0]["completed"] is True
+
+
+async def test_todo_update_with_due_date(hass: HomeAssistant, mock_config_entry, store) -> None:
+    """todo.update_item with due_date stores the date on the task."""
+    task = await store.async_add_task("Set due")
+    await hass.async_block_till_done()
+
+    entity_id = _get_todo_entity_id(hass, mock_config_entry.entry_id)
+    await hass.services.async_call(
+        "todo", "update_item",
+        {"entity_id": entity_id, "item": task["id"], "due_date": date(2026, 9, 1)},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert store.get_task(task["id"])["due_date"] == "2026-09-01"
+
+
+async def test_todo_external_entry_skipped(hass: HomeAssistant, patch_add_extra_js_url) -> None:
+    """External entries do not create a todo entity."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from homeassistant.helpers import entity_registry as er
+
+    ext_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"type": "external", "entity_id": "todo.external_test", "name": "External"},
+        title="External (External)",
+    )
+    ext_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(ext_entry.entry_id)
+    await hass.async_block_till_done()
+
+    # No todo entity should be registered for the external entry
+    reg = er.async_get(hass)
+    entity_id = reg.async_get_entity_id("todo", DOMAIN, ext_entry.entry_id)
+    assert entity_id is None

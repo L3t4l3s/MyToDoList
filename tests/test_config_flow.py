@@ -101,3 +101,70 @@ async def test_external_aborts_when_no_todo_entities(hass: HomeAssistant) -> Non
     )
     assert result2["type"] == FlowResultType.ABORT
     assert result2["reason"] == "no_external_entities"
+
+
+async def test_native_name_too_long_rejected(hass: HomeAssistant) -> None:
+    """A name exceeding MAX_LIST_NAME_LENGTH is rejected with name_too_long error."""
+    from custom_components.home_tasks.const import MAX_LIST_NAME_LENGTH
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result2 = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "native"}
+    )
+    result3 = await hass.config_entries.flow.async_configure(
+        result2["flow_id"], {"name": "x" * (MAX_LIST_NAME_LENGTH + 1)}
+    )
+    assert result3["type"] == FlowResultType.FORM
+    assert result3["errors"].get("name") == "name_too_long"
+
+
+async def test_external_flow_shows_form_when_entities_available(hass: HomeAssistant) -> None:
+    """External flow shows a form when there is at least one external todo entity."""
+    from homeassistant.helpers import entity_registry as er
+
+    reg = er.async_get(hass)
+    # Register a fake todo entity that is NOT owned by home_tasks
+    reg.async_get_or_create(
+        "todo",
+        "google_tasks",
+        "test_list_unique_id",
+        original_name="Google Tasks",
+    )
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result2 = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "external"}
+    )
+    assert result2["type"] == FlowResultType.FORM
+    assert result2["step_id"] == "external"
+
+
+async def test_external_flow_creates_entry(hass: HomeAssistant) -> None:
+    """Submitting the external form creates a config entry."""
+    from homeassistant.helpers import entity_registry as er
+
+    reg = er.async_get(hass)
+    ext_entry = reg.async_get_or_create(
+        "todo",
+        "google_tasks",
+        "ext_unique_2",
+        original_name="My Google List",
+    )
+    entity_id = ext_entry.entity_id
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result2 = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "external"}
+    )
+    result3 = await hass.config_entries.flow.async_configure(
+        result2["flow_id"], {"entity_id": entity_id}
+    )
+    await hass.async_block_till_done()
+    assert result3["type"] == FlowResultType.CREATE_ENTRY
+    assert result3["data"]["entity_id"] == entity_id
+    assert result3["data"]["type"] == "external"

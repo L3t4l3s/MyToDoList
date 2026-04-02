@@ -64,7 +64,7 @@ PYTHONHOME="" PYTHONPATH="" .venv/Scripts/python.exe -m pytest \
   --cov=custom_components/home_tasks --cov-report=term-missing
 ```
 
-Expected output: **74 passed** (all green, no errors).
+Expected output: **182 passed** (all green, no errors).
 
 ---
 
@@ -72,12 +72,12 @@ Expected output: **74 passed** (all green, no errors).
 
 | File | What it tests |
 |------|--------------|
-| `tests/test_store.py` | `HomeTasksStore` — add/update/delete tasks, validation, tags, history, sub-tasks, recurrence, reorder, move between lists (22 tests) |
-| `tests/test_overlay_store.py` | `ExternalTaskOverlayStore` — overlays for external tasks, sub-task CRUD, persistence (11 tests) |
-| `tests/test_config_flow.py` | Config flow — native list creation, duplicate detection, external abort (6 tests) |
-| `tests/test_init.py` | Integration setup — services registered, event firing, recurrence timer, unload (9 tests) |
-| `tests/test_websocket_api.py` | WebSocket commands — all CRUD operations, move task, error handling (10 tests) |
-| `tests/test_todo.py` | `TodoListEntity` — HA todo platform, item status, completion (5 tests) |
+| `tests/test_store.py` | `HomeTasksStore` — add/update/delete tasks, all validation, migration, callbacks, history tracking, sub-tasks, recurrence, reorder, move between lists, listeners (52 tests) |
+| `tests/test_overlay_store.py` | `ExternalTaskOverlayStore` — overlays for external tasks, all validation branches, sub-task CRUD, limits, overlay-not-found errors, persistence, listeners (29 tests) |
+| `tests/test_config_flow.py` | Config flow — native list creation, duplicate detection, name_too_long, external abort/form/create (9 tests) |
+| `tests/test_init.py` | Integration setup — services (add/complete/assign/reopen + tag/person filters), event firing, due/overdue events, recurrence timer, external entry lifecycle (19 tests) |
+| `tests/test_websocket_api.py` | WebSocket commands — native CRUD, sub-task commands, move task, external overlay commands, error paths (26 tests) |
+| `tests/test_todo.py` | `TodoListEntity` — HA todo platform, create/update/delete via services, due dates, descriptions, completed status, external entry skip (13 tests) |
 | `tests/test_sensor.py` | `OpenTasksSensor` — open count, titles, overdue count with `@freeze_time` (5 tests) |
 | `tests/test_binary_sensor.py` | `OverdueBinarySensor` — on/off with `@freeze_time`, overdue_tasks attribute (6 tests) |
 

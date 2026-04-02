@@ -104,3 +104,170 @@ async def test_reorder_sub_tasks(hass: HomeAssistant, overlay_store) -> None:
     overlay = overlay_store.get_overlay("uid-c")
     assert overlay["sub_items"][0]["id"] == s2["id"]
     assert overlay["sub_items"][1]["id"] == s1["id"]
+
+
+# ---------------------------------------------------------------------------
+# Sub-task limits and overlay-not-found errors
+# ---------------------------------------------------------------------------
+
+async def test_sub_task_max_limit(hass: HomeAssistant, overlay_store) -> None:
+    """Adding sub-tasks beyond the limit raises ValueError."""
+    from custom_components.home_tasks.const import MAX_SUB_TASKS_PER_TASK
+    for i in range(MAX_SUB_TASKS_PER_TASK):
+        await overlay_store.async_add_sub_task("uid-limit", f"Sub {i}")
+    with pytest.raises(ValueError, match="Maximum number of sub-tasks"):
+        await overlay_store.async_add_sub_task("uid-limit", "One too many")
+
+
+async def test_delete_sub_task_overlay_not_found(hass: HomeAssistant, overlay_store) -> None:
+    """Deleting a sub-task when the overlay doesn't exist raises ValueError."""
+    with pytest.raises(ValueError, match="Overlay not found"):
+        await overlay_store.async_delete_sub_task("no-overlay-uid", "sub-id")
+
+
+async def test_reorder_sub_tasks_overlay_not_found(hass: HomeAssistant, overlay_store) -> None:
+    """Reordering sub-tasks when the overlay doesn't exist raises ValueError."""
+    with pytest.raises(ValueError, match="Overlay not found"):
+        await overlay_store.async_reorder_sub_tasks("no-overlay-uid", ["sub-id"])
+
+
+async def test_update_sub_task_completed_not_bool(hass: HomeAssistant, overlay_store) -> None:
+    """update_sub_task raises when completed is not a bool."""
+    sub = await overlay_store.async_add_sub_task("uid-bool", "Sub")
+    with pytest.raises(ValueError, match="boolean"):
+        await overlay_store.async_update_sub_task("uid-bool", sub["id"], completed="yes")  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# Persistence: load from existing data
+# ---------------------------------------------------------------------------
+
+async def test_overlay_persists_across_reload(hass: HomeAssistant) -> None:
+    """Overlay data loaded from disk on second instantiation."""
+    from custom_components.home_tasks.overlay_store import ExternalTaskOverlayStore
+    store1 = ExternalTaskOverlayStore(hass, "todo.persist_test")
+    await store1.async_load()
+    await store1.async_set_overlay("uid-persist", priority=3, tags=["urgent"])
+
+    # Second instance reads the same storage key
+    store2 = ExternalTaskOverlayStore(hass, "todo.persist_test")
+    await store2.async_load()
+    overlay = store2.get_overlay("uid-persist")
+    assert overlay["priority"] == 3
+    assert "urgent" in overlay["tags"]
+
+
+# ---------------------------------------------------------------------------
+# Listener support
+# ---------------------------------------------------------------------------
+
+async def test_overlay_listener_fires_on_change(hass: HomeAssistant, overlay_store) -> None:
+    """Listeners are notified when overlay data is saved."""
+    called = []
+    remove = overlay_store.async_add_listener(lambda: called.append(1))
+    await overlay_store.async_set_overlay("uid-listener", priority=1)
+    assert len(called) == 1
+    remove()
+    await overlay_store.async_set_overlay("uid-listener", priority=2)
+    assert len(called) == 1  # removed — not called again
+
+
+# ---------------------------------------------------------------------------
+# _validate_overlay_fields: all remaining branches
+# ---------------------------------------------------------------------------
+
+async def test_invalid_due_time(hass: HomeAssistant, overlay_store) -> None:
+    with pytest.raises(ValueError, match="HH:MM"):
+        await overlay_store.async_set_overlay("uid-t", due_time="9:00")
+
+
+async def test_invalid_assigned_person(hass: HomeAssistant, overlay_store) -> None:
+    with pytest.raises(ValueError, match="assigned_person"):
+        await overlay_store.async_set_overlay("uid-t", assigned_person="x" * 300)
+
+
+async def test_tags_not_list(hass: HomeAssistant, overlay_store) -> None:
+    with pytest.raises(ValueError, match="tags"):
+        await overlay_store.async_set_overlay("uid-t", tags="urgent")  # type: ignore[arg-type]
+
+
+async def test_tags_non_string_element(hass: HomeAssistant, overlay_store) -> None:
+    with pytest.raises(ValueError, match="string"):
+        await overlay_store.async_set_overlay("uid-t", tags=[123])  # type: ignore[arg-type]
+
+
+async def test_tags_element_too_long(hass: HomeAssistant, overlay_store) -> None:
+    from custom_components.home_tasks.const import MAX_TAG_LENGTH
+    with pytest.raises(ValueError, match="Tag exceeds"):
+        await overlay_store.async_set_overlay("uid-t", tags=["x" * (MAX_TAG_LENGTH + 1)])
+
+
+async def test_reminders_not_list(hass: HomeAssistant, overlay_store) -> None:
+    with pytest.raises(ValueError, match="reminders"):
+        await overlay_store.async_set_overlay("uid-t", reminders=30)  # type: ignore[arg-type]
+
+
+async def test_reminders_invalid_value(hass: HomeAssistant, overlay_store) -> None:
+    with pytest.raises(ValueError, match="reminder"):
+        await overlay_store.async_set_overlay("uid-t", reminders=[-1])
+
+
+async def test_recurrence_value_zero(hass: HomeAssistant, overlay_store) -> None:
+    with pytest.raises(ValueError, match="recurrence_value"):
+        await overlay_store.async_set_overlay("uid-t", recurrence_value=0)
+
+
+async def test_recurrence_enabled_not_bool(hass: HomeAssistant, overlay_store) -> None:
+    with pytest.raises(ValueError, match="recurrence_enabled"):
+        await overlay_store.async_set_overlay("uid-t", recurrence_enabled="yes")  # type: ignore[arg-type]
+
+
+async def test_recurrence_type_invalid(hass: HomeAssistant, overlay_store) -> None:
+    with pytest.raises(ValueError, match="recurrence_type"):
+        await overlay_store.async_set_overlay("uid-t", recurrence_type="monthly")
+
+
+async def test_recurrence_weekdays_invalid(hass: HomeAssistant, overlay_store) -> None:
+    with pytest.raises(ValueError, match="recurrence_weekdays"):
+        await overlay_store.async_set_overlay("uid-t", recurrence_weekdays=[7])
+
+
+async def test_recurrence_end_type_invalid(hass: HomeAssistant, overlay_store) -> None:
+    with pytest.raises(ValueError, match="recurrence_end_type"):
+        await overlay_store.async_set_overlay("uid-t", recurrence_end_type="year")
+
+
+async def test_recurrence_max_count_zero(hass: HomeAssistant, overlay_store) -> None:
+    with pytest.raises(ValueError, match="recurrence_max_count"):
+        await overlay_store.async_set_overlay("uid-t", recurrence_max_count=0)
+
+
+async def test_recurrence_remaining_count_negative(hass: HomeAssistant, overlay_store) -> None:
+    with pytest.raises(ValueError, match="recurrence_remaining_count"):
+        await overlay_store.async_set_overlay("uid-t", recurrence_remaining_count=-1)
+
+
+async def test_recurrence_start_date_invalid(hass: HomeAssistant, overlay_store) -> None:
+    with pytest.raises(ValueError, match="YYYY-MM-DD"):
+        await overlay_store.async_set_overlay("uid-t", recurrence_start_date="01/01/2026")
+
+
+async def test_recurrence_time_invalid(hass: HomeAssistant, overlay_store) -> None:
+    with pytest.raises(ValueError, match="HH:MM"):
+        await overlay_store.async_set_overlay("uid-t", recurrence_time="9:30")
+
+
+async def test_valid_recurrence_overlay(hass: HomeAssistant, overlay_store) -> None:
+    """A fully-specified recurrence overlay is accepted."""
+    overlay = await overlay_store.async_set_overlay(
+        "uid-full",
+        recurrence_enabled=True,
+        recurrence_type="weekdays",
+        recurrence_weekdays=[0, 2, 4],
+        recurrence_start_date="2026-01-01",
+        recurrence_time="08:00",
+        recurrence_end_type="date",
+        recurrence_end_date="2026-12-31",
+    )
+    assert overlay["recurrence_enabled"] is True
+    assert overlay["recurrence_weekdays"] == [0, 2, 4]
