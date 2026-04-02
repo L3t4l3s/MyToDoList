@@ -3785,21 +3785,22 @@ class HomeTasksCardEditor extends HTMLElement {
     listSelect.label = this._t("ed_list");
     listSelect.style.width = "100%";
     if (!col.list_id) {
-      const emptyItem = document.createElement("mwc-list-item");
+      const emptyItem = document.createElement("ha-list-item");
       emptyItem.setAttribute("value", "");
-      emptyItem.selected = true;
+      emptyItem.value = "";
       emptyItem.textContent = "\u2014";
       listSelect.appendChild(emptyItem);
     }
     for (const l of this._lists) {
-      const item = document.createElement("mwc-list-item");
+      const item = document.createElement("ha-list-item");
       item.setAttribute("value", l.id);
-      if (l.id === col.list_id) item.selected = true;
+      item.value = l.id;
       item.textContent = l.name;
       listSelect.appendChild(item);
     }
-    listSelect.addEventListener("closed", () => {
-      const newVal = listSelect.value || undefined;
+    requestAnimationFrame(() => { listSelect.value = col.list_id || ""; });
+    listSelect.addEventListener("value-changed", (e) => {
+      const newVal = e.detail.value || undefined;
       if (newVal !== col.list_id) updateCol({ list_id: newVal });
     });
 
@@ -3822,14 +3823,15 @@ class HomeTasksCardEditor extends HTMLElement {
     filterSelect.label = this._t("ed_default_filter");
     filterSelect.style.width = "100%";
     for (const [val, key] of [["all", "filter_all"], ["open", "filter_open"], ["done", "filter_done"]]) {
-      const item = document.createElement("mwc-list-item");
+      const item = document.createElement("ha-list-item");
       item.setAttribute("value", val);
-      if ((col.default_filter || "all") === val) item.selected = true;
+      item.value = val;
       item.textContent = this._t(key);
       filterSelect.appendChild(item);
     }
-    filterSelect.addEventListener("closed", () => {
-      const newVal = filterSelect.value;
+    requestAnimationFrame(() => { filterSelect.value = col.default_filter || "all"; });
+    filterSelect.addEventListener("value-changed", (e) => {
+      const newVal = e.detail.value;
       if (newVal && newVal !== (col.default_filter || "all")) updateCol({ default_filter: newVal });
     });
 
@@ -3841,14 +3843,15 @@ class HomeTasksCardEditor extends HTMLElement {
       ["manual", "sort_manual"], ["due", "sort_due"], ["priority", "sort_priority"],
       ["title", "sort_title"], ["person", "sort_person"],
     ]) {
-      const item = document.createElement("mwc-list-item");
+      const item = document.createElement("ha-list-item");
       item.setAttribute("value", val);
-      if ((col.default_sort || "manual") === val) item.selected = true;
+      item.value = val;
       item.textContent = this._t(key);
       sortSelect.appendChild(item);
     }
-    sortSelect.addEventListener("closed", () => {
-      const newVal = sortSelect.value;
+    requestAnimationFrame(() => { sortSelect.value = col.default_sort || "manual"; });
+    sortSelect.addEventListener("value-changed", (e) => {
+      const newVal = e.detail.value;
       if (newVal && newVal !== (col.default_sort || "manual")) updateCol({ default_sort: newVal });
     });
 
