@@ -92,7 +92,11 @@ class HomeTasksEntity(TodoListEntity):
         self.async_write_ha_state()
 
     async def async_update_todo_item(self, item: TodoItem) -> None:
-        """Update a todo item."""
+        """Update a todo item.
+
+        HA always passes a complete TodoItem (existing fields + changes).
+        We update all standard fields unconditionally.
+        """
         if not item.uid:
             return
         kwargs = {}
@@ -100,10 +104,8 @@ class HomeTasksEntity(TodoListEntity):
             kwargs["title"] = item.summary
         if item.status is not None:
             kwargs["completed"] = item.status == TodoItemStatus.COMPLETED
-        if item.due is not None:
-            kwargs["due_date"] = item.due.isoformat()
-        elif item.due is None and "due" in (item.__dict__ if hasattr(item, "__dict__") else {}):
-            kwargs["due_date"] = None
+        # due can be a date, datetime, or None (cleared)
+        kwargs["due_date"] = item.due.isoformat() if item.due else None
         if item.description is not None:
             kwargs["notes"] = item.description
         if kwargs:
