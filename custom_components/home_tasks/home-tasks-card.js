@@ -1339,20 +1339,22 @@ class HomeTasksCard extends HTMLElement {
     if (!before || before.size === 0) return;
     // Pass 1: read ALL new positions first (relative to list top — no style writes yet)
     const taskListEl = this.shadowRoot.querySelector(`.task-list[data-col-idx="${colIdx}"]`);
-    const curListTop = taskListEl ? taskListEl.getBoundingClientRect().top : 0;
-    const newPositions = new Map();
-    this.shadowRoot
-      .querySelectorAll(`.task-list[data-col-idx="${colIdx}"] .task`)
+    if (!taskListEl) return;
+    const curListTop = taskListEl.getBoundingClientRect().top;
+    const newPositions = new Map(); // id → relativeTop
+    const elMap = new Map();        // id → element (reused in Pass 2, avoids N re-queries)
+    taskListEl.querySelectorAll(".task[data-task-id]")
       .forEach(el => {
         const id = el.dataset.taskId;
-        if (id && before.has(id)) newPositions.set(id, el.getBoundingClientRect().top - curListTop);
+        if (id && before.has(id)) {
+          newPositions.set(id, el.getBoundingClientRect().top - curListTop);
+          elMap.set(id, el);
+        }
       });
     // Pass 2: apply transforms
     const flipEls = [];
     newPositions.forEach((newTop, id) => {
-      const el = this.shadowRoot.querySelector(
-        `.task-list[data-col-idx="${colIdx}"] .task[data-task-id="${CSS.escape(id)}"]`
-      );
+      const el = elMap.get(id);
       if (!el) return;
       const dy = Math.round(before.get(id) - newTop);
       if (Math.abs(dy) < 1) return;
@@ -1383,15 +1385,15 @@ class HomeTasksCard extends HTMLElement {
     // Cancel any in-progress FLIP transforms before reading — getBoundingClientRect()
     // includes CSS transforms in its result, so a partially-animated transform would
     // corrupt the snapshot and cause the next animation to overshoot.
-    let hadTransform = false;
-    listEl.querySelectorAll(".task").forEach(el => {
-      if (el.style.transform) { el.style.transition = "none"; el.style.transform = ""; hadTransform = true; }
+    const tasks = listEl.querySelectorAll(".task[data-task-id]");
+    tasks.forEach(el => {
+      if (el.style.transform) { el.style.transition = "none"; el.style.transform = ""; }
     });
-    if (hadTransform) listEl.getBoundingClientRect(); // flush cleared transforms
+    // getBoundingClientRect() here both flushes any cleared transforms (forced layout)
+    // and reads the reference top — one reflow serves both purposes.
     const listTop = listEl.getBoundingClientRect().top;
-    listEl.querySelectorAll(".task[data-task-id]").forEach(el => {
-      const id = el.dataset.taskId;
-      if (id) before.set(id, el.getBoundingClientRect().top - listTop);
+    tasks.forEach(el => {
+      before.set(el.dataset.taskId, el.getBoundingClientRect().top - listTop);
     });
     return before;
   }
@@ -3779,21 +3781,33 @@ class HomeTasksCardEditor extends HTMLElement {
       this._fireChanged();
     };
 
-    // List select
+    const makeSelect = (labelKey, options, currentVal, onChange) => {
+      const label = this._el("label", { textContent: this._t(labelKey) });
+      const sel = document.createElement("select");
+      sel.className = "editor-native-select";
+      for (const [val, key] of options) {
+        const opt = document.createElement("option");
+        opt.value = val;
+        opt.textContent = this._t(key);
+        if (val === currentVal) opt.selected = true;
+        sel.appendChild(opt);
+      }
+      sel.addEventListener("change", () => onChange(sel.value));
+      return [label, sel];
+    };
+
+    // List select (has an extra blank option when no list is configured)
     const listLabel = this._el("label", { textContent: this._t("ed_list") });
     const listSelect = document.createElement("select");
     listSelect.className = "editor-native-select";
     if (!col.list_id) {
       const opt = document.createElement("option");
-      opt.value = "";
-      opt.textContent = "\u2014";
-      opt.selected = true;
+      opt.value = ""; opt.textContent = "\u2014"; opt.selected = true;
       listSelect.appendChild(opt);
     }
     for (const l of this._lists) {
       const opt = document.createElement("option");
-      opt.value = l.id;
-      opt.textContent = l.name;
+      opt.value = l.id; opt.textContent = l.name;
       if (l.id === col.list_id) opt.selected = true;
       listSelect.appendChild(opt);
     }
@@ -3816,40 +3830,20 @@ class HomeTasksCardEditor extends HTMLElement {
     iconPicker.value = col.icon || "";
     iconPicker.addEventListener("value-changed", (e) => updateCol({ icon: e.detail.value || undefined }));
 
-    // Default filter select
-    const filterLabel = this._el("label", { textContent: this._t("ed_default_filter") });
-    const filterSelect = document.createElement("select");
-    filterSelect.className = "editor-native-select";
-    for (const [val, key] of [["all", "filter_all"], ["open", "filter_open"], ["done", "filter_done"]]) {
-      const opt = document.createElement("option");
-      opt.value = val;
-      opt.textContent = this._t(key);
-      if ((col.default_filter || "all") === val) opt.selected = true;
-      filterSelect.appendChild(opt);
-    }
-    filterSelect.addEventListener("change", () => {
-      const newVal = filterSelect.value;
-      if (newVal && newVal !== (col.default_filter || "all")) updateCol({ default_filter: newVal });
-    });
+    const [filterLabel, filterSelect] = makeSelect(
+      "ed_default_filter",
+      [["all", "filter_all"], ["open", "filter_open"], ["done", "filter_done"]],
+      col.default_filter || "all",
+      (val) => { if (val !== (col.default_filter || "all")) updateCol({ default_filter: val }); }
+    );
 
-    // Default sort select
-    const sortLabel = this._el("label", { textContent: this._t("ed_default_sort") });
-    const sortSelect = document.createElement("select");
-    sortSelect.className = "editor-native-select";
-    for (const [val, key] of [
-      ["manual", "sort_manual"], ["due", "sort_due"], ["priority", "sort_priority"],
-      ["title", "sort_title"], ["person", "sort_person"],
-    ]) {
-      const opt = document.createElement("option");
-      opt.value = val;
-      opt.textContent = this._t(key);
-      if ((col.default_sort || "manual") === val) opt.selected = true;
-      sortSelect.appendChild(opt);
-    }
-    sortSelect.addEventListener("change", () => {
-      const newVal = sortSelect.value;
-      if (newVal && newVal !== (col.default_sort || "manual")) updateCol({ default_sort: newVal });
-    });
+    const [sortLabel, sortSelect] = makeSelect(
+      "ed_default_sort",
+      [["manual", "sort_manual"], ["due", "sort_due"], ["priority", "sort_priority"],
+       ["title", "sort_title"], ["person", "sort_person"]],
+      col.default_sort || "manual",
+      (val) => { if (val !== (col.default_sort || "manual")) updateCol({ default_sort: val }); }
+    );
 
     // Toggle helper — uses ha-switch for native HA look
     const makeToggle = (_id, labelKey, configKey, defaultOn = true) => {
