@@ -3,7 +3,7 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://github.com/hacs/integration)
 [![Validate](https://github.com/L3t4l3s/home-tasks/actions/workflows/validate.yaml/badge.svg)](https://github.com/L3t4l3s/home-tasks/actions/workflows/validate.yaml)
 
-A feature-rich task management integration for [Home Assistant](https://www.home-assistant.io/) with a custom Lovelace card.
+A feature-rich, highly customizable task management solution for Home Assistant — combining a native **integration** (sensors, events, services) with a versatile Lovelace **dashboard card**.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/L3t4l3s/home-tasks/main/docs/header-light.png" width="400" alt="Home Tasks in light mode">
@@ -12,26 +12,57 @@ A feature-rich task management integration for [Home Assistant](https://www.home
 
 ## Features
 
-- **Multi-column card** — display multiple lists side-by-side with cross-list drag & drop
-- **Drag & drop** reordering (desktop and mobile)
-- **Sub-tasks** with progress tracking
-- **Notes** per task
-- **Due date & time** with overdue highlighting
-- **Reminders** — up to 5 per task, fire as HA events at a configurable offset before the due time
-- **Priority** (Low / Medium / High) with colored badges
-- **Recurring tasks** — fixed intervals (hours, days, weeks, months) or specific weekdays
-- **Person assignment** using HA person entities
-- **Tags** for categorization and filtering
-- **Tag filtering** via clickable chips in the card header
-- **Sort** — by due date, priority, title, or assigned person; configurable default per column
-- **Filters**: All / Open / Done (per-column default configurable)
-- **Multiple lists** via integration config entries
-- **Events** for automations (created, completed, due, overdue, assigned, reopened, reminder)
-- **Sensors**: Open task count and overdue binary sensor per list
-- **Services**: Create, complete, reopen, and assign tasks via automations
+### Per-Task Fields
+
+Every task can carry up to 20 individual attributes:
+
+- **Title** — inline rename with double-click
+- **Notes** — free-text field per task
+- **Due date** with overdue highlighting
+- **Due time**
+- **Priority** — Low / Medium / High with colored badges
+- **Assigned person** — any HA person entity
+- **Tags** — multiple tags for categorization
+- **Sub-tasks** — nested checklist with progress bar
+- **Reminders** — up to 5 per task, fire as HA events at a configurable offset before due time
+- **Recurring** — fixed intervals: hours, days, weeks, months
+- **Recurring** — specific weekdays (Mon – Sun, any combination)
+- **Recurrence start date**
+- **Recurrence end date**
+- **Maximum repetitions**
+- **Completion state** with timestamp
+- **Task history / audit log** — every field change recorded with actor and timestamp
+
+### Dashboard Card
+
+- **Multi-column layout** — display multiple lists side-by-side on a single card
+- **Per-column configuration** — title, icon, default filter, default sort, show/hide every field individually
+- **Drag & drop** reordering on desktop and mobile
+- **Cross-list drag & drop** — move tasks between columns (multi-column cards only)
+- **Click anywhere** to expand / collapse task details
+- **Double-click title** to rename inline
+- **Filter** per column — All / Open / Done
+- **Sort** per column — manual, due date, priority, title, assigned person
+- **Tag & person filter chips** in the column header
 - **Compact mode** for denser task rows
-- **Auto-delete** completed tasks (optional)
-- **i18n**: English and German, follows HA language setting
+- **Auto-delete** completed tasks (optional, per column)
+- **Smooth animations** — FLIP transitions for sort, filter, create, delete, complete, and reopen
+- **Visual card editor** — fully configurable without writing YAML
+
+### Home Assistant Integration
+
+- **7 automation events**: created, completed, reopened, due, overdue, assigned, reminder
+- **Services**: add, complete, reopen, and assign tasks from automations
+- **Sensors**: open task count + overdue binary sensor per list
+- **Multiple lists** via separate integration config entries
+
+### Languages
+
+Available in 15 languages — follows your HA language setting automatically:
+
+English · German · French · Spanish · Portuguese · Italian · Dutch · Polish · Swedish · Danish · Norwegian · Finnish · Czech · Russian · Hungarian
+
+---
 
 ## Installation
 
@@ -58,53 +89,11 @@ A feature-rich task management integration for [Home Assistant](https://www.home
 
 The Lovelace card is automatically registered — just add it to your dashboard.
 
+---
+
 ## Card Configuration
 
-All options are available in the visual card editor. The examples below cover typical use cases.
-
-### Single-column card
-
-```yaml
-type: custom:home-tasks-card
-columns:
-  - list_id: "your-list-id"
-    title: Household
-    default_filter: open
-```
-
-The old flat format (`list_id` at root level) is still supported and migrated automatically.
-
-### Multi-column card
-
-```yaml
-type: custom:home-tasks-card
-title: Family           # optional title above all columns
-columns:
-  - list_id: "uuid-household"
-    title: Household
-    icon: mdi:home
-    default_filter: open
-    default_sort: due
-  - list_id: "uuid-shopping"
-    title: Shopping
-    icon: mdi:cart
-    compact: true
-    auto_delete_completed: true
-    show_notes: false
-    show_sub_tasks: false
-    show_assigned_person: false
-    show_priority: false
-    show_tags: false
-    show_due_date: false
-    show_reminders: false
-    show_recurrence: false
-  - list_id: "uuid-kids"
-    title: Kids Chores
-    icon: mdi:school
-    show_priority: false
-    show_due_date: false
-    show_reminders: false
-```
+All options are available in the visual card editor. The examples below cover the most common setups.
 
 ### Column option reference
 
@@ -129,35 +118,39 @@ columns:
 | `compact` | `false` | Compact mode for denser task rows |
 | `auto_delete_completed` | `false` | Automatically delete completed tasks |
 
+The old flat format (`list_id` at root level) is still supported and migrated automatically.
+
 ---
 
-### Household
+### Use Cases
 
-Full-featured list for shared household tasks — priorities, due dates, person assignment, and recurrence keep everything organized.
+<table>
+<tr>
+<td width="50%" valign="top">
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/L3t4l3s/home-tasks/main/docs/header-light.png" width="500" alt="Household list">
-</p>
+#### 🏠 Household
+
+<img src="https://raw.githubusercontent.com/L3t4l3s/home-tasks/main/docs/Household-full.png" alt="Household list">
+
+Full-featured list for shared household tasks — priorities, due dates, person assignment, and recurrence keep everything organized. Default filter `open` keeps the view focused.
 
 ```yaml
 type: custom:home-tasks-card
 columns:
   - list_id: "your-list-id"
     title: Household
+    icon: mdi:home
     default_filter: open
 ```
 
-*(All display options are enabled by default.)*
+</td>
+<td width="50%" valign="top">
 
----
+#### 🛒 Shopping List
 
-### Shopping List
+<img src="https://raw.githubusercontent.com/L3t4l3s/home-tasks/main/docs/Shopping-list.png" alt="Shopping list">
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/L3t4l3s/home-tasks/main/docs/header-dark.png" width="500" alt="Shopping list">
-</p>
-
-Minimal and fast — just items and checkboxes. Completed entries disappear immediately.
+Minimal and fast — just items and checkboxes. Completed entries disappear immediately. All metadata fields hidden to reduce clutter.
 
 ```yaml
 type: custom:home-tasks-card
@@ -165,8 +158,6 @@ columns:
   - list_id: "your-list-id"
     compact: true
     auto_delete_completed: true
-    show_title: false
-    show_progress: false
     show_notes: false
     show_sub_tasks: false
     show_assigned_person: false
@@ -177,13 +168,14 @@ columns:
     show_recurrence: false
 ```
 
----
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
 
-### Work / Projects
+#### 💼 Work / Projects
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/L3t4l3s/home-tasks/main/docs/usecase-work.png" width="500" alt="Work and projects list">
-</p>
+<img src="https://raw.githubusercontent.com/L3t4l3s/home-tasks/main/docs/usecase-work.png" alt="Work and projects list">
 
 Focused on deadlines — priorities, due dates, reminders, and sub-tasks. Person assignment and recurrence hidden to reduce noise.
 
@@ -195,23 +187,17 @@ columns:
     icon: mdi:briefcase
     default_filter: open
     default_sort: due
-    show_priority: true
-    show_due_date: true
-    show_reminders: true
-    show_sub_tasks: true
-    show_notes: true
     show_assigned_person: false
     show_tags: false
     show_recurrence: false
 ```
 
----
+</td>
+<td width="50%" valign="top">
 
-### Kids Chores
+#### 🎒 Kids Chores
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/L3t4l3s/home-tasks/main/docs/usecase-chores.png" width="500" alt="Kids chores list">
-</p>
+<img src="https://raw.githubusercontent.com/L3t4l3s/home-tasks/main/docs/usecase-chores.png" alt="Kids chores list">
 
 Who does what and when — person assignment, weekday recurrence, and tags for time-of-day filtering. No deadlines or reminders needed.
 
@@ -227,8 +213,36 @@ columns:
     show_recurrence: true
     show_assigned_person: true
     show_tags: true
-    show_notes: false
-    show_sub_tasks: false
+```
+
+</td>
+</tr>
+</table>
+
+---
+
+### Multi-Column Example: Kanban Board
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/L3t4l3s/home-tasks/main/docs/Multi-column-kanban.png" width="820" alt="Multi-column Kanban board">
+</p>
+
+Multiple lists displayed side-by-side on a single card. Tasks can be dragged between columns. Extend `grid_options` to give the card more horizontal space.
+
+```yaml
+type: custom:home-tasks-card
+title: Kanban Board
+columns:
+  - list_id: "your-list-id1"
+    auto_delete_completed: true
+    show_recurrence: false
+  - list_id: "your-list-id2"
+    show_recurrence: false
+  - list_id: "your-list-id3"
+    show_recurrence: false
+grid_options:
+  columns: 36
+  rows: auto
 ```
 
 ---
@@ -358,12 +372,14 @@ automation:
           list_name: "Household"
           tag: "weekend"
 ```
+
 ## Support
 
-If Home-Tasks is useful to you, consider buying me a coffee — it keeps the motivation going and helps fund future projects. 🙏
+If Home Tasks is useful to you, consider supporting the project — it keeps the motivation going and helps fund future development. 🙏
 
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-%23EA4AAA?logo=github)](https://github.com/sponsors/L3t4l3s)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-%23FFDD00?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/l3t4l3s)
+[![PayPal](https://img.shields.io/badge/Donate-PayPal-%2300457C?logo=paypal&logoColor=white)](https://paypal.me/kevinschimnick)
 
 ## License
 
