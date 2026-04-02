@@ -3617,8 +3617,10 @@ class HomeTasksCardEditor extends HTMLElement {
       label { font-size: 12px; font-weight: 500; color: var(--secondary-text-color); text-transform: uppercase; letter-spacing: 0.5px; }
       ha-textfield { width: 100%; }
       ha-icon-picker { width: 100%; }
-      select.editor-native-select { width: 100%; padding: 10px 12px; border: 1px solid var(--divider-color, rgba(0,0,0,0.12)); border-radius: 4px; background: var(--card-background-color, var(--ha-card-background, white)); color: var(--primary-text-color, #212121); font-size: 14px; cursor: pointer; box-sizing: border-box; }
-      select.editor-native-select:focus { outline: none; border-color: var(--primary-color, #03a9f4); }
+      select.editor-native-select { width: 100%; padding: 10px 12px; border: 1px solid var(--input-outlined-idle-border-color, var(--divider-color, rgba(0,0,0,0.38))); border-radius: 4px; background-color: var(--input-fill-color, var(--secondary-background-color, transparent)); color: var(--primary-text-color, #212121); font-size: 1rem; font-family: var(--mdc-typography-body1-font-family, Roboto, sans-serif); cursor: pointer; box-sizing: border-box; }
+      select.editor-native-select:hover { border-color: var(--input-outlined-hover-border-color, var(--primary-text-color, rgba(0,0,0,0.87))); }
+      select.editor-native-select:focus { outline: none; border-color: var(--primary-color, #03a9f4); border-width: 2px; padding: 9px 11px; }
+      select.editor-native-select option { background-color: var(--card-background-color, var(--ha-card-background, #fff)); color: var(--primary-text-color, #212121); }
       .hint { font-size: 12px; color: var(--secondary-text-color); font-style: italic; margin-top: 2px; }
       .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; min-height: 40px; }
       .toggle-label { font-size: 14px; color: var(--primary-text-color); }
