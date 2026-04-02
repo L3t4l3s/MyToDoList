@@ -1156,13 +1156,8 @@ class HomeTasksCard extends HTMLElement {
 
     if (taskEl) {
       // Snapshot positions of all OTHER tasks (deleted task still occupies layout space)
-      const listEl = this.shadowRoot.querySelector(`.task-list[data-col-idx="${colIdx}"]`);
-      const listTop = listEl ? listEl.getBoundingClientRect().top : 0;
-      const before = new Map();
-      this.shadowRoot.querySelectorAll(`.task-list[data-col-idx="${colIdx}"] .task`).forEach(el => {
-        const id = el.dataset.taskId;
-        if (id && id !== String(taskId)) before.set(id, el.getBoundingClientRect().top - listTop);
-      });
+      const before = this._captureListFlip(colIdx);
+      before.delete(String(taskId)); // exclude the task being deleted
 
       // Animate the task out
       await new Promise(resolve => {
@@ -1359,7 +1354,7 @@ class HomeTasksCard extends HTMLElement {
         `.task-list[data-col-idx="${colIdx}"] .task[data-task-id="${CSS.escape(id)}"]`
       );
       if (!el) return;
-      const dy = before.get(id) - newTop;
+      const dy = Math.round(before.get(id) - newTop);
       if (Math.abs(dy) < 1) return;
       el.style.transition = "none";
       el.style.transform = `translateY(${dy}px)`;
@@ -1385,6 +1380,14 @@ class HomeTasksCard extends HTMLElement {
     const listEl = this.shadowRoot.querySelector(`.task-list[data-col-idx="${colIdx}"]`);
     const before = new Map();
     if (!listEl) return before;
+    // Cancel any in-progress FLIP transforms before reading — getBoundingClientRect()
+    // includes CSS transforms in its result, so a partially-animated transform would
+    // corrupt the snapshot and cause the next animation to overshoot.
+    let hadTransform = false;
+    listEl.querySelectorAll(".task").forEach(el => {
+      if (el.style.transform) { el.style.transition = "none"; el.style.transform = ""; hadTransform = true; }
+    });
+    if (hadTransform) listEl.getBoundingClientRect(); // flush cleared transforms
     const listTop = listEl.getBoundingClientRect().top;
     listEl.querySelectorAll(".task[data-task-id]").forEach(el => {
       const id = el.dataset.taskId;
@@ -1402,16 +1405,9 @@ class HomeTasksCard extends HTMLElement {
     const taskList = this.shadowRoot.querySelector(`.task-list[data-col-idx="${colIdx}"]`);
     if (!taskList) { applyFilterFn(); this._render(); return; }
 
-    // Snapshot current visible tasks (relative to list top — cancels card-level viewport shifts)
-    const listTop = taskList.getBoundingClientRect().top;
-    const before = new Map();
-    const currentIds = new Set();
-    taskList.querySelectorAll(".task[data-task-id]").forEach(el => {
-      const id = el.dataset.taskId;
-      if (!id) return;
-      before.set(id, el.getBoundingClientRect().top - listTop);
-      currentIds.add(id);
-    });
+    // Snapshot current visible tasks (clears ongoing transforms for accurate reading)
+    const before = this._captureListFlip(colIdx);
+    const currentIds = new Set(before.keys());
 
     // Apply filter change to compute future set
     applyFilterFn();
