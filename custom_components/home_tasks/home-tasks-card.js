@@ -1425,8 +1425,8 @@ class HomeTasksCard extends HTMLElement {
       const supportsMove = !!(features & 8); // MOVE_TODO_ITEM
 
       if (supportsMove) {
-        // Sync order to provider via HA's todo/item/move (sequential — each
-        // move depends on the previous item's final position)
+        // Provider is source of truth for order — send via todo/item/move
+        // (sequential: each move depends on the previous item's final position)
         for (let i = 0; i < taskIds.length; i++) {
           try {
             await this._hass.callWS({
@@ -1440,16 +1440,17 @@ class HomeTasksCard extends HTMLElement {
             break;
           }
         }
+        // Do NOT save sort_order to overlay — provider order always wins
+      } else {
+        // Provider has no MOVE support — persist order locally in overlay
+        await Promise.all(taskIds.map((uid, i) =>
+          this._callWs("home_tasks/update_external_overlay", {
+            entity_id: entityId,
+            task_uid: uid,
+            sort_order: i,
+          })
+        ));
       }
-
-      // Also persist in overlay as fallback (for providers without MOVE support)
-      await Promise.all(taskIds.map((uid, i) =>
-        this._callWs("home_tasks/update_external_overlay", {
-          entity_id: entityId,
-          task_uid: uid,
-          sort_order: i,
-        })
-      ));
     } else {
       const listId = this._colListId(colIdx);
       if (!listId) return;
