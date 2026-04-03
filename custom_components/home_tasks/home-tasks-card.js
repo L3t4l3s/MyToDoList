@@ -1027,13 +1027,13 @@ class HomeTasksCard extends HTMLElement {
   // --- External entity routing helpers ---
 
   /**
-   * Reload tasks for an external column with a delay.
+   * Schedule a delayed reload for an external column.
    * External providers have latency — the entity may not reflect changes
-   * immediately after a service call. This does an immediate load attempt
-   * followed by a delayed retry.
+   * immediately after a service call.  Callers should apply optimistic
+   * local updates first so the UI responds instantly; this method only
+   * schedules a background reload to pick up the confirmed provider state.
    */
-  _reloadExternal(colIdx) {
-    this._loadAllTasks();
+  _reloadExternal() {
     setTimeout(() => this._loadAllTasks(), 1500);
   }
 
