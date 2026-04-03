@@ -1224,12 +1224,18 @@ class HomeTasksCard extends HTMLElement {
 
     if (result) {
       cs.newTaskTitle = "";
-      this._justAddedTaskId = result.id ? String(result.id) : null;
-      this._addInputRect = addInputRect;
-      await this._loadAllTasks();
-      this._justAddedTaskId = null;
-      this._addInputRect = null;
-      this._applyFlip(before, colIdx, 0.25);
+      if (this._isExternalCol(colIdx)) {
+        // Delayed reload — entity may not reflect the new task yet
+        await this._loadAllTasks();
+        setTimeout(() => this._loadAllTasks(), 1500);
+      } else {
+        this._justAddedTaskId = result.id ? String(result.id) : null;
+        this._addInputRect = addInputRect;
+        await this._loadAllTasks();
+        this._justAddedTaskId = null;
+        this._addInputRect = null;
+        this._applyFlip(before, colIdx, 0.25);
+      }
     }
   }
 
