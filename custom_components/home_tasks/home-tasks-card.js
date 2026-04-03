@@ -1301,20 +1301,21 @@ class HomeTasksCard extends HTMLElement {
   }
 
   async _updateTaskDue(taskId, dueDate, dueTime, colIdx) {
+    // Optimistic local update
+    const task = this._columns[colIdx]?.tasks?.find(t => t.id === taskId);
+    if (task) {
+      task.due_date = dueDate || null;
+      task.due_time = dueDate ? (dueTime || null) : null;
+    }
     await this._updateTaskRouted(colIdx, taskId, {
       due_date: dueDate || null,
       due_time: dueDate ? (dueTime || null) : null,
     });
-    if (this._isExternalCol(colIdx)) {
-      const task = this._columns[colIdx]?.tasks?.find(t => t.id === taskId);
-      if (task) {
-        task.due_date = dueDate || null;
-        task.due_time = dueDate ? (dueTime || null) : null;
-      }
-      this._reloadExternal(colIdx);
-    } else {
+    if (!this._isExternalCol(colIdx)) {
       await this._loadAllTasks();
     }
+    // External: no reload — optimistic update is shown, service call runs
+    // in background. Avoids DOM rebuild that steals focus from date/time inputs.
   }
 
   async _deleteTask(taskId, colIdx) {
