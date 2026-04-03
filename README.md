@@ -48,7 +48,7 @@ Display tasks from **any HA todo integration** alongside native Home Tasks lists
 | Provider | HA Integration | Due Date | Due Time | Description | Reorder | Notes |
 |----------|---------------|----------|----------|-------------|---------|-------|
 | **CalDAV** (Nextcloud, etc.) | [CalDAV](https://www.home-assistant.io/integrations/caldav/) (Core) | yes | yes | yes | no | |
-| **Google Tasks** | [Google Tasks](https://www.home-assistant.io/integrations/google_tasks/) (Core) | yes | no | yes | yes | Google Tasks API does not support times |
+| **Google Tasks** | [Google Tasks](https://www.home-assistant.io/integrations/google_tasks/) (Core) | yes | no | yes | yes | API does not support due times or recurrence |
 | **Todoist** | [Todoist](https://www.home-assistant.io/integrations/todoist/) (Core) | yes | yes | yes | no | |
 | **Microsoft ToDo** | [MS365-ToDo](https://github.com/RogerSelwyn/MS365-ToDo) (HACS) | yes | yes | yes | no | Custom integration, not HA Core |
 
