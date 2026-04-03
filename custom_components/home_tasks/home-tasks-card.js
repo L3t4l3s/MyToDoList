@@ -4040,11 +4040,10 @@ class HomeTasksCardEditor extends HTMLElement {
         // - Provider-supported fields → ON based on feature flags
         const HAS_DUE = (features & 16) || (features & 32);  // SET_DUE_DATE or SET_DUE_DATETIME
         const HAS_DESC = !!(features & 64);                   // SET_DESCRIPTION
-        const HAS_MOVE = !!(features & 8);  // MOVE_TODO_ITEM
         updateCol({
           entity_id: entityId,
           list_id: undefined,
-          default_sort: HAS_MOVE ? "manual" : "title",
+          default_sort: "manual",
           show_due_date: !!HAS_DUE,
           show_notes: HAS_DESC,
           show_priority: false,

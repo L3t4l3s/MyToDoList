@@ -49,7 +49,7 @@ Display tasks from **any HA todo integration** alongside native Home Tasks lists
 |----------|---------------|----------|----------|-------------|---------|-------|
 | **CalDAV** (Nextcloud, etc.) | [CalDAV](https://www.home-assistant.io/integrations/caldav/) (Core) | yes | yes | yes | no | |
 | **Google Tasks** | [Google Tasks](https://www.home-assistant.io/integrations/google_tasks/) (Core) | yes | no | yes | yes | Google's API does not expose due times or recurrence ([open issue](https://issuetracker.google.com/issues/36759725)) |
-| **Todoist** | [Todoist](https://www.home-assistant.io/integrations/todoist/) (Core) | yes | yes | yes | no | |
+| **Todoist** | [Todoist](https://www.home-assistant.io/integrations/todoist/) (Core) | yes | yes | yes | no | Also offers `todoist.new_task` with priority, labels, assignee, reminders |
 | **Microsoft ToDo** | [MS365-ToDo](https://github.com/RogerSelwyn/MS365-ToDo) (HACS) | yes | yes | yes | no | Custom integration, not HA Core |
 
 Any other integration that creates `todo.*` entities following HA's standard `TodoListEntity` should also work. The extra fields (priority, tags, sub-tasks, assigned person, reminders, recurrence) are always available via the local overlay, regardless of what the provider supports.
