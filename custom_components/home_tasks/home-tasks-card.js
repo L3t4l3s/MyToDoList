@@ -1092,10 +1092,9 @@ class HomeTasksCard extends HTMLElement {
     if (Object.keys(baseUpdate).length > 0) {
       try {
         await this._hass.callService("todo", "update_item", {
-          entity_id: entityId,
           item: taskId,
           ...baseUpdate,
-        });
+        }, { entity_id: entityId });
       } catch (err) {
         console.warn("Failed to update external task base fields:", err);
       }
@@ -1115,9 +1114,8 @@ class HomeTasksCard extends HTMLElement {
     if (this._isExternalCol(colIdx)) {
       try {
         await this._hass.callService("todo", "remove_item", {
-          entity_id: this._colEntityId(colIdx),
           item: taskId,
-        });
+        }, { entity_id: this._colEntityId(colIdx) });
       } catch (err) {
         console.warn("Failed to delete external task:", err);
         return; // Don't clean up overlay if deletion failed
@@ -1211,9 +1209,8 @@ class HomeTasksCard extends HTMLElement {
       this._render();
       try {
         await this._hass.callService("todo", "add_item", {
-          entity_id: this._colEntityId(colIdx),
           item: title,
-        });
+        }, { entity_id: this._colEntityId(colIdx) });
         result = { id: "pending" }; // HA doesn't return the new item ID directly
       } catch (err) {
         console.warn("Failed to create external task:", err);
