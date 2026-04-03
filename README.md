@@ -38,10 +38,10 @@ Every task can carry up to 20 individual attributes:
 Display tasks from **any HA todo integration** alongside native Home Tasks lists — on the same card, in the same UI.
 
 - Link external todo entities via **Settings > Integrations > Home Tasks > Link external todo list**
-- Base fields (title, status, due date, description) are **synced** to the external provider via HA's standard todo services
-- Home Tasks extra fields (priority, tags, sub-tasks, etc.) are stored **locally** in an overlay — they work in HA but are not synced to the provider
-- The card editor **auto-configures visibility** based on the provider's capabilities when you select an external list
-- You can manually enable overlay fields (e.g. priority, tags) for external lists if you want them locally
+- Base fields (title, status, due date/time, description) are **synced bidirectionally** with the external provider — these are all the fields that HA's todo entity standard, the CalDAV protocol, and provider APIs (Google, Todoist, etc.) currently support for synchronization
+- Home Tasks extra fields (priority, tags, sub-tasks, assigned person, reminders, recurrence, history) are stored **locally** in an overlay — they work in HA but are not synced to the provider, because neither the providers' APIs nor HA's todo entity expose these fields
+- The card editor **auto-configures visibility** based on the provider's capabilities when you select an external list (e.g. hides due time for Google Tasks)
+- You can manually enable overlay fields for external lists if you want them locally
 
 #### Verified Providers
 
