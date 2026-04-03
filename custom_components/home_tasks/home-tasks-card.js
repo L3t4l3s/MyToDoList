@@ -4014,6 +4014,7 @@ class HomeTasksCardEditor extends HTMLElement {
           show_recurrence: false,
           show_history: false,
         });
+        this._render();
       } else {
         // Native list: restore default visibility (all features ON)
         updateCol({
@@ -4029,6 +4030,7 @@ class HomeTasksCardEditor extends HTMLElement {
           show_recurrence: true,
           show_history: undefined,  // default off for native too
         });
+        this._render();
       }
     });
 
