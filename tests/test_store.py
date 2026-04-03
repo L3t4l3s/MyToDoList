@@ -642,3 +642,103 @@ async def test_recurrence_weekdays_deduplicated(hass: HomeAssistant, store) -> N
         task["id"], recurrence_weekdays=[4, 1, 4, 1, 0]
     )
     assert updated["recurrence_weekdays"] == [0, 1, 4]
+
+
+# ---------------------------------------------------------------------------
+# Validation edge cases (tests 33–44)
+# ---------------------------------------------------------------------------
+
+
+def test_validate_date_bad_components() -> None:
+    """validate_date with impossible date components raises ValueError."""
+    from custom_components.home_tasks.store import validate_date
+    with pytest.raises(ValueError):
+        validate_date("9999-99-99")
+
+
+async def test_update_task_tags_too_many(hass: HomeAssistant, store) -> None:
+    """Passing more than MAX_TAGS_PER_TASK tags raises ValueError."""
+    from custom_components.home_tasks.const import MAX_TAGS_PER_TASK
+    task = await store.async_add_task("Too many tags")
+    with pytest.raises(ValueError, match="tags"):
+        await store.async_update_task(
+            task["id"], tags=[f"tag{i}" for i in range(MAX_TAGS_PER_TASK + 1)]
+        )
+
+
+async def test_update_task_tag_not_string(hass: HomeAssistant, store) -> None:
+    """Passing a non-string element in tags raises ValueError."""
+    task = await store.async_add_task("Bad tag type")
+    with pytest.raises(ValueError, match="string"):
+        await store.async_update_task(task["id"], tags=[123])
+
+
+async def test_update_task_tag_too_long(hass: HomeAssistant, store) -> None:
+    """Passing a tag exceeding MAX_TAG_LENGTH raises ValueError."""
+    from custom_components.home_tasks.const import MAX_TAG_LENGTH
+    task = await store.async_add_task("Long tag")
+    with pytest.raises(ValueError, match="Tag exceeds"):
+        await store.async_update_task(task["id"], tags=["x" * (MAX_TAG_LENGTH + 1)])
+
+
+async def test_update_task_tags_empty_stripped(hass: HomeAssistant, store) -> None:
+    """Empty/whitespace-only tags are stripped, only valid tags stored."""
+    task = await store.async_add_task("Strip tags")
+    updated = await store.async_update_task(task["id"], tags=["valid", "  ", ""])
+    assert updated["tags"] == ["valid"]
+
+
+async def test_update_task_reminders_too_many(hass: HomeAssistant, store) -> None:
+    """Passing more than MAX_REMINDERS_PER_TASK reminders raises ValueError."""
+    from custom_components.home_tasks.const import MAX_REMINDERS_PER_TASK
+    task = await store.async_add_task("Too many reminders")
+    with pytest.raises(ValueError, match="reminder"):
+        await store.async_update_task(
+            task["id"], reminders=list(range(1, MAX_REMINDERS_PER_TASK + 2))
+        )
+
+
+async def test_update_task_reminders_dedup_sort(hass: HomeAssistant, store) -> None:
+    """Duplicate reminders are de-duplicated and sorted."""
+    task = await store.async_add_task("Dedup reminders")
+    updated = await store.async_update_task(task["id"], reminders=[60, 30, 60])
+    assert updated["reminders"] == [30, 60]
+
+
+async def test_update_task_recurrence_time(hass: HomeAssistant, store) -> None:
+    """recurrence_time is stored correctly when updated."""
+    task = await store.async_add_task("Rec time")
+    updated = await store.async_update_task(task["id"], recurrence_time="09:00")
+    assert updated["recurrence_time"] == "09:00"
+
+
+async def test_add_sub_task_max_reached(hass: HomeAssistant, store) -> None:
+    """Adding sub-tasks beyond MAX_SUB_TASKS_PER_TASK raises ValueError."""
+    from custom_components.home_tasks.const import MAX_SUB_TASKS_PER_TASK
+    task = await store.async_add_task("Max subs")
+    for i in range(MAX_SUB_TASKS_PER_TASK):
+        await store.async_add_sub_task(task["id"], f"Sub {i}")
+    with pytest.raises(ValueError, match="Maximum number of sub-tasks"):
+        await store.async_add_sub_task(task["id"], "One too many")
+
+
+async def test_update_sub_task_not_found(hass: HomeAssistant, store) -> None:
+    """Updating a sub-task with a bogus ID raises ValueError."""
+    task = await store.async_add_task("Parent for missing sub")
+    with pytest.raises(ValueError, match="Sub-task not found"):
+        await store.async_update_sub_task(task["id"], "bogus-sub-id", completed=True)
+
+
+async def test_delete_sub_task_not_found(hass: HomeAssistant, store) -> None:
+    """Deleting a sub-task with a bogus ID raises ValueError."""
+    task = await store.async_add_task("Parent for missing delete")
+    with pytest.raises(ValueError, match="Sub-task not found"):
+        await store.async_delete_sub_task(task["id"], "bogus-sub-id")
+
+
+async def test_update_sub_task_completed_not_bool(hass: HomeAssistant, store) -> None:
+    """Passing a non-bool completed to update_sub_task raises ValueError."""
+    task = await store.async_add_task("Parent bool sub")
+    sub = await store.async_add_sub_task(task["id"], "Child")
+    with pytest.raises(ValueError, match="boolean"):
+        await store.async_update_sub_task(task["id"], sub["id"], completed="yes")

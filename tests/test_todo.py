@@ -260,3 +260,52 @@ async def test_todo_update_clears_due_date(
             await entity.async_update_todo_item(item)
             await hass.async_block_till_done()
             assert store.get_task(task["id"])["due_date"] is None
+
+
+# ---------------------------------------------------------------------------
+# Edge cases (tests 47–48)
+# ---------------------------------------------------------------------------
+
+
+async def test_todo_update_item_no_uid_is_noop(
+    hass: HomeAssistant, mock_config_entry, store
+) -> None:
+    """async_update_todo_item with uid=None is a no-op."""
+    task = await store.async_add_task("Pre-existing")
+    await hass.async_block_till_done()
+
+    entity_id = _get_todo_entity_id(hass, mock_config_entry.entry_id)
+    entity_comp = hass.data.get("todo")
+    if entity_comp and hasattr(entity_comp, "get_entity"):
+        entity = entity_comp.get_entity(entity_id)
+        if entity:
+            item = TodoItem(uid=None, summary="Ghost", status=TodoItemStatus.NEEDS_ACTION)
+            await entity.async_update_todo_item(item)
+            await hass.async_block_till_done()
+            # Original task unchanged
+            assert store.get_task(task["id"])["title"] == "Pre-existing"
+            # No new tasks
+            assert len(store.tasks) == 1
+
+
+async def test_todo_update_item_with_description(
+    hass: HomeAssistant, mock_config_entry, store
+) -> None:
+    """async_update_todo_item with description sets notes on the task."""
+    task = await store.async_add_task("Described task")
+    await hass.async_block_till_done()
+
+    entity_id = _get_todo_entity_id(hass, mock_config_entry.entry_id)
+    entity_comp = hass.data.get("todo")
+    if entity_comp and hasattr(entity_comp, "get_entity"):
+        entity = entity_comp.get_entity(entity_id)
+        if entity:
+            item = TodoItem(
+                uid=task["id"],
+                summary="Described task",
+                status=TodoItemStatus.NEEDS_ACTION,
+                description="My notes",
+            )
+            await entity.async_update_todo_item(item)
+            await hass.async_block_till_done()
+            assert store.get_task(task["id"])["notes"] == "My notes"

@@ -643,3 +643,203 @@ async def test_get_external_todo_items_entity_not_found(
 
     with pytest.raises(ValueError, match="Entity not found"):
         _get_external_todo_items(hass, "todo.nonexistent_entity")
+
+
+# ---------------------------------------------------------------------------
+# WS error branches: invalid / nonexistent list_id (tests 1–10)
+# ---------------------------------------------------------------------------
+
+BAD_LIST_ID = "nonexistent-list-id-xyz"
+
+
+async def test_ws_get_tasks_invalid_list(
+    hass: HomeAssistant, hass_ws_client, mock_config_entry
+) -> None:
+    """get_tasks with a nonexistent list_id returns invalid_request."""
+    client = await hass_ws_client(hass)
+    await client.send_json({
+        "id": 50, "type": "home_tasks/get_tasks", "list_id": BAD_LIST_ID,
+    })
+    msg = await client.receive_json()
+    assert msg["success"] is False
+    assert msg["error"]["code"] == "invalid_request"
+
+
+async def test_ws_add_task_invalid_list(
+    hass: HomeAssistant, hass_ws_client, mock_config_entry
+) -> None:
+    """add_task with a nonexistent list_id returns invalid_request."""
+    client = await hass_ws_client(hass)
+    await client.send_json({
+        "id": 51, "type": "home_tasks/add_task",
+        "list_id": BAD_LIST_ID, "title": "Fail",
+    })
+    msg = await client.receive_json()
+    assert msg["success"] is False
+    assert msg["error"]["code"] == "invalid_request"
+
+
+async def test_ws_update_task_invalid_list(
+    hass: HomeAssistant, hass_ws_client, mock_config_entry
+) -> None:
+    """update_task with a nonexistent list_id returns invalid_request."""
+    client = await hass_ws_client(hass)
+    await client.send_json({
+        "id": 52, "type": "home_tasks/update_task",
+        "list_id": BAD_LIST_ID, "task_id": "fake-task-id",
+    })
+    msg = await client.receive_json()
+    assert msg["success"] is False
+    assert msg["error"]["code"] == "invalid_request"
+
+
+async def test_ws_delete_task_invalid_list(
+    hass: HomeAssistant, hass_ws_client, mock_config_entry
+) -> None:
+    """delete_task with a nonexistent list_id returns invalid_request."""
+    client = await hass_ws_client(hass)
+    await client.send_json({
+        "id": 53, "type": "home_tasks/delete_task",
+        "list_id": BAD_LIST_ID, "task_id": "fake-task-id",
+    })
+    msg = await client.receive_json()
+    assert msg["success"] is False
+    assert msg["error"]["code"] == "invalid_request"
+
+
+async def test_ws_reorder_tasks_invalid_list(
+    hass: HomeAssistant, hass_ws_client, mock_config_entry
+) -> None:
+    """reorder_tasks with a nonexistent list_id returns invalid_request."""
+    client = await hass_ws_client(hass)
+    await client.send_json({
+        "id": 54, "type": "home_tasks/reorder_tasks",
+        "list_id": BAD_LIST_ID, "task_ids": [],
+    })
+    msg = await client.receive_json()
+    assert msg["success"] is False
+    assert msg["error"]["code"] == "invalid_request"
+
+
+async def test_ws_add_sub_task_invalid_list(
+    hass: HomeAssistant, hass_ws_client, mock_config_entry
+) -> None:
+    """add_sub_task with a nonexistent list_id returns invalid_request."""
+    client = await hass_ws_client(hass)
+    await client.send_json({
+        "id": 55, "type": "home_tasks/add_sub_task",
+        "list_id": BAD_LIST_ID, "task_id": "fake-task-id", "title": "Sub",
+    })
+    msg = await client.receive_json()
+    assert msg["success"] is False
+    assert msg["error"]["code"] == "invalid_request"
+
+
+async def test_ws_update_sub_task_invalid_list(
+    hass: HomeAssistant, hass_ws_client, mock_config_entry
+) -> None:
+    """update_sub_task with a nonexistent list_id returns invalid_request."""
+    client = await hass_ws_client(hass)
+    await client.send_json({
+        "id": 56, "type": "home_tasks/update_sub_task",
+        "list_id": BAD_LIST_ID, "task_id": "fake-task-id",
+        "sub_task_id": "fake-sub-id",
+    })
+    msg = await client.receive_json()
+    assert msg["success"] is False
+    assert msg["error"]["code"] == "invalid_request"
+
+
+async def test_ws_delete_sub_task_invalid_list(
+    hass: HomeAssistant, hass_ws_client, mock_config_entry
+) -> None:
+    """delete_sub_task with a nonexistent list_id returns invalid_request."""
+    client = await hass_ws_client(hass)
+    await client.send_json({
+        "id": 57, "type": "home_tasks/delete_sub_task",
+        "list_id": BAD_LIST_ID, "task_id": "fake-task-id",
+        "sub_task_id": "fake-sub-id",
+    })
+    msg = await client.receive_json()
+    assert msg["success"] is False
+    assert msg["error"]["code"] == "invalid_request"
+
+
+async def test_ws_reorder_sub_tasks_invalid_list(
+    hass: HomeAssistant, hass_ws_client, mock_config_entry
+) -> None:
+    """reorder_sub_tasks with a nonexistent list_id returns invalid_request."""
+    client = await hass_ws_client(hass)
+    await client.send_json({
+        "id": 58, "type": "home_tasks/reorder_sub_tasks",
+        "list_id": BAD_LIST_ID, "task_id": "fake-task-id",
+        "sub_task_ids": [],
+    })
+    msg = await client.receive_json()
+    assert msg["success"] is False
+    assert msg["error"]["code"] == "invalid_request"
+
+
+async def test_ws_move_task_invalid_source(
+    hass: HomeAssistant, hass_ws_client, mock_config_entry
+) -> None:
+    """move_task with a nonexistent source_list_id returns invalid_request."""
+    client = await hass_ws_client(hass)
+    await client.send_json({
+        "id": 59, "type": "home_tasks/move_task",
+        "source_list_id": BAD_LIST_ID,
+        "target_list_id": mock_config_entry.entry_id,
+        "task_id": "fake-task-id",
+    })
+    msg = await client.receive_json()
+    assert msg["success"] is False
+    assert msg["error"]["code"] == "invalid_request"
+
+
+async def test_ws_get_external_tasks_no_overlay_store(
+    hass: HomeAssistant, hass_ws_client, mock_config_entry
+) -> None:
+    """get_external_tasks for an entity with no overlay store returns error."""
+    client = await hass_ws_client(hass)
+    await client.send_json({
+        "id": 60, "type": "home_tasks/get_external_tasks",
+        "entity_id": "todo.no_overlay_entity",
+    })
+    msg = await client.receive_json()
+    assert msg["success"] is False
+    assert msg["error"]["code"] == "invalid_request"
+
+
+async def test_ws_get_external_lists_with_linked(
+    hass: HomeAssistant, hass_ws_client, mock_config_entry, patch_add_extra_js_url
+) -> None:
+    """get_external_lists shows linked=True and supported_features for linked entities."""
+    from homeassistant.helpers import entity_registry as er
+
+    # Register a fake todo entity from another integration
+    reg = er.async_get(hass)
+    reg.async_get_or_create(
+        "todo", "caldav", "fake-caldav-uid", suggested_object_id="ws_external"
+    )
+    # Set state with supported_features
+    hass.states.async_set("todo.ws_external", "0", {"supported_features": 119})
+
+    # Create an external config entry linking to this entity
+    ext_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"type": "external", "entity_id": "todo.ws_external", "name": "WS External"},
+        title="WS External (External)",
+    )
+    ext_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(ext_entry.entry_id)
+    await hass.async_block_till_done()
+
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 61, "type": "home_tasks/get_external_lists"})
+    msg = await client.receive_json()
+    assert msg["success"] is True
+    lists = msg["result"]["external_lists"]
+    matched = [el for el in lists if el["entity_id"] == "todo.ws_external"]
+    assert len(matched) == 1
+    assert matched[0]["linked"] is True
+    assert matched[0]["supported_features"] == 119

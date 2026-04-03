@@ -168,3 +168,80 @@ async def test_external_flow_creates_entry(hass: HomeAssistant) -> None:
     assert result3["type"] == FlowResultType.CREATE_ENTRY
     assert result3["data"]["entity_id"] == entity_id
     assert result3["data"]["type"] == "external"
+
+
+# ---------------------------------------------------------------------------
+# External flow validation edge cases (tests 45–46)
+# ---------------------------------------------------------------------------
+
+
+async def test_config_flow_external_already_linked(hass: HomeAssistant) -> None:
+    """Creating a second external entry for the same entity returns already_linked error.
+
+    Simulates a race: the form is shown when two entities are available,
+    then one is linked (via config entry) before the user submits that entity.
+    The second entity keeps the dropdown non-empty so the form re-renders
+    with the already_linked error instead of aborting.
+    """
+    from homeassistant.helpers import entity_registry as er
+
+    reg = er.async_get(hass)
+    reg.async_get_or_create(
+        "todo", "google_tasks", "already_linked_uid",
+        suggested_object_id="linked_list",
+        original_name="Linked List",
+    )
+    reg.async_get_or_create(
+        "todo", "google_tasks", "other_uid",
+        suggested_object_id="other_list",
+        original_name="Other List",
+    )
+    entity_id = "todo.linked_list"
+
+    # Start the flow — both entities available in dropdown
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result2 = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "external"}
+    )
+    assert result2["type"] == FlowResultType.FORM
+    assert result2["step_id"] == "external"
+
+    # Simulate race: another entry links this entity before user submits
+    race_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={"type": "external", "entity_id": entity_id, "name": "Linked List"},
+        title="Linked List (External)",
+    )
+    race_entry.add_to_hass(hass)
+
+    # Submit — the already_linked check catches it; other_list keeps form alive
+    result3 = await hass.config_entries.flow.async_configure(
+        result2["flow_id"], {"entity_id": entity_id}
+    )
+    assert result3["type"] == FlowResultType.FORM
+    assert result3["errors"].get("entity_id") == "already_linked"
+
+
+async def test_config_flow_external_empty_entity(hass: HomeAssistant) -> None:
+    """Submitting an empty entity_id in the external step is rejected by schema validation."""
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.data_entry_flow import InvalidData
+
+    reg = er.async_get(hass)
+    reg.async_get_or_create(
+        "todo", "google_tasks", "empty_entity_uid", original_name="Some List",
+    )
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result2 = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "external"}
+    )
+    # Empty string is not in the vol.In(options) schema, so submission raises
+    with pytest.raises(InvalidData):
+        await hass.config_entries.flow.async_configure(
+            result2["flow_id"], {"entity_id": ""}
+        )

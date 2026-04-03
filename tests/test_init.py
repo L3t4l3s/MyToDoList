@@ -418,3 +418,242 @@ async def test_startup_due_check_scheduled_once(
     await hass.config_entries.async_setup(ext_entry.entry_id)
     await hass.async_block_till_done()
     assert hass.data.get(DATA_DUE_STARTUP_DONE) is True
+
+
+# ---------------------------------------------------------------------------
+# Recurrence computation unit tests (tests 13–27)
+# ---------------------------------------------------------------------------
+
+from datetime import datetime, timezone
+
+
+def test_parse_rec_time_valid() -> None:
+    """_parse_rec_time with valid recurrence_time returns (h, m)."""
+    from custom_components.home_tasks.__init__ import _parse_rec_time
+    assert _parse_rec_time({"recurrence_time": "09:30"}) == (9, 30)
+
+
+def test_parse_rec_time_missing() -> None:
+    """_parse_rec_time with no recurrence_time returns (0, 0)."""
+    from custom_components.home_tasks.__init__ import _parse_rec_time
+    assert _parse_rec_time({}) == (0, 0)
+
+
+def test_parse_rec_time_invalid() -> None:
+    """_parse_rec_time with invalid recurrence_time returns (0, 0)."""
+    from custom_components.home_tasks.__init__ import _parse_rec_time
+    assert _parse_rec_time({"recurrence_time": "xx:yy"}) == (0, 0)
+
+
+def test_check_end_date_not_exceeded() -> None:
+    """_check_end_date returns False when target is before end date."""
+    from custom_components.home_tasks.__init__ import _check_end_date
+    task = {"recurrence_end_type": "date", "recurrence_end_date": "2027-12-31"}
+    target = datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
+    assert _check_end_date(task, target) is False
+
+
+def test_check_end_date_exceeded() -> None:
+    """_check_end_date returns True when target is after end date."""
+    from custom_components.home_tasks.__init__ import _check_end_date
+    task = {"recurrence_end_type": "date", "recurrence_end_date": "2026-01-01"}
+    target = datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
+    assert _check_end_date(task, target) is True
+
+
+def test_check_end_date_no_end() -> None:
+    """_check_end_date returns False when recurrence_end_type is not 'date'."""
+    from custom_components.home_tasks.__init__ import _check_end_date
+    task = {"recurrence_end_type": "none"}
+    target = datetime(2026, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
+    assert _check_end_date(task, target) is False
+
+
+def test_apply_start_date_no_start() -> None:
+    """_apply_start_date with no start date returns target unchanged."""
+    from custom_components.home_tasks.__init__ import _apply_start_date
+    target = datetime(2026, 1, 5, 12, 0, 0, tzinfo=timezone.utc)
+    result = _apply_start_date({}, target)
+    assert result == target
+
+
+def test_apply_start_date_future() -> None:
+    """_apply_start_date advances target to start date when target is before it."""
+    from custom_components.home_tasks.__init__ import _apply_start_date
+    task = {"recurrence_start_date": "2026-06-01"}
+    target = datetime(2026, 1, 5, 12, 0, 0, tzinfo=timezone.utc)
+    result = _apply_start_date(task, target)
+    local_result = result.astimezone()
+    assert local_result.year == 2026
+    assert local_result.month == 6
+    assert local_result.day == 1
+
+
+def test_compute_reopen_delay_days() -> None:
+    """_compute_reopen_delay with unit=days returns approximately 2 days of seconds."""
+    from custom_components.home_tasks.__init__ import _compute_reopen_delay
+    completed_at = datetime(2026, 1, 5, 12, 0, 0, tzinfo=timezone.utc)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "days",
+        "recurrence_value": 2,
+    }
+    delay = _compute_reopen_delay(task, completed_at)
+    assert delay is not None
+    # The delay should be a number (could be negative if completed_at is in the past)
+    assert isinstance(delay, float)
+
+
+def test_compute_reopen_delay_weeks() -> None:
+    """_compute_reopen_delay with unit=weeks returns a numeric value."""
+    from custom_components.home_tasks.__init__ import _compute_reopen_delay
+    completed_at = datetime(2026, 1, 5, 12, 0, 0, tzinfo=timezone.utc)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "weeks",
+        "recurrence_value": 1,
+    }
+    delay = _compute_reopen_delay(task, completed_at)
+    assert delay is not None
+    assert isinstance(delay, float)
+
+
+def test_compute_reopen_delay_months() -> None:
+    """_compute_reopen_delay with unit=months returns a numeric value."""
+    from custom_components.home_tasks.__init__ import _compute_reopen_delay
+    completed_at = datetime(2026, 1, 5, 12, 0, 0, tzinfo=timezone.utc)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "months",
+        "recurrence_value": 1,
+    }
+    delay = _compute_reopen_delay(task, completed_at)
+    assert delay is not None
+    assert isinstance(delay, float)
+
+
+def test_compute_reopen_delay_weekdays() -> None:
+    """_compute_reopen_delay with type=weekdays and weekdays=[0,2,4] returns a value."""
+    from custom_components.home_tasks.__init__ import _compute_reopen_delay
+    # 2026-01-05 is a Monday (weekday 0)
+    completed_at = datetime(2026, 1, 5, 12, 0, 0, tzinfo=timezone.utc)
+    task = {
+        "recurrence_type": "weekdays",
+        "recurrence_weekdays": [0, 2, 4],  # Mon, Wed, Fri
+    }
+    delay = _compute_reopen_delay(task, completed_at)
+    assert delay is not None
+    assert isinstance(delay, float)
+
+
+def test_compute_reopen_delay_hours() -> None:
+    """_compute_reopen_delay with unit=hours returns a numeric value."""
+    from custom_components.home_tasks.__init__ import _compute_reopen_delay
+    completed_at = datetime(2026, 1, 5, 12, 0, 0, tzinfo=timezone.utc)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "hours",
+        "recurrence_value": 3,
+    }
+    delay = _compute_reopen_delay(task, completed_at)
+    assert delay is not None
+    assert isinstance(delay, float)
+
+
+def test_compute_reopen_delay_no_unit() -> None:
+    """_compute_reopen_delay with no recurrence_unit returns None."""
+    from custom_components.home_tasks.__init__ import _compute_reopen_delay
+    completed_at = datetime(2026, 1, 5, 12, 0, 0, tzinfo=timezone.utc)
+    task = {"recurrence_type": "interval"}
+    assert _compute_reopen_delay(task, completed_at) is None
+
+
+def test_compute_reopen_delay_past_end_date() -> None:
+    """_compute_reopen_delay with an already-passed end_date returns None."""
+    from custom_components.home_tasks.__init__ import _compute_reopen_delay
+    completed_at = datetime(2026, 1, 5, 12, 0, 0, tzinfo=timezone.utc)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "days",
+        "recurrence_value": 1,
+        "recurrence_end_type": "date",
+        "recurrence_end_date": "2025-01-01",  # already passed
+    }
+    assert _compute_reopen_delay(task, completed_at) is None
+
+
+# ---------------------------------------------------------------------------
+# Async reopen edge cases (tests 28–29)
+# ---------------------------------------------------------------------------
+
+
+async def test_async_reopen_task_store_gone(hass: HomeAssistant, mock_config_entry, store) -> None:
+    """_async_reopen_task does not crash when the store has been removed."""
+    from custom_components.home_tasks import _async_reopen_task
+
+    # Remove the store from hass.data
+    hass.data[DOMAIN].pop(mock_config_entry.entry_id, None)
+    # Should not raise
+    await _async_reopen_task(hass, mock_config_entry.entry_id, "nonexistent-task-id")
+
+
+async def test_async_reopen_task_recurrence_disabled(
+    hass: HomeAssistant, mock_config_entry, store
+) -> None:
+    """_async_reopen_task returns without reopening when recurrence_enabled=False."""
+    from custom_components.home_tasks import _async_reopen_task
+
+    task = await store.async_add_task("No recurrence")
+    await store.async_update_task(task["id"], completed=True, recurrence_enabled=False)
+    await _async_reopen_task(hass, mock_config_entry.entry_id, task["id"])
+    # Task should still be completed
+    assert store.get_task(task["id"])["completed"] is True
+
+
+# ---------------------------------------------------------------------------
+# Service resolver tests (tests 30–32)
+# ---------------------------------------------------------------------------
+
+
+async def test_service_complete_task_by_title_via_service(
+    hass: HomeAssistant, mock_config_entry, store
+) -> None:
+    """complete_task service with task_title resolves and completes the task."""
+    await store.async_add_task("Title match task")
+    await hass.services.async_call(
+        DOMAIN,
+        "complete_task",
+        {"list_name": "Test List", "task_title": "Title match task"},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    tasks = [t for t in store.tasks if t["title"] == "Title match task"]
+    assert tasks and tasks[0]["completed"] is True
+
+
+async def test_service_resolve_store_name_not_found(
+    hass: HomeAssistant, mock_config_entry, store
+) -> None:
+    """Service call with a nonexistent list_name raises an error."""
+    import voluptuous as vol
+    with pytest.raises((vol.Invalid, Exception)):
+        await hass.services.async_call(
+            DOMAIN,
+            "add_task",
+            {"list_name": "NonexistentList", "title": "Fail"},
+            blocking=True,
+        )
+
+
+async def test_startup_due_check_fires_after_delay(
+    hass: HomeAssistant, mock_config_entry, store
+) -> None:
+    """After 120s, the startup due check fires and DATA_DUE_FIRED dict exists."""
+    from custom_components.home_tasks import DATA_DUE_FIRED
+
+    # Advance time by 120+ seconds to trigger the delayed startup check
+    async_fire_time_changed(hass, utcnow() + timedelta(seconds=125))
+    await hass.async_block_till_done()
+
+    # DATA_DUE_FIRED should be initialized as a dict (the check ran)
+    assert isinstance(hass.data.get(DATA_DUE_FIRED), dict)

@@ -335,3 +335,22 @@ async def test_update_sub_task_wrong_id_raises(hass: HomeAssistant, overlay_stor
     sub = await overlay_store.async_add_sub_task("uid-sub", "A sub-task")
     with pytest.raises(ValueError, match="Sub-task not found"):
         await overlay_store.async_update_sub_task("uid-sub", "wrong-sub-id", completed=True)
+
+
+# ---------------------------------------------------------------------------
+# Remaining gaps (tests 49–50)
+# ---------------------------------------------------------------------------
+
+
+async def test_overlay_reminders_dedup_sort(hass: HomeAssistant, overlay_store) -> None:
+    """Duplicate reminders in overlay are de-duplicated and sorted."""
+    await overlay_store.async_set_overlay("uid-rem", reminders=[60, 30, 60])
+    overlay = overlay_store.get_overlay("uid-rem")
+    assert overlay["reminders"] == [30, 60]
+
+
+async def test_overlay_tags_empty_after_strip_skipped(hass: HomeAssistant, overlay_store) -> None:
+    """Whitespace-only tags are stripped, only valid tags stored in overlay."""
+    await overlay_store.async_set_overlay("uid-strip", tags=["valid", "  "])
+    overlay = overlay_store.get_overlay("uid-strip")
+    assert overlay["tags"] == ["valid"]
