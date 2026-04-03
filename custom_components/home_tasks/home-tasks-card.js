@@ -1206,7 +1206,9 @@ class HomeTasksCard extends HTMLElement {
 
     let result;
     if (this._isExternalCol(colIdx)) {
-      // Create task via HA's standard todo service
+      // Clear input immediately — the API call to the external provider is slow
+      cs.newTaskTitle = "";
+      this._render();
       try {
         await this._hass.callService("todo", "add_item", {
           entity_id: this._colEntityId(colIdx),
