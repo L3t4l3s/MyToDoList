@@ -143,7 +143,7 @@ class ProviderAdapter(ABC):
         config_data: dict[str, Any],
     ) -> None:
         self._hass = hass
-        self.entity_id = entity_id
+        self._entity_id = entity_id
         self._config_data = config_data
 
     # -- Task CRUD ----------------------------------------------------------
@@ -350,9 +350,7 @@ class TodoistAdapter(ProviderAdapter):
     async def _resolve_project_id(self) -> None:
         """Determine the Todoist project ID from the entity name."""
         api = self._api
-        projects: list[Any] = []
-        async for page in api.get_projects():
-            projects.extend(page)
+        projects = await api.get_projects()
 
         # Derive expected project name from entity_id or config name
         entity_name = self._config_data.get("name", "")
@@ -395,10 +393,7 @@ class TodoistAdapter(ProviderAdapter):
             self._collaborators = []
             return
         try:
-            collabs: list[Any] = []
-            async for page in self._api.get_collaborators(self._project_id):
-                collabs.extend(page)
-            self._collaborators = collabs
+            self._collaborators = await self._api.get_collaborators(self._project_id)
         except Exception:  # noqa: BLE001
             self._collaborators = []
             _LOGGER.debug("No collaborators for project %s (probably not shared)", self._project_id)
@@ -623,9 +618,7 @@ class TodoistAdapter(ProviderAdapter):
         if self._project_id:
             kwargs["project_id"] = self._project_id
 
-        all_tasks: list[Any] = []
-        async for page in api.get_tasks(**kwargs):
-            all_tasks.extend(page)
+        all_tasks = await api.get_tasks(**kwargs)
 
         # Separate main tasks from sub-tasks
         main_tasks = [t for t in all_tasks if not t.parent_id]
@@ -704,8 +697,8 @@ class TodoistAdapter(ProviderAdapter):
 
         task = await api.add_task(**kwargs)
 
-        # Create reminders
-        if fields.get("reminders"):
+        # Create reminders (only if the API version supports it)
+        if fields.get("reminders") and hasattr(api, "add_reminder"):
             for offset in fields["reminders"]:
                 try:
                     await api.add_reminder(task.id, reminder_type="relative", minute_offset=offset)
@@ -764,8 +757,8 @@ class TodoistAdapter(ProviderAdapter):
         if api_fields:
             await api.update_task(task_uid, **api_fields)
 
-        # Sync reminders
-        if "reminders" in fields:
+        # Sync reminders (only if the API version supports it)
+        if "reminders" in fields and hasattr(api, "add_reminder"):
             await self._sync_reminders(task_uid, fields["reminders"])
 
         for key, value in fields.items():
@@ -838,10 +831,11 @@ class TodoistAdapter(ProviderAdapter):
     async def _sync_reminders(self, task_uid: str, new_offsets: list[int]) -> None:
         """Delta-sync reminder offsets to Todoist."""
         api = await self._ensure_api()
+        if not hasattr(api, "get_reminders"):
+            return
         existing: list[Any] = []
         try:
-            async for page in api.get_reminders(task_id=task_uid):
-                existing.extend(page)
+            existing = await api.get_reminders(task_id=task_uid)
         except Exception:  # noqa: BLE001
             _LOGGER.debug("Could not read reminders for task %s", task_uid)
             return
