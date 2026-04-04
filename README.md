@@ -38,19 +38,49 @@ Every task can carry up to 20 individual attributes:
 Display tasks from **any HA todo integration** alongside native Home Tasks lists — on the same card, in the same UI.
 
 - Link external todo entities via **Settings > Integrations > Home Tasks > Link external todo list**
-- Base fields (title, status, due date/time, description) are **synced bidirectionally** with the external provider — these are all the fields that HA's todo entity standard, the CalDAV protocol, and provider APIs (Google, Todoist, etc.) currently support for synchronization
-- Home Tasks extra fields (priority, tags, sub-tasks, assigned person, reminders, recurrence, history) are stored **locally** in an overlay — they work in HA but are not synced to the provider, because neither the providers' APIs nor HA's todo entity expose these fields
-- The card editor **auto-configures visibility** based on the provider's capabilities when you select an external list (e.g. hides due time for Google Tasks)
+- Provider type is **auto-detected** (Todoist, CalDAV, Google Tasks, etc.) — no extra configuration needed
+- For **generic providers** (CalDAV, Google Tasks, etc.): base fields (title, status, due date/time, description) are synced bidirectionally via HA's standard todo entity interface. Extra fields (priority, tags, sub-tasks, etc.) are stored locally in an overlay.
+- For **Todoist**: full bidirectional sync via direct API access — see [Todoist Deep Integration](#todoist-deep-integration) below
+- The card editor **auto-configures visibility** based on the provider's capabilities when you select an external list
 - You can manually enable overlay fields for external lists if you want them locally
 
 #### Verified Providers
 
-| Provider | HA Integration | Due Date | Due Time | Description | Reorder | Notes |
-|----------|---------------|----------|----------|-------------|---------|-------|
-| **CalDAV** (Nextcloud, etc.) | [CalDAV](https://www.home-assistant.io/integrations/caldav/) (Core) | yes | yes | yes | no | |
-| **Google Tasks** | [Google Tasks](https://www.home-assistant.io/integrations/google_tasks/) (Core) | yes | no | yes | yes | Google's API does not expose due times or recurrence ([open issue](https://issuetracker.google.com/issues/36759725)) |
+| Provider | HA Integration | Due Date | Due Time | Description | Reorder | Priority | Labels | Sub-tasks | Assignee | Recurrence | Reminders | Notes |
+|----------|---------------|----------|----------|-------------|---------|----------|--------|-----------|----------|------------|-----------|-------|
+| **Todoist** | [Todoist](https://www.home-assistant.io/integrations/todoist/) (Core) | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | Full bidirectional sync via direct Todoist API |
+| **CalDAV** (Nextcloud, etc.) | [CalDAV](https://www.home-assistant.io/integrations/caldav/) (Core) | yes | yes | yes | no | overlay | overlay | overlay | overlay | overlay | overlay | |
+| **Google Tasks** | [Google Tasks](https://www.home-assistant.io/integrations/google_tasks/) (Core) | yes | no | yes | yes | overlay | overlay | overlay | overlay | overlay | overlay | Google's API does not expose due times or recurrence ([open issue](https://issuetracker.google.com/issues/36759725)) |
 
-Any other integration that creates `todo.*` entities following HA's standard `TodoListEntity` should also work — additional providers (Todoist, Microsoft ToDo, etc.) will be verified in future releases. The extra fields (priority, tags, sub-tasks, assigned person, reminders, recurrence) are always available via the local overlay, regardless of what the provider supports.
+Any other integration that creates `todo.*` entities following HA's standard `TodoListEntity` should also work. Fields marked "overlay" are stored locally in Home Tasks and work in the HA UI, but are not synced to the provider.
+
+#### Todoist Deep Integration
+
+When you link a Todoist list, Home Tasks automatically detects the Todoist provider and uses the **Todoist REST API directly** (via the existing Todoist integration's API token — no extra configuration required). This enables full bidirectional sync for nearly all fields:
+
+| Field | Sync | Details |
+|-------|------|---------|
+| Title, Status, Description | Full | Read + write via API |
+| Due date & time | Full | Read + write via API, including timezone support |
+| Priority | Full | Mapped: Home Tasks Low/Medium/High = Todoist P3/P2/P1 |
+| Labels / Tags | Full | Direct 1:1 mapping (both use string names) |
+| Sort order | Full | Via Todoist task `order` field |
+| Sub-tasks | Full | Created as real Todoist sub-tasks (`parent_id`) |
+| Assigned person | Full | Name-matching between HA person entities and Todoist collaborators. Shows "Unknown (name)" if no HA person matches. |
+| Recurrence | Full | Mapped: structured recurrence to Todoist natural language strings (e.g. "every monday at 9am"). Complex Todoist patterns displayed read-only. |
+| Reminders | Full | Mapped: minute offsets to Todoist relative reminders |
+| History / audit log | Local | Always stored locally |
+
+**Unsupported Todoist features** (not synchronized):
+
+- **Comments** — Todoist has a threaded comment system with timestamps and multiple authors; Home Tasks uses a single notes/description field
+- **Attachments** — file attachments on tasks or comments
+- **Sections** — task grouping within Todoist projects
+- **Task duration** — how long a task takes (e.g. 30 minutes)
+- **Label colors** — Todoist labels have their own colors and ordering
+- **Deadline vs. due date** — Todoist separates planned work date (due) from deadline
+- **Favorites** — marking tasks or projects as favorites
+- **Saved filters** — Todoist's own filter query language
 
 ### Dashboard Card
 

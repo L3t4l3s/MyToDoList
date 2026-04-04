@@ -4,3 +4,4 @@ __pycache__/
 .coverage
 htmlcov/
 *.pyc
+MANUAL_TEST_PLAN.md

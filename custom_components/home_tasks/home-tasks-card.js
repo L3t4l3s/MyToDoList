@@ -29,7 +29,6 @@ const _TRANSLATIONS = {
     rec_short_h: "h", rec_short_d: "d", rec_short_w: "w", rec_short_m: "mo",
     priority: "Priority",
     pri_high: "High", pri_medium: "Medium", pri_low: "Low",
-    ed_show_priority: "Show priority",
     rec_hourly: "Hourly", rec_daily: "Daily", rec_weekly: "Weekly", rec_monthly: "Monthly",
     rec_type_interval: "Every \u2026", rec_type_weekdays: "On weekdays",
     rec_wd_0: "Mon", rec_wd_1: "Tue", rec_wd_2: "Wed", rec_wd_3: "Thu", rec_wd_4: "Fri", rec_wd_5: "Sat", rec_wd_6: "Sun",
@@ -102,6 +101,7 @@ const _TRANSLATIONS = {
     history: "History", history_created: "Created", history_completed: "Completed", history_reopened: "Reopened",
     history_reset: "Auto-reset (recurrence)", history_changed: "changed", history_empty: "No history yet", hist_title: "Title", history_disabled: "Disabled",
     ed_show_history: "Show history", hist_by_user: "User",
+    assigned_unknown: "Unknown (%s)", recurrence_readonly: "Managed by %s", synced_with: "Synced with %s",
   },
   nl: {
     my_tasks: "Mijn taken",
@@ -151,6 +151,7 @@ const _TRANSLATIONS = {
     history: "Geschiedenis", history_created: "Aangemaakt", history_completed: "Voltooid", history_reopened: "Heropend",
     history_reset: "Automatisch teruggezet", history_changed: "gewijzigd", history_empty: "Geen geschiedenis", hist_title: "Titel", history_disabled: "Uitgeschakeld",
     ed_show_history: "Geschiedenis tonen", hist_by_user: "Gebruiker",
+    assigned_unknown: "Onbekend (%s)", recurrence_readonly: "Beheerd door %s", synced_with: "Gesynchroniseerd met %s",
   },
   it: {
     my_tasks: "Le mie attivit\u00e0",
@@ -200,6 +201,7 @@ const _TRANSLATIONS = {
     history: "Cronologia", history_created: "Creato", history_completed: "Completato", history_reopened: "Riaperto",
     history_reset: "Ripristino automatico", history_changed: "modificato", history_empty: "Nessuna cronologia", hist_title: "Titolo", history_disabled: "Disabilitato",
     ed_show_history: "Mostra cronologia", hist_by_user: "Utente",
+    assigned_unknown: "Sconosciuto (%s)", recurrence_readonly: "Gestito da %s", synced_with: "Sincronizzato con %s",
   },
   pl: {
     my_tasks: "Moje zadania",
@@ -249,6 +251,7 @@ const _TRANSLATIONS = {
     history: "Historia", history_created: "Utworzono", history_completed: "Uko\u0144czono", history_reopened: "Ponownie otwarto",
     history_reset: "Auto-reset", history_changed: "zmieniono", history_empty: "Brak historii", hist_title: "Tytu\u0142", history_disabled: "Wy\u0142\u0105czono",
     ed_show_history: "Poka\u017c histori\u0119", hist_by_user: "U\u017cytkownik",
+    assigned_unknown: "Nieznany (%s)", recurrence_readonly: "Zarz\u0105dzane przez %s", synced_with: "Zsynchronizowane z %s",
   },
   sv: {
     my_tasks: "Mina uppgifter",
@@ -298,6 +301,7 @@ const _TRANSLATIONS = {
     history: "Historik", history_created: "Skapad", history_completed: "Avklarad", history_reopened: "\u00d6ppnad igen",
     history_reset: "Auto-\u00e5terst\u00e4lld", history_changed: "\u00e4ndrad", history_empty: "Ingen historik", hist_title: "Titel", history_disabled: "Inaktiverad",
     ed_show_history: "Visa historik", hist_by_user: "Anv\u00e4ndare",
+    assigned_unknown: "Ok\u00e4nd (%s)", recurrence_readonly: "Hanteras av %s", synced_with: "Synkroniserat med %s",
   },
   fr: {
     my_tasks: "Mes t\u00e2ches",
@@ -347,6 +351,7 @@ const _TRANSLATIONS = {
     history: "Historique", history_created: "Cr\u00e9\u00e9", history_completed: "Termin\u00e9", history_reopened: "R\u00e9ouvert",
     history_reset: "R\u00e9initialisation auto.", history_changed: "modifi\u00e9", history_empty: "Aucun historique", hist_title: "Titre", history_disabled: "D\u00e9sactiv\u00e9",
     ed_show_history: "Afficher l'historique", hist_by_user: "Utilisateur",
+    assigned_unknown: "Inconnu (%s)", recurrence_readonly: "G\u00e9r\u00e9 par %s", synced_with: "Synchronis\u00e9 avec %s",
   },
   pt: {
     my_tasks: "Minhas tarefas",
@@ -396,6 +401,7 @@ const _TRANSLATIONS = {
     history: "Hist\u00f3rico", history_created: "Criado", history_completed: "Conclu\u00eddo", history_reopened: "Reaberto",
     history_reset: "Reiniciado automaticamente", history_changed: "alterado", history_empty: "Sem hist\u00f3rico", hist_title: "T\u00edtulo", history_disabled: "Desativado",
     ed_show_history: "Mostrar hist\u00f3rico", hist_by_user: "Utilizador",
+    assigned_unknown: "Desconhecido (%s)", recurrence_readonly: "Gerenciado por %s", synced_with: "Sincronizado com %s",
   },
   es: {
     my_tasks: "Mis tareas",
@@ -445,6 +451,7 @@ const _TRANSLATIONS = {
     history: "Historial", history_created: "Creado", history_completed: "Completado", history_reopened: "Reabierto",
     history_reset: "Restablecimiento autom.", history_changed: "modificado", history_empty: "Sin historial", hist_title: "T\u00edtulo", history_disabled: "Desactivado",
     ed_show_history: "Mostrar historial", hist_by_user: "Usuario",
+    assigned_unknown: "Desconocido (%s)", recurrence_readonly: "Gestionado por %s", synced_with: "Sincronizado con %s",
   },
   ru: {
     my_tasks: "\u041c\u043e\u0438 \u0437\u0430\u0434\u0430\u0447\u0438",
@@ -494,6 +501,7 @@ const _TRANSLATIONS = {
     history: "\u0418\u0441\u0442\u043e\u0440\u0438\u044f", history_created: "\u0421\u043e\u0437\u0434\u0430\u043d\u043e", history_completed: "\u0412\u044b\u043f\u043e\u043b\u043d\u0435\u043d\u043e", history_reopened: "\u041f\u0435\u0440\u0435\u043e\u0442\u043a\u0440\u044b\u0442\u043e",
     history_reset: "\u0410\u0432\u0442\u043e\u0441\u0431\u0440\u043e\u0441", history_changed: "\u0438\u0437\u043c\u0435\u043d\u0435\u043d\u043e", history_empty: "\u041d\u0435\u0442 \u0438\u0441\u0442\u043e\u0440\u0438\u0438", hist_title: "\u0417\u0430\u0433\u043e\u043b\u043e\u0432\u043e\u043a", history_disabled: "\u041e\u0442\u043a\u043b\u044e\u0447\u0435\u043d\u043e",
     ed_show_history: "\u041f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0442\u044c \u0438\u0441\u0442\u043e\u0440\u0438\u044e", hist_by_user: "\u041f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c",
+    assigned_unknown: "\u041d\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043d\u044b\u0439 (%s)", recurrence_readonly: "\u0423\u043f\u0440\u0430\u0432\u043b\u044f\u0435\u0442\u0441\u044f %s", synced_with: "\u0421\u0438\u043d\u0445\u0440\u043e\u043d\u0438\u0437\u0438\u0440\u043e\u0432\u0430\u043d\u043e \u0441 %s",
   },
   cs: {
     my_tasks: "Moje \u00fakoly",
@@ -543,6 +551,7 @@ const _TRANSLATIONS = {
     history: "Historie", history_created: "Vytvo\u0159eno", history_completed: "Dokon\u010deno", history_reopened: "Znovu otev\u0159eno",
     history_reset: "Automaticky obnoveno", history_changed: "zm\u011bn\u011bno", history_empty: "\u017d\u00e1dn\u00e1 historie", hist_title: "N\u00e1zev", history_disabled: "Deaktivov\u00e1no",
     ed_show_history: "Zobrazit historii", hist_by_user: "U\u017eivatel",
+    assigned_unknown: "Nezn\u00e1m\u00fd (%s)", recurrence_readonly: "Spravov\u00e1no %s", synced_with: "Synchronizov\u00e1no s %s",
   },
   da: {
     my_tasks: "Mine opgaver",
@@ -592,6 +601,7 @@ const _TRANSLATIONS = {
     history: "Historik", history_created: "Oprettet", history_completed: "F\u00e6rdiggjort", history_reopened: "\u00c5bnet igen",
     history_reset: "Auto-nulstillet", history_changed: "\u00e6ndret", history_empty: "Ingen historik", hist_title: "Titel", history_disabled: "Deaktiveret",
     ed_show_history: "Vis historik", hist_by_user: "Bruger",
+    assigned_unknown: "Ukendt (%s)", recurrence_readonly: "Styret af %s", synced_with: "Synkroniseret med %s",
   },
   no: {
     my_tasks: "Mine oppgaver",
@@ -641,6 +651,7 @@ const _TRANSLATIONS = {
     history: "Historikk", history_created: "Opprettet", history_completed: "Fullf\u00f8rt", history_reopened: "\u00c5pnet igjen",
     history_reset: "Auto-tilbakestilt", history_changed: "endret", history_empty: "Ingen historikk", hist_title: "Tittel", history_disabled: "Deaktivert",
     ed_show_history: "Vis historikk", hist_by_user: "Bruker",
+    assigned_unknown: "Ukjent (%s)", recurrence_readonly: "Administrert av %s", synced_with: "Synkronisert med %s",
   },
   fi: {
     my_tasks: "Omat teht\u00e4v\u00e4t",
@@ -690,6 +701,7 @@ const _TRANSLATIONS = {
     history: "Historia", history_created: "Luotu", history_completed: "Valmis", history_reopened: "Avattu uudelleen",
     history_reset: "Automaattinen palautus", history_changed: "muutettu", history_empty: "Ei historiaa", hist_title: "Otsikko", history_disabled: "K\u00e4yt\u00f6ss\u00e4 poistettu",
     ed_show_history: "N\u00e4yt\u00e4 historia", hist_by_user: "K\u00e4ytt\u00e4j\u00e4",
+    assigned_unknown: "Tuntematon (%s)", recurrence_readonly: "Hallinnoi %s", synced_with: "Synkronoitu %s kanssa",
   },
   hu: {
     my_tasks: "Feladataim",
@@ -739,6 +751,7 @@ const _TRANSLATIONS = {
     history: "El\u0151zm\u00e9nyek", history_created: "L\u00e9trehozva", history_completed: "Teljes\u00edtve", history_reopened: "\u00dajranyitva",
     history_reset: "Automatikus visszavonas", history_changed: "m\u00f3dos\u00edtva", history_empty: "Nincs el\u0151zm\u00e9ny", hist_title: "C\u00edm", history_disabled: "Letiltva",
     ed_show_history: "El\u0151zm\u00e9nyek mutat\u00e1sa", hist_by_user: "Felhaszn\u00e1l\u00f3",
+    assigned_unknown: "Ismeretlen (%s)", recurrence_readonly: "Kezeli: %s", synced_with: "Szinkroniz\u00e1lva: %s",
   },
   de: {
     my_tasks: "Meine Aufgaben",
@@ -831,6 +844,7 @@ const _TRANSLATIONS = {
     history: "Verlauf", history_created: "Erstellt", history_completed: "Erledigt", history_reopened: "Wieder ge\u00f6ffnet",
     history_reset: "Automatisch zur\u00fcckgesetzt", history_changed: "ge\u00e4ndert", history_empty: "Noch kein Verlauf", hist_title: "Titel", history_disabled: "Deaktiviert",
     ed_show_history: "Verlauf anzeigen", hist_by_user: "Benutzer",
+    assigned_unknown: "Unbekannt (%s)", recurrence_readonly: "Verwaltet von %s", synced_with: "Synchronisiert mit %s",
   },
 };
 
@@ -1045,17 +1059,30 @@ class HomeTasksCard extends HTMLElement {
     return this._config.columns[colIdx]?.entity_id;
   }
 
+  _getExternalListInfo(colIdx) {
+    if (!this._isExternalCol(colIdx)) return null;
+    const entityId = this._colEntityId(colIdx);
+    return (this._externalLists || []).find(l => l.entity_id === entityId) || null;
+  }
+
   _colSupportedFeatures(colIdx) {
     if (!this._isExternalCol(colIdx)) return -1; // native: all features
-    const entityId = this._colEntityId(colIdx);
-    const ext = (this._externalLists || []).find(l => l.entity_id === entityId);
-    return ext?.supported_features ?? 0;
+    return this._getExternalListInfo(colIdx)?.supported_features ?? 0;
+  }
+
+  _colProviderType(colIdx) {
+    return this._getExternalListInfo(colIdx)?.provider_type ?? (this._isExternalCol(colIdx) ? "generic" : "native");
+  }
+
+  _colCapabilities(colIdx) {
+    return this._getExternalListInfo(colIdx)?.capabilities ?? (this._isExternalCol(colIdx) ? {} : null);
   }
 
   /**
    * Route a task update to the correct backend.
    * For native columns: single WS call to home_tasks/update_task.
-   * For external columns: base fields go via HA todo services, overlay fields via our overlay WS.
+   * For external columns: routed through the backend adapter (handles
+   * provider-specific sync + overlay for unsynced fields).
    */
   async _updateTaskRouted(colIdx, taskId, fields) {
     if (!this._isExternalCol(colIdx)) {
@@ -1066,59 +1093,13 @@ class HomeTasksCard extends HTMLElement {
       });
     }
 
-    const entityId = this._colEntityId(colIdx);
-    const features = this._colSupportedFeatures(colIdx);
-    const supportsDatetime = !!(features & 32); // SET_DUE_DATETIME_ON_ITEM
-
-    // Separate fields into base (synced to provider) and overlay (local)
-    const BASE_KEYS = new Set(["title", "completed", "due_date", "notes"]);
-    const overlayUpdate = {};
-    for (const [k, v] of Object.entries(fields)) {
-      if (!BASE_KEYS.has(k)) {
-        overlayUpdate[k] = v;
-      }
-    }
-
-    // Build a COMPLETE base update with all fields (like HA's standard card).
-    // CalDAV requires a full item representation — partial updates may create
-    // duplicates instead of modifying the existing task.
-    const task = this._columns[colIdx]?.tasks?.find(t => t.id === taskId);
-    const merged = { ...task, ...fields };
-    const dueDate = merged.due_date || null;
-    const dueTime = merged.due_time || null;
-    const baseUpdate = {
-      rename: merged.title || "",
-      status: merged.completed ? "completed" : "needs_action",
-      description: merged.notes || "",
-    };
-    if (dueDate && dueTime && supportsDatetime) {
-      baseUpdate.due_datetime = `${dueDate} ${dueTime}`;
-    } else if (dueDate) {
-      baseUpdate.due_date = dueDate;
-    } else {
-      baseUpdate.due_date = "";
-    }
-
-    // Update base fields via HA's standard todo service
-    if (task) {
-      try {
-        await this._hass.callService("todo", "update_item", {
-          item: taskId,
-          ...baseUpdate,
-        }, { entity_id: entityId });
-      } catch (err) {
-        console.warn("Failed to update external task base fields:", err);
-      }
-    }
-
-    // Update overlay fields via our overlay store
-    if (Object.keys(overlayUpdate).length > 0) {
-      await this._callWs("home_tasks/update_external_overlay", {
-        entity_id: entityId,
-        task_uid: taskId,
-        ...overlayUpdate,
-      });
-    }
+    // External: send all fields to the backend — the adapter decides what
+    // goes to the provider API and what goes to the overlay.
+    await this._callWs("home_tasks/update_external_task", {
+      entity_id: this._colEntityId(colIdx),
+      task_uid: taskId,
+      ...fields,
+    });
   }
 
   async _deleteTaskCmd(colIdx, taskId) {
@@ -1219,10 +1200,10 @@ class HomeTasksCard extends HTMLElement {
       cs.newTaskTitle = "";
       this._render();
       try {
-        await this._hass.callService("todo", "add_item", {
-          item: title,
-        }, { entity_id: this._colEntityId(colIdx) });
-        result = { id: "pending" }; // HA doesn't return the new item ID directly
+        result = await this._callWs("home_tasks/create_external_task", {
+          entity_id: this._colEntityId(colIdx),
+          title,
+        });
       } catch (err) {
         console.warn("Failed to create external task:", err);
       }
@@ -1459,37 +1440,12 @@ class HomeTasksCard extends HTMLElement {
 
   async _reorderTasks(taskIds, colIdx) {
     if (this._isExternalCol(colIdx)) {
-      const entityId = this._colEntityId(colIdx);
-      const features = this._colSupportedFeatures(colIdx);
-      const supportsMove = !!(features & 8); // MOVE_TODO_ITEM
-
-      if (supportsMove) {
-        // Provider is source of truth for order — send via todo/item/move
-        // (sequential: each move depends on the previous item's final position)
-        for (let i = 0; i < taskIds.length; i++) {
-          try {
-            await this._hass.callWS({
-              type: "todo/item/move",
-              entity_id: entityId,
-              uid: taskIds[i],
-              previous_uid: i > 0 ? taskIds[i - 1] : undefined,
-            });
-          } catch (err) {
-            console.warn("Failed to move external task:", err);
-            break;
-          }
-        }
-        // Do NOT save sort_order to overlay — provider order always wins
-      } else {
-        // Provider has no MOVE support — persist order locally in overlay
-        await Promise.all(taskIds.map((uid, i) =>
-          this._callWs("home_tasks/update_external_overlay", {
-            entity_id: entityId,
-            task_uid: uid,
-            sort_order: i,
-          })
-        ));
-      }
+      // Route through backend adapter — it decides whether to use
+      // the provider API, todo/item/move, or overlay sort_order.
+      await this._callWs("home_tasks/reorder_external_tasks", {
+        entity_id: this._colEntityId(colIdx),
+        task_uids: taskIds,
+      });
     } else {
       const listId = this._colListId(colIdx);
       if (!listId) return;
@@ -2147,6 +2103,10 @@ class HomeTasksCard extends HTMLElement {
         const singleLabels = { hours: this._t("rec_hourly"), days: this._t("rec_daily"), weeks: this._t("rec_weekly"), months: this._t("rec_monthly") };
         recLabel = val === 1 ? singleLabels[task.recurrence_unit] : `${val} ${unitLabels[task.recurrence_unit] || task.recurrence_unit}`;
       }
+      // Fallback for complex Todoist recurrence patterns
+      if (!recLabel && task._todoist_recurrence_string) {
+        recLabel = task._todoist_recurrence_string;
+      }
       if (recLabel) {
         let badgeText = "\u21BB " + recLabel;
         if (task.recurrence_end_type === "count" && task.recurrence_remaining_count != null) {
@@ -2155,11 +2115,16 @@ class HomeTasksCard extends HTMLElement {
         metaChildren.push(this._el("span", { className: "recurrence-badge", textContent: badgeText }));
       }
     }
-    if (task.assigned_person && col.show_assigned_person !== false) {
-      let personName = task.assigned_person;
-      if (this._hass && this._hass.states && this._hass.states[task.assigned_person]) {
+    if ((task.assigned_person || task.assigned_name) && col.show_assigned_person !== false) {
+      let personName;
+      if (task.assigned_person && this._hass && this._hass.states && this._hass.states[task.assigned_person]) {
         const attrs = this._hass.states[task.assigned_person].attributes;
         personName = (attrs && attrs.friendly_name) || task.assigned_person;
+      } else if (task.assigned_name) {
+        // Todoist collaborator with no HA person match
+        personName = this._t("assigned_unknown").replace("%s", task.assigned_name);
+      } else {
+        personName = task.assigned_person;
       }
       const isActivePerson = cs.personFilters.has(task.assigned_person);
       const assignedBadge = this._el("span", {

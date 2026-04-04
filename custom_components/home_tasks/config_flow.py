@@ -77,12 +77,22 @@ class HomeTasksConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     or entity_id
                 ) if entity_entry else entity_id
 
+                # Auto-detect provider type
+                from .provider_adapters import detect_provider_type  # noqa: WPS433
+
+                provider_type = detect_provider_type(self.hass, entity_id)
+                if provider_type == "generic":
+                    title_suffix = "External"
+                else:
+                    title_suffix = provider_type.replace("_", " ").title()
+
                 return self.async_create_entry(
-                    title=f"{name} (External)",
+                    title=f"{name} ({title_suffix})",
                     data={
                         "type": "external",
                         "entity_id": entity_id,
                         "name": name,
+                        "provider_type": provider_type,
                     },
                 )
 

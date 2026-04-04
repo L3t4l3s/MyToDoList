@@ -234,7 +234,8 @@ def _check_external_due_dates(hass: HomeAssistant, today: str, fired: dict) -> N
         entity_id = store.entity_id
         # Read tasks from the external entity via HA state
         try:
-            from .websocket_api import _get_external_todo_items, _merge_tasks_with_overlays
+            from .provider_adapters import _get_external_todo_items
+            from .websocket_api import _merge_tasks_with_overlays
             external_items = _get_external_todo_items(hass, entity_id)
             tasks = _merge_tasks_with_overlays(external_items, store)
             for task in tasks:
@@ -755,11 +756,31 @@ async def _async_setup_external_entry(hass: HomeAssistant, entry: ConfigEntry) -
         _LOGGER.error("External entry %s has no entity_id", entry.entry_id)
         return False
 
+    # Auto-detect and migrate provider_type if missing
+    if "provider_type" not in entry.data:
+        from .provider_adapters import detect_provider_type  # noqa: WPS433
+
+        provider_type = detect_provider_type(hass, entity_id)
+        hass.config_entries.async_update_entry(
+            entry, data={**entry.data, "provider_type": provider_type}
+        )
+        _LOGGER.info("Detected provider_type '%s' for %s", provider_type, entity_id)
+
     overlay_store = ExternalTaskOverlayStore(hass, entity_id)
     await overlay_store.async_load()
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = overlay_store
 
-    _LOGGER.info("Linked external todo entity: %s", entity_id)
+    # Instantiate the provider adapter
+    from .provider_adapters import get_adapter  # noqa: WPS433
+
+    adapter = get_adapter(hass, entity_id, entry.data)
+    hass.data.setdefault(f"{DOMAIN}_adapters", {})[entity_id] = adapter
+
+    _LOGGER.info(
+        "Linked external todo entity: %s (provider: %s)",
+        entity_id,
+        adapter.provider_type,
+    )
     # External entries do NOT forward to platforms (todo/sensor/binary_sensor)
     # because those entities are already managed by the external integration.
 
@@ -772,6 +793,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if entry.data.get("type") == "external":
         # External entries don't have platforms to unload
         hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
+        eid = entry.data.get("entity_id")
+        if eid:
+            hass.data.get(f"{DOMAIN}_adapters", {}).pop(eid, None)
         return True
 
     store = hass.data.get(DOMAIN, {}).get(entry.entry_id)

@@ -9,6 +9,7 @@ from homeassistant.core import HomeAssistant, callback
 
 from .const import DOMAIN, MAX_REORDER_IDS, MAX_RECURRENCE_VALUE, MAX_REMINDER_OFFSET_MINUTES, MAX_REMINDERS_PER_TASK, MAX_SUB_TASKS_PER_TASK, MAX_TAGS_PER_TASK, MAX_TITLE_LENGTH, VALID_RECURRENCE_UNITS
 from .overlay_store import ExternalTaskOverlayStore, OVERLAY_FIELDS
+from .provider_adapters import ProviderAdapter, GenericAdapter, _get_external_todo_items
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,6 +45,10 @@ def async_register_websocket_commands(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_delete_external_sub_task)
     websocket_api.async_register_command(hass, ws_reorder_external_sub_tasks)
     websocket_api.async_register_command(hass, ws_delete_external_overlay)
+    # Adapter-routed external commands
+    websocket_api.async_register_command(hass, ws_create_external_task)
+    websocket_api.async_register_command(hass, ws_update_external_task)
+    websocket_api.async_register_command(hass, ws_reorder_external_tasks)
 
 
 def _get_store(hass, entry_id):
@@ -341,46 +346,10 @@ def _get_overlay_store(hass, entity_id: str) -> ExternalTaskOverlayStore:
     raise ValueError(f"No overlay store found for entity: {entity_id}")
 
 
-def _get_external_todo_items(hass, entity_id: str) -> list[dict]:
-    """Read TodoItems from an external HA todo entity and return as dicts."""
-    state = hass.states.get(entity_id)
-    if state is None:
-        raise ValueError(f"Entity not found: {entity_id}")
+def _get_adapter(hass, entity_id: str) -> ProviderAdapter | None:
+    """Get the provider adapter for an external entity_id.  Returns *None* if not found."""
+    return hass.data.get(f"{DOMAIN}_adapters", {}).get(entity_id)
 
-    # Access the entity via HA's todo EntityComponent
-    entity_comp = hass.data.get("todo")
-    if entity_comp and hasattr(entity_comp, "get_entity"):
-        entity = entity_comp.get_entity(entity_id)
-        if entity and hasattr(entity, "todo_items"):
-            items = entity.todo_items or []
-            from datetime import datetime as dt
-
-            result = []
-            for item in items:
-                uid = item.uid
-                if not uid:
-                    continue  # Skip items without a UID — cannot be tracked
-                # Split due into date + time (due can be date or datetime)
-                due_date = None
-                due_time = None
-                if item.due is not None:
-                    if isinstance(item.due, dt):
-                        local_due = item.due.astimezone()
-                        due_date = local_due.date().isoformat()
-                        due_time = local_due.strftime("%H:%M")
-                    else:
-                        due_date = item.due.isoformat()
-                result.append({
-                    "uid": uid,
-                    "summary": item.summary,
-                    "status": item.status.value if item.status else "needs_action",
-                    "due": due_date,
-                    "due_time": due_time,
-                    "description": item.description,
-                })
-            return result
-
-    raise ValueError(f"Cannot read todo items from entity: {entity_id}")
 
 
 def _merge_tasks_with_overlays(
@@ -436,6 +405,64 @@ def _merge_tasks_with_overlays(
     return tasks
 
 
+def _merge_tasks_with_adapter_data(
+    adapter_items: list[dict],
+    overlay_store: ExternalTaskOverlayStore,
+) -> list[dict]:
+    """Merge tasks from a rich adapter with remaining overlay data.
+
+    The adapter already provides synced fields (priority, labels, order, sub_items,
+    assigned_person, recurrence, etc.).  The overlay is only consulted for fields
+    the adapter does NOT sync.
+    """
+    overlays = overlay_store.get_all_overlays()
+    tasks = []
+    for item in adapter_items:
+        uid = item.get("uid") or ""
+        overlay = overlays.get(uid, {})
+        completed = item.get("status") == "completed"
+
+        task = {
+            "id": uid,
+            "title": item.get("summary") or "",
+            "completed": completed,
+            "notes": item.get("description") or "",
+            "due_date": item.get("due"),
+            "sort_order": item.get("order", 0),
+            # --- Fields from adapter (synced) ---
+            "priority": item.get("priority"),
+            "tags": item.get("labels", []),
+            "due_time": item.get("due_time"),
+            "sub_items": item.get("sub_items", []),
+            "assigned_person": item.get("assigned_person"),
+            "assigned_name": item.get("assigned_name"),
+            # Recurrence (from adapter if synced, else overlay)
+            "recurrence_enabled": item.get("recurrence_enabled", overlay.get("recurrence_enabled", False)),
+            "recurrence_type": item.get("recurrence_type", overlay.get("recurrence_type", "interval")),
+            "recurrence_value": item.get("recurrence_value", overlay.get("recurrence_value", 1)),
+            "recurrence_unit": item.get("recurrence_unit", overlay.get("recurrence_unit")),
+            "recurrence_weekdays": item.get("recurrence_weekdays", overlay.get("recurrence_weekdays", [])),
+            "recurrence_start_date": item.get("recurrence_start_date", overlay.get("recurrence_start_date")),
+            "recurrence_time": item.get("recurrence_time", overlay.get("recurrence_time")),
+            # Overlay-only recurrence fields (Todoist doesn't support these)
+            "recurrence_end_type": overlay.get("recurrence_end_type", "none"),
+            "recurrence_end_date": overlay.get("recurrence_end_date"),
+            "recurrence_max_count": overlay.get("recurrence_max_count"),
+            "recurrence_remaining_count": overlay.get("recurrence_remaining_count"),
+            # Reminders — adapter reads them, overlay as fallback
+            "reminders": item.get("reminders", overlay.get("reminders", [])),
+            # History & completed_at always from overlay
+            "completed_at": overlay.get("completed_at"),
+            "history": overlay.get("history", []),
+            # Todoist recurrence string for read-only display
+            "_todoist_recurrence_string": item.get("_todoist_recurrence_string"),
+            # Mark as external
+            "_external": True,
+        }
+        tasks.append(task)
+    return tasks
+
+
 @websocket_api.websocket_command({vol.Required("type"): "home_tasks/get_external_lists"})
 @websocket_api.async_response
 async def ws_get_external_lists(hass, connection, msg):
@@ -467,11 +494,18 @@ async def ws_get_external_lists(hass, connection, msg):
             if state and state.attributes:
                 features = state.attributes.get("supported_features", 0)
 
+            # Look up adapter for capabilities
+            adapter = _get_adapter(hass, entity_entry.entity_id)
+            provider_type = adapter.provider_type if adapter else "generic"
+            capabilities = adapter.capabilities.to_dict() if adapter else {}
+
             external.append({
                 "entity_id": entity_entry.entity_id,
                 "name": entity_entry.name or entity_entry.original_name or entity_entry.entity_id,
                 "linked": entity_entry.entity_id in linked_entity_ids,
                 "supported_features": features,
+                "provider_type": provider_type,
+                "capabilities": capabilities,
             })
 
         connection.send_result(msg["id"], {"external_lists": external})
@@ -491,16 +525,22 @@ async def ws_get_external_tasks(hass, connection, msg):
     try:
         entity_id = msg["entity_id"]
         overlay_store = _get_overlay_store(hass, entity_id)
-        external_items = _get_external_todo_items(hass, entity_id)
+        adapter = _get_adapter(hass, entity_id)
 
-        # Check if provider supports MOVE (reorder) — if so, provider order wins
-        features = 0
-        state = hass.states.get(entity_id)
-        if state and state.attributes:
-            features = state.attributes.get("supported_features", 0)
-        provider_owns_order = bool(features & 8)  # MOVE_TODO_ITEM
+        if adapter and not isinstance(adapter, GenericAdapter):
+            # Rich adapter (e.g. Todoist) — read directly from provider API
+            external_items = await adapter.async_read_tasks()
+            tasks = _merge_tasks_with_adapter_data(external_items, overlay_store)
+        else:
+            # Generic path — read via HA todo entity + overlay
+            external_items = _get_external_todo_items(hass, entity_id)
+            features = 0
+            state = hass.states.get(entity_id)
+            if state and state.attributes:
+                features = state.attributes.get("supported_features", 0)
+            provider_owns_order = bool(features & 8)  # MOVE_TODO_ITEM
+            tasks = _merge_tasks_with_overlays(external_items, overlay_store, provider_owns_order)
 
-        tasks = _merge_tasks_with_overlays(external_items, overlay_store, provider_owns_order)
         connection.send_result(msg["id"], {"tasks": tasks})
     except Exception as err:
         _handle_error(connection, msg["id"], err)
@@ -559,10 +599,18 @@ async def ws_update_external_overlay(hass, connection, msg):
 )
 @websocket_api.async_response
 async def ws_add_external_sub_task(hass, connection, msg):
-    """Add a sub-task to an external task's overlay."""
+    """Add a sub-task to an external task — via adapter or overlay."""
     try:
-        overlay_store = _get_overlay_store(hass, msg["entity_id"])
-        sub = await overlay_store.async_add_sub_task(msg["task_uid"], msg["title"])
+        entity_id = msg["entity_id"]
+        adapter = _get_adapter(hass, entity_id)
+
+        if adapter and adapter.capabilities.can_sync_sub_items:
+            new_uid = await adapter.async_add_sub_task(msg["task_uid"], msg["title"])
+            sub = {"id": new_uid, "title": msg["title"], "completed": False}
+        else:
+            overlay_store = _get_overlay_store(hass, entity_id)
+            sub = await overlay_store.async_add_sub_task(msg["task_uid"], msg["title"])
+
         connection.send_result(msg["id"], sub)
     except Exception as err:
         _handle_error(connection, msg["id"], err)
@@ -580,14 +628,22 @@ async def ws_add_external_sub_task(hass, connection, msg):
 )
 @websocket_api.async_response
 async def ws_update_external_sub_task(hass, connection, msg):
-    """Update a sub-task in an external task's overlay."""
+    """Update a sub-task — via adapter or overlay."""
     try:
-        overlay_store = _get_overlay_store(hass, msg["entity_id"])
+        entity_id = msg["entity_id"]
+        adapter = _get_adapter(hass, entity_id)
         kwargs = {}
         for key in ("title", "completed"):
             if key in msg:
                 kwargs[key] = msg[key]
-        sub = await overlay_store.async_update_sub_task(msg["task_uid"], msg["sub_task_id"], **kwargs)
+
+        if adapter and adapter.capabilities.can_sync_sub_items:
+            await adapter.async_update_sub_task(msg["sub_task_id"], **kwargs)
+            sub = {"id": msg["sub_task_id"], **kwargs}
+        else:
+            overlay_store = _get_overlay_store(hass, entity_id)
+            sub = await overlay_store.async_update_sub_task(msg["task_uid"], msg["sub_task_id"], **kwargs)
+
         connection.send_result(msg["id"], sub)
     except Exception as err:
         _handle_error(connection, msg["id"], err)
@@ -603,10 +659,17 @@ async def ws_update_external_sub_task(hass, connection, msg):
 )
 @websocket_api.async_response
 async def ws_delete_external_sub_task(hass, connection, msg):
-    """Delete a sub-task from an external task's overlay."""
+    """Delete a sub-task — via adapter or overlay."""
     try:
-        overlay_store = _get_overlay_store(hass, msg["entity_id"])
-        await overlay_store.async_delete_sub_task(msg["task_uid"], msg["sub_task_id"])
+        entity_id = msg["entity_id"]
+        adapter = _get_adapter(hass, entity_id)
+
+        if adapter and adapter.capabilities.can_sync_sub_items:
+            await adapter.async_delete_sub_task(msg["sub_task_id"])
+        else:
+            overlay_store = _get_overlay_store(hass, entity_id)
+            await overlay_store.async_delete_sub_task(msg["task_uid"], msg["sub_task_id"])
+
         connection.send_result(msg["id"])
     except Exception as err:
         _handle_error(connection, msg["id"], err)
@@ -622,13 +685,182 @@ async def ws_delete_external_sub_task(hass, connection, msg):
 )
 @websocket_api.async_response
 async def ws_reorder_external_sub_tasks(hass, connection, msg):
-    """Reorder sub-tasks in an external task's overlay."""
+    """Reorder sub-tasks — via adapter or overlay."""
     try:
-        overlay_store = _get_overlay_store(hass, msg["entity_id"])
-        await overlay_store.async_reorder_sub_tasks(msg["task_uid"], msg["sub_task_ids"])
+        entity_id = msg["entity_id"]
+        adapter = _get_adapter(hass, entity_id)
+
+        if adapter and adapter.capabilities.can_sync_sub_items:
+            await adapter.async_reorder_sub_tasks(msg["task_uid"], msg["sub_task_ids"])
+        else:
+            overlay_store = _get_overlay_store(hass, entity_id)
+            await overlay_store.async_reorder_sub_tasks(msg["task_uid"], msg["sub_task_ids"])
+
         connection.send_result(msg["id"])
     except Exception as err:
         _handle_error(connection, msg["id"], err)
+
+
+# ---------------------------------------------------------------------------
+#  Adapter-routed external commands (create / update / reorder)
+# ---------------------------------------------------------------------------
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "home_tasks/create_external_task",
+        vol.Required("entity_id"): _val_entity_id,
+        vol.Required("title"): _val_title,
+        vol.Optional("notes"): vol.All(str, vol.Length(max=5000)),
+        vol.Optional("due_date"): _val_date,
+        vol.Optional("due_time"): _val_time,
+        vol.Optional("priority"): vol.Any(vol.In([1, 2, 3]), None),
+        vol.Optional("tags"): vol.All(list, vol.Length(max=MAX_TAGS_PER_TASK)),
+        vol.Optional("assigned_person"): vol.Any(str, None),
+        vol.Optional("reminders"): vol.All(
+            list,
+            vol.Length(max=MAX_REMINDERS_PER_TASK),
+            [vol.All(int, vol.Range(min=0, max=MAX_REMINDER_OFFSET_MINUTES))],
+        ),
+        vol.Optional("recurrence_enabled"): bool,
+        vol.Optional("recurrence_type"): vol.In(["interval", "weekdays"]),
+        vol.Optional("recurrence_value"): vol.All(int, vol.Range(min=1, max=MAX_RECURRENCE_VALUE)),
+        vol.Optional("recurrence_unit"): vol.Any(vol.In(list(VALID_RECURRENCE_UNITS)), None),
+        vol.Optional("recurrence_weekdays"): vol.All(list, [vol.All(int, vol.Range(min=0, max=6))]),
+        vol.Optional("recurrence_start_date"): _val_date,
+        vol.Optional("recurrence_time"): _val_time,
+        vol.Optional("recurrence_end_date"): _val_date,
+    }
+)
+@websocket_api.async_response
+async def ws_create_external_task(hass, connection, msg):
+    """Create a task via the provider adapter."""
+    try:
+        entity_id = msg["entity_id"]
+        adapter = _get_adapter(hass, entity_id)
+
+        fields = {k: v for k, v in msg.items() if k not in ("id", "type", "entity_id")}
+
+        if adapter:
+            new_uid = await adapter.async_create_task(fields)
+            # Store unsynced fields in overlay if adapter returned a uid
+            if new_uid:
+                overlay_store = _get_overlay_store(hass, entity_id)
+                overlay_fields = {}
+                # Fields the adapter doesn't sync go to overlay
+                if not adapter.capabilities.can_sync_reminders and fields.get("reminders"):
+                    overlay_fields["reminders"] = fields["reminders"]
+                for key in ("recurrence_end_type", "recurrence_max_count", "recurrence_remaining_count"):
+                    if key in fields:
+                        overlay_fields[key] = fields[key]
+                if overlay_fields:
+                    await overlay_store.async_set_overlay(new_uid, **overlay_fields)
+            connection.send_result(msg["id"], {"uid": new_uid})
+        else:
+            # Fallback: generic create via todo.add_item
+            generic = GenericAdapter(hass, entity_id, {})
+            await generic.async_create_task(fields)
+            connection.send_result(msg["id"], {"uid": None})
+    except Exception as err:
+        _handle_error(connection, msg["id"], err)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "home_tasks/update_external_task",
+        vol.Required("entity_id"): _val_entity_id,
+        vol.Required("task_uid"): _val_task_uid,
+        vol.Optional("title"): _val_title,
+        vol.Optional("completed"): bool,
+        vol.Optional("notes"): vol.All(str, vol.Length(max=5000)),
+        vol.Optional("due_date"): _val_date,
+        vol.Optional("due_time"): _val_time,
+        vol.Optional("priority"): vol.Any(vol.In([1, 2, 3]), None),
+        vol.Optional("tags"): vol.All(list, vol.Length(max=MAX_TAGS_PER_TASK)),
+        vol.Optional("assigned_person"): vol.Any(str, None),
+        vol.Optional("reminders"): vol.All(
+            list,
+            vol.Length(max=MAX_REMINDERS_PER_TASK),
+            [vol.All(int, vol.Range(min=0, max=MAX_REMINDER_OFFSET_MINUTES))],
+        ),
+        vol.Optional("sort_order"): int,
+        vol.Optional("recurrence_enabled"): bool,
+        vol.Optional("recurrence_type"): vol.In(["interval", "weekdays"]),
+        vol.Optional("recurrence_value"): vol.All(int, vol.Range(min=1, max=MAX_RECURRENCE_VALUE)),
+        vol.Optional("recurrence_unit"): vol.Any(vol.In(list(VALID_RECURRENCE_UNITS)), None),
+        vol.Optional("recurrence_weekdays"): vol.All(list, [vol.All(int, vol.Range(min=0, max=6))]),
+        vol.Optional("recurrence_start_date"): _val_date,
+        vol.Optional("recurrence_time"): _val_time,
+        vol.Optional("recurrence_end_type"): vol.In(["none", "date", "count"]),
+        vol.Optional("recurrence_end_date"): _val_date,
+        vol.Optional("recurrence_max_count"): vol.Any(vol.All(int, vol.Range(min=1)), None),
+        vol.Optional("recurrence_remaining_count"): vol.Any(vol.All(int, vol.Range(min=0)), None),
+    }
+)
+@websocket_api.async_response
+async def ws_update_external_task(hass, connection, msg):
+    """Update a task via the provider adapter.  Unsynced fields go to overlay."""
+    try:
+        entity_id = msg["entity_id"]
+        task_uid = msg["task_uid"]
+        adapter = _get_adapter(hass, entity_id)
+
+        fields = {k: v for k, v in msg.items() if k not in ("id", "type", "entity_id", "task_uid")}
+
+        if adapter:
+            unsynced = await adapter.async_update_task(task_uid, fields)
+        else:
+            generic = GenericAdapter(hass, entity_id, {})
+            unsynced = await generic.async_update_task(task_uid, fields)
+
+        # Store unsynced fields in overlay
+        if unsynced:
+            overlay_store = _get_overlay_store(hass, entity_id)
+            overlay_kwargs = {}
+            for key in OVERLAY_FIELDS:
+                if key in unsynced:
+                    overlay_kwargs[key] = unsynced[key]
+            if overlay_kwargs:
+                await overlay_store.async_set_overlay(task_uid, **overlay_kwargs)
+
+        connection.send_result(msg["id"], {"unsynced": list(unsynced.keys()) if unsynced else []})
+    except Exception as err:
+        _handle_error(connection, msg["id"], err)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "home_tasks/reorder_external_tasks",
+        vol.Required("entity_id"): _val_entity_id,
+        vol.Required("task_uids"): vol.All([_val_task_uid], vol.Length(max=MAX_REORDER_IDS)),
+    }
+)
+@websocket_api.async_response
+async def ws_reorder_external_tasks(hass, connection, msg):
+    """Reorder tasks via the provider adapter."""
+    try:
+        entity_id = msg["entity_id"]
+        task_uids = msg["task_uids"]
+        adapter = _get_adapter(hass, entity_id)
+
+        handled = False
+        if adapter:
+            handled = await adapter.async_reorder_tasks(task_uids)
+
+        if not handled:
+            # Fallback: store order in overlay
+            overlay_store = _get_overlay_store(hass, entity_id)
+            for i, uid in enumerate(task_uids):
+                await overlay_store.async_set_overlay(uid, sort_order=i)
+
+        connection.send_result(msg["id"], {"provider_handled": handled})
+    except Exception as err:
+        _handle_error(connection, msg["id"], err)
+
+
+# ---------------------------------------------------------------------------
+#  External overlay commands (backward compat + cleanup)
+# ---------------------------------------------------------------------------
 
 
 @websocket_api.websocket_command(
