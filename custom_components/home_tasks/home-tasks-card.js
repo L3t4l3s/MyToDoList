@@ -4036,26 +4036,27 @@ class HomeTasksCardEditor extends HTMLElement {
       const val = listSelect.value || "";
       if (val.startsWith("ext:")) {
         const entityId = val.slice(4);
-        // Find the external list's supported_features
+        // Find the external list's supported_features and adapter capabilities
         const extList = (this._externalLists || []).find(l => l.entity_id === entityId);
         const features = extList?.supported_features || 0;
+        const caps = extList?.capabilities || {};
         // Auto-set visibility defaults for external lists:
-        // - Overlay-only fields (no provider support) → OFF by default
-        // - Provider-supported fields → ON based on feature flags
+        // - Rich adapters (Todoist): enable all synced fields based on capabilities
+        // - Generic adapters: enable only fields supported by HA's todo entity interface
         const HAS_DUE = (features & 16) || (features & 32);  // SET_DUE_DATE or SET_DUE_DATETIME
         const HAS_DESC = !!(features & 64);                   // SET_DESCRIPTION
         updateCol({
           entity_id: entityId,
           list_id: undefined,
           default_sort: "manual",
-          show_due_date: !!HAS_DUE,
-          show_notes: HAS_DESC,
-          show_priority: false,
-          show_tags: false,
-          show_sub_tasks: false,
-          show_assigned_person: false,
-          show_reminders: false,
-          show_recurrence: false,
+          show_due_date: !!HAS_DUE || !!caps.can_sync_due_time,
+          show_notes: HAS_DESC || !!caps.can_sync_description,
+          show_priority: !!caps.can_sync_priority,
+          show_tags: !!caps.can_sync_labels,
+          show_sub_tasks: !!caps.can_sync_sub_items,
+          show_assigned_person: !!caps.can_sync_assignee,
+          show_reminders: !!caps.can_sync_reminders,
+          show_recurrence: !!caps.can_sync_recurrence,
           show_history: false,
         });
         this._render();

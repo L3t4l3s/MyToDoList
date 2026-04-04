@@ -350,7 +350,9 @@ class TodoistAdapter(ProviderAdapter):
     async def _resolve_project_id(self) -> None:
         """Determine the Todoist project ID from the entity name."""
         api = self._api
-        projects = await api.get_projects()
+        projects: list[Any] = []
+        async for page in api.get_projects():
+            projects.extend(page)
 
         # Derive expected project name from entity_id or config name
         entity_name = self._config_data.get("name", "")
@@ -393,7 +395,10 @@ class TodoistAdapter(ProviderAdapter):
             self._collaborators = []
             return
         try:
-            self._collaborators = await self._api.get_collaborators(self._project_id)
+            collabs: list[Any] = []
+            async for page in self._api.get_collaborators(self._project_id):
+                collabs.extend(page)
+            self._collaborators = collabs
         except Exception:  # noqa: BLE001
             self._collaborators = []
             _LOGGER.debug("No collaborators for project %s (probably not shared)", self._project_id)
@@ -600,9 +605,10 @@ class TodoistAdapter(ProviderAdapter):
                 params["due_string"] = recurrence_str
         elif due_date:
             if due_time:
-                params["due_datetime"] = f"{due_date}T{due_time}:00"
+                params["due_datetime"] = dt.fromisoformat(f"{due_date}T{due_time}:00")
             else:
-                params["due_date"] = due_date
+                from datetime import date as date_type
+                params["due_date"] = date_type.fromisoformat(due_date)
         elif due_date is None and "due_date" in fields:
             # Explicitly clearing due date
             params["due_string"] = "no date"
@@ -617,7 +623,9 @@ class TodoistAdapter(ProviderAdapter):
         if self._project_id:
             kwargs["project_id"] = self._project_id
 
-        all_tasks: list[Any] = await api.get_tasks(**kwargs)
+        all_tasks: list[Any] = []
+        async for page in api.get_tasks(**kwargs):
+            all_tasks.extend(page)
 
         # Separate main tasks from sub-tasks
         main_tasks = [t for t in all_tasks if not t.parent_id]
@@ -700,7 +708,7 @@ class TodoistAdapter(ProviderAdapter):
         if fields.get("reminders"):
             for offset in fields["reminders"]:
                 try:
-                    await api.add_reminder(task.id, type="relative", minute_offset=offset)
+                    await api.add_reminder(task.id, reminder_type="relative", minute_offset=offset)
                 except Exception:  # noqa: BLE001
                     _LOGGER.warning("Failed to create reminder (offset=%s) for task %s", offset, task.id)
 
@@ -832,7 +840,8 @@ class TodoistAdapter(ProviderAdapter):
         api = await self._ensure_api()
         existing: list[Any] = []
         try:
-            existing = await api.get_reminders(task_uid)
+            async for page in api.get_reminders(task_id=task_uid):
+                existing.extend(page)
         except Exception:  # noqa: BLE001
             _LOGGER.debug("Could not read reminders for task %s", task_uid)
             return
@@ -859,7 +868,7 @@ class TodoistAdapter(ProviderAdapter):
         to_create = [o for o in new_offsets if o not in existing_map]
         if to_create:
             results = await asyncio.gather(
-                *(api.add_reminder(task_uid, type="relative", minute_offset=o) for o in to_create),
+                *(api.add_reminder(task_uid, reminder_type="relative", minute_offset=o) for o in to_create),
                 return_exceptions=True,
             )
             for offset, result in zip(to_create, results):
