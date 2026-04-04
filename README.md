@@ -49,10 +49,10 @@ Display tasks from **any HA todo integration** alongside native Home Tasks lists
 | Provider | HA Integration | Due Date | Due Time | Description | Reorder | Priority | Labels | Sub-tasks | Assignee | Recurrence | Reminders | Notes |
 |----------|---------------|----------|----------|-------------|---------|----------|--------|-----------|----------|------------|-----------|-------|
 | **Todoist** | [Todoist](https://www.home-assistant.io/integrations/todoist/) (Core) | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | Full bidirectional sync via direct Todoist API |
-| **CalDAV** (Nextcloud, etc.) | [CalDAV](https://www.home-assistant.io/integrations/caldav/) (Core) | yes | yes | yes | no | overlay | overlay | overlay | overlay | overlay | overlay | |
-| **Google Tasks** | [Google Tasks](https://www.home-assistant.io/integrations/google_tasks/) (Core) | yes | no | yes | yes | overlay | overlay | overlay | overlay | overlay | overlay | Google's API does not expose due times or recurrence ([open issue](https://issuetracker.google.com/issues/36759725)) |
+| **CalDAV** (Nextcloud, etc.) | [CalDAV](https://www.home-assistant.io/integrations/caldav/) (Core) | yes | yes | yes | no | no | overlay | no | overlay | no | overlay | |
+| **Google Tasks** | [Google Tasks](https://www.home-assistant.io/integrations/google_tasks/) (Core) | yes | no | yes | yes | no | overlay | no | overlay | no | overlay | Google's API does not expose due times or recurrence ([open issue](https://issuetracker.google.com/issues/36759725)) |
 
-Any other integration that creates `todo.*` entities following HA's standard `TodoListEntity` should also work. Fields marked "overlay" are stored locally in Home Tasks and work in the HA UI, but are not synced to the provider.
+Any other integration that creates `todo.*` entities following HA's standard `TodoListEntity` should also work. Fields marked "no" are available locally in Home Tasks but not synced to the provider.
 
 #### Todoist Deep Integration
 
