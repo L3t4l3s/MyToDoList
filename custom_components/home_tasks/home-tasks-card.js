@@ -2584,13 +2584,20 @@ class HomeTasksCard extends HTMLElement {
     ]);
     const recurrenceCountRow = this._el("div", { className: "recurrence-input-row" }, [recMaxCountWrap, recRemainingSpan]);
 
+    // For Todoist: hide start date + recurrence time row entirely —
+    // the due date/time fields already control when the recurrence starts.
+    const providerSyncsRecurrence = caps && caps.can_sync_recurrence;
+
     const applyRowVisibility = (mode, unit) => {
       recurrenceIntervalRow.style.display = mode === "interval" ? "" : "none";
       recurrenceWeekdayRow.style.display = mode === "weekdays" ? "" : "none";
-      // Hide time column for hours mode; use .single CSS class (not inline style) for iOS reliability
-      const hideTime = !(mode === "weekdays" || (mode === "interval" && unit !== "hours"));
-      recurrenceTimeWrap.style.display = hideTime ? "none" : "";
-      recurrenceDateTimeRow.classList.toggle("single", hideTime);
+      if (providerSyncsRecurrence) {
+        recurrenceDateTimeRow.style.display = "none";
+      } else {
+        const hideTime = !(mode === "weekdays" || (mode === "interval" && unit !== "hours"));
+        recurrenceTimeWrap.style.display = hideTime ? "none" : "";
+        recurrenceDateTimeRow.classList.toggle("single", hideTime);
+      }
     };
     applyRowVisibility(recurrenceType, recurrenceUnit);
 

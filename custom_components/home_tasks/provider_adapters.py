@@ -435,8 +435,9 @@ class TodoistAdapter(ProviderAdapter):
             else:
                 parts.append(f"every {value} {unit_str}")
 
-        # Todoist rejects "at HH:MM" for hourly intervals (400 error).
-        # Also skip "at 00:00" — it's the card's default, not a real user choice.
+        # Append "at HH:MM" only when meaningful:
+        # - Skip for hourly intervals (Todoist returns 400)
+        # - Skip "00:00" (card's default, not a deliberate choice)
         if rtime and rtime != "00:00" and unit != "hours":
             parts.append(f"at {rtime}")
         if start:
