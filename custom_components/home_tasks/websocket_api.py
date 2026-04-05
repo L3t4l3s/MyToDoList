@@ -454,9 +454,9 @@ def _merge_tasks_with_adapter_data(
             "recurrence_weekdays": item.get("recurrence_weekdays", overlay.get("recurrence_weekdays", [])),
             "recurrence_start_date": item.get("recurrence_start_date", overlay.get("recurrence_start_date")),
             "recurrence_time": item.get("recurrence_time", overlay.get("recurrence_time")),
-            # Overlay-only recurrence fields (Todoist doesn't support these)
-            "recurrence_end_type": overlay.get("recurrence_end_type", "none"),
-            "recurrence_end_date": overlay.get("recurrence_end_date"),
+            # Recurrence end — from adapter (parsed from due_string) or overlay
+            "recurrence_end_type": item.get("recurrence_end_type", overlay.get("recurrence_end_type", "none")),
+            "recurrence_end_date": item.get("recurrence_end_date", overlay.get("recurrence_end_date")),
             "recurrence_max_count": overlay.get("recurrence_max_count"),
             "recurrence_remaining_count": overlay.get("recurrence_remaining_count"),
             # Reminders — adapter reads them, overlay as fallback

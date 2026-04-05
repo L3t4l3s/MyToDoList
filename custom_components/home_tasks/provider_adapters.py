@@ -541,6 +541,12 @@ class TodoistAdapter(ProviderAdapter):
         if start_match:
             result["recurrence_start_date"] = start_match.group(1)
 
+        # Extract "ending YYYY-MM-DD"
+        end_match = re.search(r"ending\s+(\d{4}-\d{2}-\d{2})", lower)
+        if end_match:
+            result["recurrence_end_date"] = end_match.group(1)
+            result["recurrence_end_type"] = "date"
+
         # Store the original string for read-only display of complex patterns
         result["_todoist_recurrence_string"] = due_string
 
@@ -761,7 +767,7 @@ class TodoistAdapter(ProviderAdapter):
             if due_params:
                 api_fields.update(due_params)
 
-        # Assignee
+        # Assignee — clearing requires a separate API call that may fail
         if "assigned_person" in fields:
             if fields["assigned_person"]:
                 collab_id = self._resolve_person_to_collaborator(fields["assigned_person"])
@@ -770,28 +776,32 @@ class TodoistAdapter(ProviderAdapter):
                 else:
                     unsynced["assigned_person"] = fields["assigned_person"]
             else:
-                # Clear assignee — our client sends null directly to the API
-                api_fields["assignee_id"] = None
+                # Try to clear assignee via separate API call (may fail with 400)
+                try:
+                    await api.update_task(task_uid, assignee_id=None)
+                except Exception:  # noqa: BLE001
+                    _LOGGER.debug("Cannot clear assignee via API for task %s", task_uid)
+                # Do NOT add assignee_id to api_fields — handle it separately
 
-        # Status — method names differ across API versions
+        # Status
         if "completed" in fields:
             if fields["completed"]:
                 await api.complete_task(task_uid)
             else:
                 await api.uncomplete_task(task_uid)
 
-        # Send update if there are API fields
+        # Send update if there are API fields (without assignee_id)
         if api_fields:
             await api.update_task(task_uid, **api_fields)
-
-        # Reminders go to overlay (no API support)
 
         for key, value in fields.items():
             if key not in _TODOIST_PROVIDER_FIELDS and key not in unsynced:
                 unsynced[key] = value
 
-        # recurrence_end_type=count / recurrence_max_count → overlay
-        for key in ("recurrence_end_type", "recurrence_max_count", "recurrence_remaining_count"):
+        # Recurrence end-condition → always overlay (Todoist may or may not
+        # honour "ending ..." in the due_string, but we need to persist it
+        # locally for reliable display).
+        for key in ("recurrence_end_type", "recurrence_end_date", "recurrence_max_count", "recurrence_remaining_count"):
             if key in fields:
                 unsynced[key] = fields[key]
 
