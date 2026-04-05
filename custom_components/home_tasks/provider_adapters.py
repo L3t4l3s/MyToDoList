@@ -865,12 +865,9 @@ class TodoistAdapter(ProviderAdapter):
                 else:
                     unsynced["assigned_person"] = fields["assigned_person"]
             else:
-                # Clear assignee — the library filters None so we do a
-                # direct HTTP POST with {"assignee_id": null}.
-                try:
-                    await self._raw_update_task(task_uid, {"assignee_id": None})
-                except Exception:  # noqa: BLE001
-                    _LOGGER.warning("Failed to unassign task %s", task_uid)
+                # Todoist API does not support clearing assignee via the
+                # library — keep the provider state as-is.
+                pass
 
         # Status — method names differ across API versions
         if "completed" in fields:

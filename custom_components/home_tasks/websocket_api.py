@@ -444,11 +444,8 @@ def _merge_tasks_with_adapter_data(
             "tags": item.get("labels", []),
             "due_time": item.get("due_time"),
             "sub_items": item.get("sub_items", []),
-            # Assignee: overlay clearing (explicit None) overrides API value
-            "assigned_person": None if "assigned_person" in raw and raw["assigned_person"] is None
-                else (item.get("assigned_person") or overlay.get("assigned_person")),
-            "assigned_name": item.get("assigned_name") if "assigned_person" not in raw or raw.get("assigned_person") is not None
-                else None,
+            "assigned_person": item.get("assigned_person") or overlay.get("assigned_person"),
+            "assigned_name": item.get("assigned_name"),
             # Recurrence (from adapter if synced, else overlay)
             "recurrence_enabled": item.get("recurrence_enabled", overlay.get("recurrence_enabled", False)),
             "recurrence_type": item.get("recurrence_type", overlay.get("recurrence_type", "interval")),
