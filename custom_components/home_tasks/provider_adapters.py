@@ -564,8 +564,8 @@ class TodoistAdapter(ProviderAdapter):
         _REC_KEYS = {"recurrence_enabled", "recurrence_type", "recurrence_value",
                      "recurrence_unit", "recurrence_weekdays", "recurrence_start_date",
                      "recurrence_time"}
-        # If all recurrence keys are present, no need to fetch
-        if _REC_KEYS <= fields.keys():
+        # If all recurrence keys are present AND we have due_date, no need to fetch
+        if _REC_KEYS <= fields.keys() and "due_date" in fields:
             return fields
 
         try:
