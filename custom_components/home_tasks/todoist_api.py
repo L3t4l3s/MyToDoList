@@ -238,6 +238,49 @@ class TodoistAPIClient:
     async def delete_task(self, task_id: str) -> None:
         await self._delete(f"tasks/{task_id}")
 
+    # -- Reminders ----------------------------------------------------------
+
+    async def get_reminders(self, task_id: str) -> list[dict]:
+        """Get reminders for a task.  Returns raw dicts."""
+        try:
+            items = await self._get_all("reminders", params={"task_id": task_id})
+            return items
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug("Reminders endpoint not available or failed for task %s", task_id)
+            return []
+
+    async def add_reminder(
+        self,
+        task_id: str,
+        *,
+        reminder_type: str = "relative",
+        minute_offset: int | None = None,
+        due_string: str | None = None,
+        service: str = "push",
+    ) -> dict | None:
+        """Create a reminder.  Returns the created reminder dict or None."""
+        data: dict[str, Any] = {
+            "task_id": task_id,
+            "type": reminder_type,
+            "service": service,
+        }
+        if minute_offset is not None:
+            data["minute_offset"] = minute_offset
+        if due_string is not None:
+            data["due_string"] = due_string
+        try:
+            return await self._post("reminders", data)
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug("Failed to create reminder for task %s", task_id)
+            return None
+
+    async def delete_reminder(self, reminder_id: str) -> None:
+        """Delete a reminder."""
+        try:
+            await self._delete(f"reminders/{reminder_id}")
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug("Failed to delete reminder %s", reminder_id)
+
 
 # ---------------------------------------------------------------------------
 #  Payload builder

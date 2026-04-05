@@ -38,12 +38,10 @@ _GENERIC_BASE_FIELDS = frozenset({"title", "completed", "notes", "due_date", "du
 # Fields that the TodoistAdapter syncs directly via the Todoist API.
 _TODOIST_PROVIDER_FIELDS = frozenset({
     "title", "notes", "priority", "tags", "due_date", "due_time",
-    "completed", "assigned_person", "sort_order",
+    "completed", "assigned_person", "reminders", "sort_order",
     "recurrence_enabled", "recurrence_type", "recurrence_value",
     "recurrence_unit", "recurrence_weekdays", "recurrence_start_date",
     "recurrence_time", "recurrence_end_date",
-    # Note: "reminders" is intentionally NOT here — it goes to overlay
-    # because todoist-api-python v3.x has no reminder endpoints.
 })
 
 # ---------------------------------------------------------------------------
@@ -325,7 +323,7 @@ class TodoistAdapter(ProviderAdapter):
             can_sync_assignee=False,  # updated in _load_collaborators
             can_sync_sub_items=True,
             can_sync_recurrence=True,
-            can_sync_reminders=False,
+            can_sync_reminders=True,
         )
 
     # -- lazy init ----------------------------------------------------------
@@ -684,6 +682,13 @@ class TodoistAdapter(ProviderAdapter):
             # Parse recurrence from due object
             recurrence = self._parse_recurrence_from_due(task.due)
 
+            # Read reminders
+            raw_reminders = await api.get_reminders(task.id)
+            reminders = [
+                r["minute_offset"] for r in raw_reminders
+                if r.get("minute_offset") is not None
+            ]
+
             result.append({
                 "uid": task.id,
                 "summary": task.content,
@@ -697,6 +702,7 @@ class TodoistAdapter(ProviderAdapter):
                 "sub_items": sub_items,
                 "assigned_person": assigned_person,
                 "assigned_name": assigned_name,
+                "reminders": reminders,
                 **recurrence,
             })
 
@@ -728,8 +734,10 @@ class TodoistAdapter(ProviderAdapter):
 
         task = await api.add_task(**kwargs)
 
-        # Reminders are stored in overlay (Todoist REST API v1 has no
-        # reminder endpoints accessible via our client).
+        # Create reminders
+        if fields.get("reminders"):
+            for offset in fields["reminders"]:
+                await api.add_reminder(task.id, reminder_type="relative", minute_offset=offset)
 
         return task.id
 
@@ -795,6 +803,10 @@ class TodoistAdapter(ProviderAdapter):
         except Exception:  # noqa: BLE001
             _LOGGER.warning("Todoist API update failed for task %s — overlay still saved", task_uid)
 
+        # Sync reminders via API
+        if "reminders" in fields:
+            await self._sync_reminders(task_uid, fields["reminders"])
+
         return unsynced
 
     async def async_delete_task(self, task_uid: str) -> None:
@@ -827,11 +839,9 @@ class TodoistAdapter(ProviderAdapter):
             api_fields["content"] = fields["title"]
         if "completed" in fields:
             if fields["completed"]:
-                complete = getattr(api, "complete_task", None) or api.close_task
-                await complete(sub_task_uid)
+                await api.complete_task(sub_task_uid)
             else:
-                uncomplete = getattr(api, "uncomplete_task", None) or api.reopen_task
-                await uncomplete(sub_task_uid)
+                await api.uncomplete_task(sub_task_uid)
         if api_fields:
             await api.update_task(sub_task_uid, **api_fields)
         return True
@@ -854,6 +864,29 @@ class TodoistAdapter(ProviderAdapter):
             _LOGGER.warning("Failed to reorder Todoist sub-tasks")
             return False
         return True
+
+    # -- Reminder sync ------------------------------------------------------
+
+    async def _sync_reminders(self, task_uid: str, new_offsets: list[int]) -> None:
+        """Delta-sync reminder offsets to Todoist."""
+        api = self._api
+        existing = await api.get_reminders(task_uid)
+        existing_map = {
+            r.get("minute_offset"): r.get("id")
+            for r in existing
+            if r.get("minute_offset") is not None
+        }
+        new_set = set(new_offsets)
+
+        # Delete removed
+        for offset, rid in existing_map.items():
+            if offset not in new_set:
+                await api.delete_reminder(rid)
+
+        # Create added
+        for offset in new_offsets:
+            if offset not in existing_map:
+                await api.add_reminder(task_uid, reminder_type="relative", minute_offset=offset)
 
 
 # ---------------------------------------------------------------------------
