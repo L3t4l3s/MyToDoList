@@ -435,7 +435,9 @@ class TodoistAdapter(ProviderAdapter):
             else:
                 parts.append(f"every {value} {unit_str}")
 
-        if rtime:
+        # Todoist rejects "at HH:MM" for hourly intervals (400 error).
+        # Also skip "at 00:00" — it's the card's default, not a real user choice.
+        if rtime and rtime != "00:00" and unit != "hours":
             parts.append(f"at {rtime}")
         if start:
             parts.append(f"starting {start}")
@@ -594,7 +596,10 @@ class TodoistAdapter(ProviderAdapter):
         # Check if recurrence is being set or cleared
         recurrence_str = self._build_recurrence_string(fields)
         if recurrence_str:
-            if due_time and not fields.get("recurrence_time"):
+            # Append due_time only if recurrence_time wasn't already included
+            # and the unit is not "hours" (Todoist rejects "every hour at HH:MM")
+            unit = fields.get("recurrence_unit", "days")
+            if due_time and due_time != "00:00" and unit != "hours" and not fields.get("recurrence_time"):
                 params["due_string"] = f"{recurrence_str} at {due_time}"
             else:
                 params["due_string"] = recurrence_str
