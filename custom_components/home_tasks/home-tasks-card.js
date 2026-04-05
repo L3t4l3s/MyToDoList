@@ -1196,9 +1196,24 @@ class HomeTasksCard extends HTMLElement {
 
     let result;
     if (this._isExternalCol(colIdx)) {
-      // Clear input immediately — the API call to the external provider is slow
+      // Optimistic: insert a placeholder task immediately so the user
+      // sees it appear without waiting for the API round-trip.
+      const tempId = "_pending_" + Date.now();
+      cs.tasks.push({
+        id: tempId, title, completed: false, notes: "", due_date: null,
+        due_time: null, sort_order: cs.tasks.length, sub_items: [],
+        priority: null, tags: [], reminders: [], assigned_person: null,
+        recurrence_enabled: false, _external: true,
+      });
       cs.newTaskTitle = "";
+      this._justAddedTaskId = tempId;
+      this._addInputRect = addInputRect;
       this._render();
+      this._justAddedTaskId = null;
+      this._addInputRect = null;
+      this._applyFlip(before, colIdx, 0.25);
+
+      // Send to API in background, then reload to get the real ID
       try {
         result = await this._callWs("home_tasks/create_external_task", {
           entity_id: this._colEntityId(colIdx),
@@ -1207,18 +1222,14 @@ class HomeTasksCard extends HTMLElement {
       } catch (err) {
         console.warn("Failed to create external task:", err);
       }
+      this._reloadExternal(colIdx);
     } else {
       result = await this._callWs("home_tasks/add_task", {
         list_id: this._colListId(colIdx),
         title,
       });
-    }
-
-    if (result) {
-      cs.newTaskTitle = "";
-      if (this._isExternalCol(colIdx)) {
-        this._reloadExternal(colIdx);
-      } else {
+      if (result) {
+        cs.newTaskTitle = "";
         this._justAddedTaskId = result.id ? String(result.id) : null;
         this._addInputRect = addInputRect;
         await this._loadAllTasks();
