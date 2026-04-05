@@ -250,7 +250,7 @@ class TestProviderCapabilities:
         caps = adapter.capabilities
         assert caps.can_sync_priority is True
         assert caps.can_sync_labels is True
-        assert caps.can_sync_order is False  # v3.x has no order param
+        assert caps.can_sync_order is True
         assert caps.can_sync_sub_items is True
         assert caps.can_sync_assignee is False  # False until collaborators loaded
         assert caps.can_sync_recurrence is True

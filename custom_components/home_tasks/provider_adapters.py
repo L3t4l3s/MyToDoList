@@ -347,7 +347,7 @@ class TodoistAdapter(ProviderAdapter):
         self.capabilities = ProviderCapabilities(
             can_sync_priority=True,
             can_sync_labels=True,
-            can_sync_order=False,
+            can_sync_order=True,
             can_sync_due_time=True,
             can_sync_description=True,
             can_sync_assignee=False,  # updated in _load_collaborators
@@ -434,27 +434,26 @@ class TodoistAdapter(ProviderAdapter):
             **{**self.capabilities.to_dict(), "can_sync_assignee": len(self._collaborators) > 0}
         )
 
-    async def _unassign_task(self, task_uid: str) -> None:
-        """Clear the assignee via direct HTTP POST.
+    async def _raw_update_task(self, task_uid: str, payload: dict) -> None:
+        """Send a raw POST to the Todoist task endpoint.
 
-        The todoist-api-python library skips None values, so we must send
-        the raw ``{"assignee_id": null}`` payload ourselves.
+        Bypasses the todoist-api-python library which filters ``None``
+        values and doesn't expose all REST API fields (like ``order``).
         """
         import json
         try:
             from todoist_api_python._core.endpoints import get_api_url, TASKS_PATH
             from todoist_api_python._core.http_headers import create_headers
         except ImportError:
-            _LOGGER.debug("Cannot unassign: internal Todoist modules not available")
+            _LOGGER.debug("Cannot send raw update: internal Todoist modules unavailable")
             return
 
         url = get_api_url(f"{TASKS_PATH}/{task_uid}")
         headers = create_headers(token=self._token, with_content=True)
-        data = json.dumps({"assignee_id": None})
 
         import aiohttp
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, data=data) as resp:
+            async with session.post(url, headers=headers, data=json.dumps(payload)) as resp:
                 resp.raise_for_status()
 
     # -- Assignee matching --------------------------------------------------
@@ -869,7 +868,7 @@ class TodoistAdapter(ProviderAdapter):
                 # Clear assignee — the library filters None so we do a
                 # direct HTTP POST with {"assignee_id": null}.
                 try:
-                    await self._unassign_task(task_uid)
+                    await self._raw_update_task(task_uid, {"assignee_id": None})
                 except Exception:  # noqa: BLE001
                     _LOGGER.warning("Failed to unassign task %s", task_uid)
 
@@ -906,9 +905,17 @@ class TodoistAdapter(ProviderAdapter):
         await api.delete_task(task_uid)
 
     async def async_reorder_tasks(self, task_uids: list[str]) -> bool:
-        # todoist-api-python v3.x update_task does not support the 'order'
-        # parameter — fall back to overlay-based ordering.
-        return False
+        # todoist-api-python v3.x update_task() doesn't expose 'order',
+        # but the Todoist REST API accepts it — use _raw_update_task.
+        try:
+            await asyncio.gather(*(
+                self._raw_update_task(uid, {"child_order": i})
+                for i, uid in enumerate(task_uids)
+            ))
+        except Exception:  # noqa: BLE001
+            _LOGGER.warning("Failed to reorder Todoist tasks via raw API")
+            return False
+        return True
 
     # -- Sub-task CRUD ------------------------------------------------------
 
@@ -941,7 +948,15 @@ class TodoistAdapter(ProviderAdapter):
     async def async_reorder_sub_tasks(
         self, parent_uid: str, sub_task_uids: list[str]
     ) -> bool:
-        return False  # v3.x has no order param — use overlay
+        try:
+            await asyncio.gather(*(
+                self._raw_update_task(uid, {"child_order": i})
+                for i, uid in enumerate(sub_task_uids)
+            ))
+        except Exception:  # noqa: BLE001
+            _LOGGER.warning("Failed to reorder Todoist sub-tasks via raw API")
+            return False
+        return True
 
     # -- Reminder sync ------------------------------------------------------
 
