@@ -402,9 +402,12 @@ class TodoistAdapter(ProviderAdapter):
                             "recurrence_type", "recurrence_time", "recurrence_start_date",
                             "recurrence_end_date"}
         has_details = any(k in fields for k in _REC_DETAIL_KEYS)
-        if not fields.get("recurrence_enabled") and not has_details:
+        # If detail fields are present, the user is editing an active recurrence
+        # — treat as enabled even if the merged recurrence_enabled says otherwise
+        # (can happen due to API timing or parser limitations).
+        if fields.get("recurrence_enabled") is False and not has_details:
             return None
-        if fields.get("recurrence_enabled") is False:
+        if not fields.get("recurrence_enabled") and not has_details:
             return None
 
         rtype = fields.get("recurrence_type", "interval")
