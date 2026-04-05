@@ -434,6 +434,29 @@ class TodoistAdapter(ProviderAdapter):
             **{**self.capabilities.to_dict(), "can_sync_assignee": len(self._collaborators) > 0}
         )
 
+    async def _unassign_task(self, task_uid: str) -> None:
+        """Clear the assignee via direct HTTP POST.
+
+        The todoist-api-python library skips None values, so we must send
+        the raw ``{"assignee_id": null}`` payload ourselves.
+        """
+        import json
+        try:
+            from todoist_api_python._core.endpoints import get_api_url, TASKS_PATH
+            from todoist_api_python._core.http_headers import create_headers
+        except ImportError:
+            _LOGGER.debug("Cannot unassign: internal Todoist modules not available")
+            return
+
+        url = get_api_url(f"{TASKS_PATH}/{task_uid}")
+        headers = create_headers(token=self._token, with_content=True)
+        data = json.dumps({"assignee_id": None})
+
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, headers=headers, data=data) as resp:
+                resp.raise_for_status()
+
     # -- Assignee matching --------------------------------------------------
 
     def _resolve_person_to_collaborator(self, person_entity_id: str) -> str | None:
@@ -834,7 +857,7 @@ class TodoistAdapter(ProviderAdapter):
             if due_params:
                 api_fields.update(due_params)
 
-        # Assignee — can only SET, not clear via API (Todoist rejects empty/null)
+        # Assignee
         if "assigned_person" in fields:
             if fields["assigned_person"]:
                 collab_id = self._resolve_person_to_collaborator(fields["assigned_person"])
@@ -843,8 +866,12 @@ class TodoistAdapter(ProviderAdapter):
                 else:
                     unsynced["assigned_person"] = fields["assigned_person"]
             else:
-                # Clearing: keep in overlay only (API has no unassign)
-                unsynced["assigned_person"] = None
+                # Clear assignee — the library filters None so we do a
+                # direct HTTP POST with {"assignee_id": null}.
+                try:
+                    await self._unassign_task(task_uid)
+                except Exception:  # noqa: BLE001
+                    _LOGGER.warning("Failed to unassign task %s", task_uid)
 
         # Status — method names differ across API versions
         if "completed" in fields:
