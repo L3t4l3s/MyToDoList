@@ -16,7 +16,7 @@ import re
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import asdict, dataclass
-from datetime import datetime as dt
+from datetime import date as _date_cls, datetime as dt, timedelta
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -402,10 +402,9 @@ class TodoistAdapter(ProviderAdapter):
                             "recurrence_type", "recurrence_time", "recurrence_start_date",
                             "recurrence_end_date"}
         has_details = any(k in fields for k in _REC_DETAIL_KEYS)
-        # If detail fields are present, the user is editing an active recurrence
-        # — treat as enabled even if the merged recurrence_enabled says otherwise
-        # (can happen due to API timing or parser limitations).
-        if fields.get("recurrence_enabled") is False and not has_details:
+        # Explicit disable always wins, even if detail fields are present
+        # (the recurrence toggle sends all fields alongside enabled=false).
+        if fields.get("recurrence_enabled") is False:
             return None
         if not fields.get("recurrence_enabled") and not has_details:
             return None
@@ -443,9 +442,29 @@ class TodoistAdapter(ProviderAdapter):
         if start:
             parts.append(f"starting {start}")
         if end:
-            parts.append(f"ending {end}")
+            # Safety: Todoist nullifies the entire due object when the end
+            # date is before the next occurrence.  Compute a safe minimum.
+            try:
+                end_d = _date_cls.fromisoformat(end)
+                today = _date_cls.today()
+                if unit == "months":
+                    # Approximate: 31 days per month × value
+                    min_end = today + timedelta(days=31 * value)
+                elif unit == "weeks":
+                    min_end = today + timedelta(weeks=value)
+                elif unit == "hours":
+                    min_end = today + timedelta(days=1)
+                else:  # days
+                    min_end = today + timedelta(days=value)
+                if end_d >= min_end:
+                    parts.append(f"ending {end}")
+                else:
+                    _LOGGER.debug("Dropping recurrence end date %s (before next occurrence ~%s)", end, min_end)
+            except ValueError:
+                pass
 
-        return " ".join(parts) if parts else None
+        result = " ".join(parts) if parts else None
+        return result
 
     @staticmethod
     def _parse_recurrence_from_due(due_obj: Any) -> dict:
@@ -593,15 +612,30 @@ class TodoistAdapter(ProviderAdapter):
         params: dict[str, Any] = {}
         due_date = fields.get("due_date")
         due_time = fields.get("due_time")
+        # When disabling recurrence, the API may have lost the time component.
+        # Fall back to recurrence_time if due_time is missing.
+        rec_time_fb = fields.get("recurrence_time")
+        if not due_time and rec_time_fb and rec_time_fb != "00:00":
+            due_time = rec_time_fb
 
         # Check if recurrence is being set or cleared
         recurrence_str = self._build_recurrence_string(fields)
         if recurrence_str:
-            # Append due_time only if recurrence_time wasn't already included
-            # and the unit is not "hours" (Todoist rejects "every hour at HH:MM")
+            # Append due_time only if the recurrence string doesn't already
+            # contain a meaningful time, and the unit is not "hours".
+            # Treat "00:00" as "no time set" — it's the card's default.
             unit = fields.get("recurrence_unit", "days")
-            if due_time and due_time != "00:00" and unit != "hours" and not fields.get("recurrence_time"):
-                params["due_string"] = f"{recurrence_str} at {due_time}"
+            rec_time = fields.get("recurrence_time")
+            has_rec_time = rec_time and rec_time != "00:00"
+            if due_time and due_time != "00:00" and unit != "hours" and not has_rec_time:
+                # Insert "at HH:MM" before "ending"/"starting" — Todoist
+                # ignores time tokens that appear after these keywords.
+                if " ending " in recurrence_str:
+                    params["due_string"] = recurrence_str.replace(" ending ", f" at {due_time} ending ", 1)
+                elif " starting " in recurrence_str:
+                    params["due_string"] = recurrence_str.replace(" starting ", f" at {due_time} starting ", 1)
+                else:
+                    params["due_string"] = f"{recurrence_str} at {due_time}"
             else:
                 params["due_string"] = recurrence_str
         elif fields.get("recurrence_enabled") is False:
@@ -760,6 +794,17 @@ class TodoistAdapter(ProviderAdapter):
                 unsynced[key] = value
 
         # Step 2: Send API updates.
+        # When due changes, Todoist deletes all reminders.  Snapshot them
+        # BEFORE the update so we can restore them afterwards.
+        has_due_change = "due_string" in api_fields or "due_date" in api_fields or "due_datetime" in api_fields
+        saved_reminders: list[int] | None = None
+        if has_due_change:
+            try:
+                existing = await api.get_reminders(task_uid)
+                saved_reminders = [r["minute_offset"] for r in existing if r.get("minute_offset") is not None]
+            except Exception:  # noqa: BLE001
+                pass
+
         if "completed" in fields:
             try:
                 if fields["completed"]:
@@ -771,9 +816,15 @@ class TodoistAdapter(ProviderAdapter):
         if api_fields:
             await api.update_task(task_uid, **api_fields)
 
-        # Sync reminders via API
+        # Sync reminders via API.  If the caller specified reminders, use
+        # those.  Otherwise restore the snapshot we took before the due change.
+        reminder_offsets: list[int] | None = None
         if "reminders" in fields:
-            await self._sync_reminders(task_uid, fields["reminders"])
+            reminder_offsets = fields["reminders"]
+        elif saved_reminders:
+            reminder_offsets = saved_reminders
+        if reminder_offsets is not None:
+            await self._sync_reminders(task_uid, reminder_offsets)
 
         return unsynced
 

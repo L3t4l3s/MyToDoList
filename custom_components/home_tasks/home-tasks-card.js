@@ -2332,9 +2332,11 @@ class HomeTasksCard extends HTMLElement {
     const col = this._config.columns[colIdx];
 
     // Due section
+    const _todayForDue = new Date().toISOString().slice(0, 10);
     const dateInput = this._el("input", {
       type: "date",
       value: task.due_date || "",
+      min: _todayForDue,
     });
     // Check if external provider supports due time (SET_DUE_DATETIME_ON_ITEM = 32)
     const features = this._colSupportedFeatures(colIdx);
@@ -2516,7 +2518,8 @@ class HomeTasksCard extends HTMLElement {
     }
 
     // Start date + reactivation time (start date + time row, time hidden for hours mode)
-    const recurrenceStartDateInput = this._el("input", { type: "date", value: recurrenceStartDate });
+    const _todayStr = new Date().toISOString().slice(0, 10);
+    const recurrenceStartDateInput = this._el("input", { type: "date", value: recurrenceStartDate, min: _todayStr });
     const recurrenceStartDateWrap = this._el("div", { className: "field-wrap" }, [
       recurrenceStartDateInput,
       this._el("span", { textContent: this._t("rec_start_date_lbl") }),
@@ -2550,7 +2553,27 @@ class HomeTasksCard extends HTMLElement {
     // Hide mode selector for Todoist (only "date" available)
     if (!providerSupportsCount) recurrenceEndWrap.style.display = "none";
 
-    const recurrenceEndDateInput = this._el("input", { type: "date", value: recurrenceEndDate });
+    // Compute the minimum allowed end date based on recurrence interval.
+    const _computeMinEndDate = () => {
+      const today = new Date();
+      const unit = recurrenceUnitSelect.value || "days";
+      const val = parseInt(recurrenceValueInput.value) || 1;
+      const next = new Date(today);
+      if (unit === "hours") next.setDate(next.getDate() + 1);
+      else if (unit === "days") next.setDate(next.getDate() + val);
+      else if (unit === "weeks") next.setDate(next.getDate() + val * 7);
+      else if (unit === "months") next.setMonth(next.getMonth() + val);
+      return next.toISOString().slice(0, 10);
+    };
+    const _updateEndDateMin = () => {
+      const minEnd = _computeMinEndDate();
+      recurrenceEndDateInput.min = minEnd;
+      // If the current value is before the new min, clear it
+      if (recurrenceEndDateInput.value && recurrenceEndDateInput.value < minEnd) {
+        recurrenceEndDateInput.value = "";
+      }
+    };
+    const recurrenceEndDateInput = this._el("input", { type: "date", value: recurrenceEndDate, min: _computeMinEndDate() });
     const recurrenceEndDateWrap = this._el("div", { className: "due-input-row single" }, [
       this._el("div", { className: "field-wrap" }, [
         recurrenceEndDateInput,
@@ -2635,10 +2658,19 @@ class HomeTasksCard extends HTMLElement {
       const val = Math.max(1, Math.min(365, parseInt(recurrenceValueInput.value) || 1));
       recurrenceValueInput.value = val;
       applyRowVisibility(recurrenceModeSelect.value, recurrenceUnitSelect.value);
-      this._updateTaskRouted(colIdx, task.id, {
+      // Update end-date min; auto-clear if it became invalid (Bug 4/5/6)
+      const oldEndVal = recurrenceEndDateInput.value;
+      _updateEndDateMin();
+      const fields = {
         recurrence_value: val,
         recurrence_unit: recurrenceUnitSelect.value,
-      })?.then(() => this._loadAllTasks());
+      };
+      // If end date was cleared because it's now invalid, tell the server
+      if (oldEndVal && !recurrenceEndDateInput.value) {
+        fields.recurrence_end_date = null;
+        fields.recurrence_end_type = "none";
+      }
+      this._updateTaskRouted(colIdx, task.id, fields)?.then(() => this._loadAllTasks());
     };
 
     const saveStartDate = () => {
@@ -2671,6 +2703,8 @@ class HomeTasksCard extends HTMLElement {
       const val = Math.max(1, Math.min(365, parseInt(recurrenceValueInput.value) || 1));
       const selected = weekdayCheckboxes.map((cb, i) => cb.checked ? i : -1).filter(i => i >= 0);
       const endType = recurrenceEndSelect.value;
+      // Include current reminders — Todoist deletes them when due changes,
+      // so the backend needs to re-create them after the update.
       this._updateTaskRouted(colIdx, task.id, {
         recurrence_enabled: enabled,
         recurrence_type: mode,
@@ -2682,6 +2716,7 @@ class HomeTasksCard extends HTMLElement {
         recurrence_end_type: endType,
         recurrence_end_date: endType === "date" ? (recurrenceEndDateInput.value || null) : null,
         recurrence_max_count: endType === "count" ? (parseInt(recurrenceMaxCountInput.value) || null) : null,
+        reminders: task.reminders || [],
       })?.then(() => setTimeout(() => this._loadAllTasks(), 250));
     });
 
