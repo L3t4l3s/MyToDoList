@@ -338,12 +338,16 @@ def _compute_reopen_delay(task: dict, completed_at: datetime) -> float | None:
         reopen_at = _apply_start_date(task, reopen_at)
         return (reopen_at.astimezone(timezone.utc) - now).total_seconds()
 
-    # days / weeks / months → recurrence_time (or midnight) of target day in local timezone
+    # days / weeks / months / years → recurrence_time (or midnight) of target day in local timezone
     local_completed = completed_at.astimezone()
     if unit == "days":
         target_local = local_completed + timedelta(days=value)
     elif unit == "weeks":
         target_local = local_completed + timedelta(weeks=value)
+    elif unit == "years":
+        year = local_completed.year + value
+        day = min(local_completed.day, calendar.monthrange(year, local_completed.month)[1])
+        target_local = local_completed.replace(year=year, day=day)
     else:  # months
         m = local_completed.month - 1 + value
         year = local_completed.year + m // 12

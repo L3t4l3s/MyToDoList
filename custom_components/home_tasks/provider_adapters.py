@@ -30,7 +30,7 @@ _LOGGER = logging.getLogger(__name__)
 
 # Weekday names used when converting our recurrence weekdays to Todoist strings.
 _WEEKDAY_NAMES = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
-_VALID_RECURRENCE_UNITS = frozenset({"hours", "days", "weeks", "months"})
+_VALID_RECURRENCE_UNITS = frozenset({"hours", "days", "weeks", "months", "years"})
 
 # Base fields that the GenericAdapter syncs via HA's todo.update_item service.
 _GENERIC_BASE_FIELDS = frozenset({"title", "completed", "notes", "due_date", "due_time"})
@@ -433,7 +433,7 @@ class TodoistAdapter(ProviderAdapter):
             unit_str = unit if unit in _VALID_RECURRENCE_UNITS else "days"
             if value == 1:
                 # "every day" instead of "every 1 days"
-                singular = {"hours": "hour", "days": "day", "weeks": "week", "months": "month"}
+                singular = {"hours": "hour", "days": "day", "weeks": "week", "months": "month", "years": "year"}
                 parts.append(f"every {singular.get(unit_str, unit_str)}")
             else:
                 parts.append(f"every {value} {unit_str}")
@@ -451,7 +451,9 @@ class TodoistAdapter(ProviderAdapter):
             try:
                 end_d = _date_cls.fromisoformat(end)
                 today = _date_cls.today()
-                if unit == "months":
+                if unit == "years":
+                    min_end = today + timedelta(days=365 * value)
+                elif unit == "months":
                     # Approximate: 31 days per month × value
                     min_end = today + timedelta(days=31 * value)
                 elif unit == "weeks":
@@ -491,15 +493,15 @@ class TodoistAdapter(ProviderAdapter):
 
         # Try to parse "every N unit(s)" pattern
         interval_match = re.match(
-            r"every\s+(\d+)\s+(hour|day|week|month)s?", lower
+            r"every\s+(\d+)\s+(hour|day|week|month|year)s?", lower
         )
         if interval_match:
             result["recurrence_value"] = int(interval_match.group(1))
             result["recurrence_unit"] = interval_match.group(2) + "s"
             result["recurrence_type"] = "interval"
-        elif re.match(r"every\s+(hour|day|week|month)", lower):
-            # "every day", "every week" etc.
-            unit_match = re.match(r"every\s+(hour|day|week|month)", lower)
+        elif re.match(r"every\s+(hour|day|week|month|year)", lower):
+            # "every day", "every week", "every year" etc.
+            unit_match = re.match(r"every\s+(hour|day|week|month|year)", lower)
             if unit_match:
                 result["recurrence_value"] = 1
                 result["recurrence_unit"] = unit_match.group(1) + "s"

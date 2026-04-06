@@ -15,12 +15,13 @@ MAX_TAGS_PER_TASK = 20
 MAX_TAG_LENGTH = 50
 
 # --- Recurrence ---
-VALID_RECURRENCE_UNITS = ("hours", "days", "weeks", "months")
+VALID_RECURRENCE_UNITS = ("hours", "days", "weeks", "months", "years")
 RECURRENCE_UNIT_SECONDS = {
     "hours": 3600,
     "days": 86400,
     "weeks": 604800,
     "months": 2592000,  # 30 days
+    "years": 31536000,  # 365 days
 }
 MAX_RECURRENCE_VALUE = 365
 
