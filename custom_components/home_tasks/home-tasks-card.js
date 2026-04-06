@@ -3260,12 +3260,26 @@ class HomeTasksCard extends HTMLElement {
     if (this._pendingRender) this._render();
   }
 
+  _collapseAllForDrag() {
+    if (this._expandedTasks.size === 0) return;
+    this._expandedTasks.clear();
+    // Visually collapse without re-render to preserve the drag source element
+    for (const det of this.shadowRoot.querySelectorAll(".task-details")) {
+      det.style.height = "0";
+    }
+    for (const btn of this.shadowRoot.querySelectorAll(".expand-btn.expanded")) {
+      btn.classList.remove("expanded");
+    }
+  }
+
   _attachDragToTask(taskEl, taskId, colIdx) {
     // HTML5 Drag & Drop (Desktop)
     taskEl.addEventListener("dragstart", (e) => {
       this._draggedTaskId = taskId;
       this._draggedColIdx = colIdx;
       e.dataTransfer.effectAllowed = "move";
+      // Collapse all expanded tasks for a cleaner drag experience
+      this._collapseAllForDrag();
       taskEl.classList.add("dragging");
     });
 
@@ -3300,7 +3314,10 @@ class HomeTasksCard extends HTMLElement {
       this._touchStartTimer = setTimeout(() => {
         this._draggedTaskId = taskId;
         this._draggedColIdx = colIdx;
-        taskEl.classList.add("dragging");
+        // Collapse all expanded tasks for a cleaner drag experience
+        this._collapseAllForDrag();
+        taskEl = this.shadowRoot.querySelector(`.task[data-task-id="${CSS.escape(String(taskId))}"]`);
+        if (taskEl) taskEl.classList.add("dragging");
 
         const rect = taskEl.getBoundingClientRect();
         const clone = taskEl.cloneNode(true);
