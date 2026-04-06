@@ -53,7 +53,6 @@ const _TRANSLATIONS = {
     ed_show_tags: "Tags",
     ed_hint: "New lists can be created under Settings \u2192 Integrations \u2192 Home Tasks.",
     ed_external_lists: "External",
-    move_external_blocked: "Cannot move tasks to/from external lists",
     tags: "Tags",
     add_tag: "+ Add tag",
     tag_placeholder: "New tag...",
@@ -1488,31 +1487,64 @@ class HomeTasksCard extends HTMLElement {
   }
 
   async _moveTask(srcColIdx, tgtColIdx, taskId, targetTaskIds) {
-    // Cross-list move is only supported between native lists
-    if (this._isExternalCol(srcColIdx) || this._isExternalCol(tgtColIdx)) {
-      this._showError(this._t("move_external_blocked"));
+    const srcIsExternal = this._isExternalCol(srcColIdx);
+    const tgtIsExternal = this._isExternalCol(tgtColIdx);
+
+    // Build the move command payload
+    const payload = { task_id: taskId };
+    if (srcIsExternal) {
+      payload.source_entity_id = this._colEntityId(srcColIdx);
+    } else {
+      payload.source_list_id = this._colListId(srcColIdx);
+    }
+    if (tgtIsExternal) {
+      payload.target_entity_id = this._colEntityId(tgtColIdx);
+    } else {
+      payload.target_list_id = this._colListId(tgtColIdx);
+    }
+
+    if (!payload.source_list_id && !payload.source_entity_id) {
+      this._showError("Cannot move task: source list not configured");
       await this._loadAllTasks();
       return;
     }
-    const srcListId = this._colListId(srcColIdx);
-    const tgtListId = this._colListId(tgtColIdx);
-    if (!srcListId || !tgtListId) {
-      this._showError("Cannot move task: list not configured");
+    if (!payload.target_list_id && !payload.target_entity_id) {
+      this._showError("Cannot move task: target list not configured");
       await this._loadAllTasks();
       return;
     }
-    await this._callWs("home_tasks/move_task", {
-      source_list_id: srcListId,
-      target_list_id: tgtListId,
-      task_id: taskId,
-    });
-    if (targetTaskIds.length > 0) {
-      await this._callWs("home_tasks/reorder_tasks", {
-        list_id: tgtListId,
-        task_ids: targetTaskIds,
+
+    // Use the native-only fast path when both are internal
+    if (!srcIsExternal && !tgtIsExternal) {
+      await this._callWs("home_tasks/move_task", {
+        source_list_id: payload.source_list_id,
+        target_list_id: payload.target_list_id,
+        task_id: taskId,
       });
+    } else {
+      await this._callWs("home_tasks/move_task_cross", payload);
     }
+
+    // Reorder target list if needed
+    if (targetTaskIds.length > 0) {
+      if (tgtIsExternal) {
+        await this._callWs("home_tasks/reorder_external_tasks", {
+          entity_id: this._colEntityId(tgtColIdx),
+          task_uids: targetTaskIds,
+        });
+      } else {
+        await this._callWs("home_tasks/reorder_tasks", {
+          list_id: this._colListId(tgtColIdx),
+          task_ids: targetTaskIds,
+        });
+      }
+    }
+
     await this._loadAllTasks();
+    // External providers need a delayed reload to pick up confirmed state
+    if (srcIsExternal || tgtIsExternal) {
+      this._reloadExternal();
+    }
   }
 
   // --- Filter & Sort ---
