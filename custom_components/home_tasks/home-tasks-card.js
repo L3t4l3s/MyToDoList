@@ -101,6 +101,10 @@ const _TRANSLATIONS = {
     history_reset: "Auto-reset (recurrence)", history_changed: "changed", history_empty: "No history yet", hist_title: "Title", history_disabled: "Disabled",
     ed_show_history: "Show history", hist_by_user: "User",
     assigned_unknown: "Unknown (%s)", recurrence_readonly: "Managed by %s", synced_with: "Synced with %s",
+    due_today: "Today", due_tomorrow: "Tomorrow", due_yesterday: "Yesterday",
+    due_day_after_tomorrow: "In 2 days", due_day_before_yesterday: "2 days ago",
+    due_in_hours: "In {0}h {1}m", due_in_minutes: "In {0} min", due_in_seconds: "Now",
+    due_ago_hours: "{0}h {1}m ago", due_ago_minutes: "{0} min ago", due_ago_seconds: "Just now",
   },
   nl: {
     my_tasks: "Mijn taken",
@@ -151,6 +155,10 @@ const _TRANSLATIONS = {
     history_reset: "Automatisch teruggezet", history_changed: "gewijzigd", history_empty: "Geen geschiedenis", hist_title: "Titel", history_disabled: "Uitgeschakeld",
     ed_show_history: "Geschiedenis tonen", hist_by_user: "Gebruiker",
     assigned_unknown: "Onbekend (%s)", recurrence_readonly: "Beheerd door %s", synced_with: "Gesynchroniseerd met %s",
+    due_today: "Vandaag", due_tomorrow: "Morgen", due_yesterday: "Gisteren",
+    due_day_after_tomorrow: "Overmorgen", due_day_before_yesterday: "Eergisteren",
+    due_in_hours: "Over {0} u {1} min", due_in_minutes: "Over {0} min", due_in_seconds: "Nu",
+    due_ago_hours: "{0} u {1} min geleden", due_ago_minutes: "{0} min geleden", due_ago_seconds: "Zojuist",
   },
   it: {
     my_tasks: "Le mie attivit\u00e0",
@@ -201,6 +209,10 @@ const _TRANSLATIONS = {
     history_reset: "Ripristino automatico", history_changed: "modificato", history_empty: "Nessuna cronologia", hist_title: "Titolo", history_disabled: "Disabilitato",
     ed_show_history: "Mostra cronologia", hist_by_user: "Utente",
     assigned_unknown: "Sconosciuto (%s)", recurrence_readonly: "Gestito da %s", synced_with: "Sincronizzato con %s",
+    due_today: "Oggi", due_tomorrow: "Domani", due_yesterday: "Ieri",
+    due_day_after_tomorrow: "Dopodomani", due_day_before_yesterday: "L'altroieri",
+    due_in_hours: "Tra {0} h {1} min", due_in_minutes: "Tra {0} min", due_in_seconds: "Adesso",
+    due_ago_hours: "{0} h {1} min fa", due_ago_minutes: "{0} min fa", due_ago_seconds: "Proprio ora",
   },
   pl: {
     my_tasks: "Moje zadania",
@@ -251,6 +263,10 @@ const _TRANSLATIONS = {
     history_reset: "Auto-reset", history_changed: "zmieniono", history_empty: "Brak historii", hist_title: "Tytu\u0142", history_disabled: "Wy\u0142\u0105czono",
     ed_show_history: "Poka\u017c histori\u0119", hist_by_user: "U\u017cytkownik",
     assigned_unknown: "Nieznany (%s)", recurrence_readonly: "Zarz\u0105dzane przez %s", synced_with: "Zsynchronizowane z %s",
+    due_today: "Dzisiaj", due_tomorrow: "Jutro", due_yesterday: "Wczoraj",
+    due_day_after_tomorrow: "Pojutrze", due_day_before_yesterday: "Przedwczoraj",
+    due_in_hours: "Za {0} godz. {1} min", due_in_minutes: "Za {0} min", due_in_seconds: "Teraz",
+    due_ago_hours: "{0} godz. {1} min temu", due_ago_minutes: "{0} min temu", due_ago_seconds: "W\u0142a\u015bnie",
   },
   sv: {
     my_tasks: "Mina uppgifter",
@@ -301,6 +317,10 @@ const _TRANSLATIONS = {
     history_reset: "Auto-\u00e5terst\u00e4lld", history_changed: "\u00e4ndrad", history_empty: "Ingen historik", hist_title: "Titel", history_disabled: "Inaktiverad",
     ed_show_history: "Visa historik", hist_by_user: "Anv\u00e4ndare",
     assigned_unknown: "Ok\u00e4nd (%s)", recurrence_readonly: "Hanteras av %s", synced_with: "Synkroniserat med %s",
+    due_today: "Idag", due_tomorrow: "Imorgon", due_yesterday: "Ig\u00e5r",
+    due_day_after_tomorrow: "\u00d6vermorgon", due_day_before_yesterday: "F\u00f6rrg\u00e5r",
+    due_in_hours: "Om {0} tim {1} min", due_in_minutes: "Om {0} min", due_in_seconds: "Nu",
+    due_ago_hours: "{0} tim {1} min sedan", due_ago_minutes: "{0} min sedan", due_ago_seconds: "Just nu",
   },
   fr: {
     my_tasks: "Mes t\u00e2ches",
@@ -351,6 +371,10 @@ const _TRANSLATIONS = {
     history_reset: "R\u00e9initialisation auto.", history_changed: "modifi\u00e9", history_empty: "Aucun historique", hist_title: "Titre", history_disabled: "D\u00e9sactiv\u00e9",
     ed_show_history: "Afficher l'historique", hist_by_user: "Utilisateur",
     assigned_unknown: "Inconnu (%s)", recurrence_readonly: "G\u00e9r\u00e9 par %s", synced_with: "Synchronis\u00e9 avec %s",
+    due_today: "Aujourd'hui", due_tomorrow: "Demain", due_yesterday: "Hier",
+    due_day_after_tomorrow: "Apr\u00e8s-demain", due_day_before_yesterday: "Avant-hier",
+    due_in_hours: "Dans {0} h {1} min", due_in_minutes: "Dans {0} min", due_in_seconds: "Maintenant",
+    due_ago_hours: "Il y a {0} h {1} min", due_ago_minutes: "Il y a {0} min", due_ago_seconds: "\u00c0 l'instant",
   },
   pt: {
     my_tasks: "Minhas tarefas",
@@ -401,6 +425,10 @@ const _TRANSLATIONS = {
     history_reset: "Reiniciado automaticamente", history_changed: "alterado", history_empty: "Sem hist\u00f3rico", hist_title: "T\u00edtulo", history_disabled: "Desativado",
     ed_show_history: "Mostrar hist\u00f3rico", hist_by_user: "Utilizador",
     assigned_unknown: "Desconhecido (%s)", recurrence_readonly: "Gerenciado por %s", synced_with: "Sincronizado com %s",
+    due_today: "Hoje", due_tomorrow: "Amanh\u00e3", due_yesterday: "Ontem",
+    due_day_after_tomorrow: "Depois de amanh\u00e3", due_day_before_yesterday: "Anteontem",
+    due_in_hours: "Em {0} h {1} min", due_in_minutes: "Em {0} min", due_in_seconds: "Agora",
+    due_ago_hours: "H\u00e1 {0} h {1} min", due_ago_minutes: "H\u00e1 {0} min", due_ago_seconds: "Agora mesmo",
   },
   es: {
     my_tasks: "Mis tareas",
@@ -451,6 +479,10 @@ const _TRANSLATIONS = {
     history_reset: "Restablecimiento autom.", history_changed: "modificado", history_empty: "Sin historial", hist_title: "T\u00edtulo", history_disabled: "Desactivado",
     ed_show_history: "Mostrar historial", hist_by_user: "Usuario",
     assigned_unknown: "Desconocido (%s)", recurrence_readonly: "Gestionado por %s", synced_with: "Sincronizado con %s",
+    due_today: "Hoy", due_tomorrow: "Ma\u00f1ana", due_yesterday: "Ayer",
+    due_day_after_tomorrow: "Pasado ma\u00f1ana", due_day_before_yesterday: "Anteayer",
+    due_in_hours: "En {0} h {1} min", due_in_minutes: "En {0} min", due_in_seconds: "Ahora",
+    due_ago_hours: "Hace {0} h {1} min", due_ago_minutes: "Hace {0} min", due_ago_seconds: "Ahora mismo",
   },
   ru: {
     my_tasks: "\u041c\u043e\u0438 \u0437\u0430\u0434\u0430\u0447\u0438",
@@ -501,6 +533,10 @@ const _TRANSLATIONS = {
     history_reset: "\u0410\u0432\u0442\u043e\u0441\u0431\u0440\u043e\u0441", history_changed: "\u0438\u0437\u043c\u0435\u043d\u0435\u043d\u043e", history_empty: "\u041d\u0435\u0442 \u0438\u0441\u0442\u043e\u0440\u0438\u0438", hist_title: "\u0417\u0430\u0433\u043e\u043b\u043e\u0432\u043e\u043a", history_disabled: "\u041e\u0442\u043a\u043b\u044e\u0447\u0435\u043d\u043e",
     ed_show_history: "\u041f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0442\u044c \u0438\u0441\u0442\u043e\u0440\u0438\u044e", hist_by_user: "\u041f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c",
     assigned_unknown: "\u041d\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043d\u044b\u0439 (%s)", recurrence_readonly: "\u0423\u043f\u0440\u0430\u0432\u043b\u044f\u0435\u0442\u0441\u044f %s", synced_with: "\u0421\u0438\u043d\u0445\u0440\u043e\u043d\u0438\u0437\u0438\u0440\u043e\u0432\u0430\u043d\u043e \u0441 %s",
+    due_today: "\u0421\u0435\u0433\u043e\u0434\u043d\u044f", due_tomorrow: "\u0417\u0430\u0432\u0442\u0440\u0430", due_yesterday: "\u0412\u0447\u0435\u0440\u0430",
+    due_day_after_tomorrow: "\u041f\u043e\u0441\u043b\u0435\u0437\u0430\u0432\u0442\u0440\u0430", due_day_before_yesterday: "\u041f\u043e\u0437\u0430\u0432\u0447\u0435\u0440\u0430",
+    due_in_hours: "\u0427\u0435\u0440\u0435\u0437 {0} \u0447 {1} \u043c\u0438\u043d", due_in_minutes: "\u0427\u0435\u0440\u0435\u0437 {0} \u043c\u0438\u043d", due_in_seconds: "\u0421\u0435\u0439\u0447\u0430\u0441",
+    due_ago_hours: "{0} \u0447 {1} \u043c\u0438\u043d \u043d\u0430\u0437\u0430\u0434", due_ago_minutes: "{0} \u043c\u0438\u043d \u043d\u0430\u0437\u0430\u0434", due_ago_seconds: "\u0422\u043e\u043b\u044c\u043a\u043e \u0447\u0442\u043e",
   },
   cs: {
     my_tasks: "Moje \u00fakoly",
@@ -551,6 +587,10 @@ const _TRANSLATIONS = {
     history_reset: "Automaticky obnoveno", history_changed: "zm\u011bn\u011bno", history_empty: "\u017d\u00e1dn\u00e1 historie", hist_title: "N\u00e1zev", history_disabled: "Deaktivov\u00e1no",
     ed_show_history: "Zobrazit historii", hist_by_user: "U\u017eivatel",
     assigned_unknown: "Nezn\u00e1m\u00fd (%s)", recurrence_readonly: "Spravov\u00e1no %s", synced_with: "Synchronizov\u00e1no s %s",
+    due_today: "Dnes", due_tomorrow: "Z\u00edtra", due_yesterday: "V\u010dera",
+    due_day_after_tomorrow: "Poz\u00edt\u0159\u00ed", due_day_before_yesterday: "P\u0159edev\u010d\u00edrem",
+    due_in_hours: "Za {0} hod {1} min", due_in_minutes: "Za {0} min", due_in_seconds: "Nyn\u00ed",
+    due_ago_hours: "P\u0159ed {0} hod {1} min", due_ago_minutes: "P\u0159ed {0} min", due_ago_seconds: "Pr\u00e1v\u011b te\u010f",
   },
   da: {
     my_tasks: "Mine opgaver",
@@ -601,6 +641,10 @@ const _TRANSLATIONS = {
     history_reset: "Auto-nulstillet", history_changed: "\u00e6ndret", history_empty: "Ingen historik", hist_title: "Titel", history_disabled: "Deaktiveret",
     ed_show_history: "Vis historik", hist_by_user: "Bruger",
     assigned_unknown: "Ukendt (%s)", recurrence_readonly: "Styret af %s", synced_with: "Synkroniseret med %s",
+    due_today: "I dag", due_tomorrow: "I morgen", due_yesterday: "I g\u00e5r",
+    due_day_after_tomorrow: "I overmorgen", due_day_before_yesterday: "I forg\u00e5rs",
+    due_in_hours: "Om {0} t {1} min", due_in_minutes: "Om {0} min", due_in_seconds: "Nu",
+    due_ago_hours: "{0} t {1} min siden", due_ago_minutes: "{0} min siden", due_ago_seconds: "Lige nu",
   },
   no: {
     my_tasks: "Mine oppgaver",
@@ -651,6 +695,10 @@ const _TRANSLATIONS = {
     history_reset: "Auto-tilbakestilt", history_changed: "endret", history_empty: "Ingen historikk", hist_title: "Tittel", history_disabled: "Deaktivert",
     ed_show_history: "Vis historikk", hist_by_user: "Bruker",
     assigned_unknown: "Ukjent (%s)", recurrence_readonly: "Administrert av %s", synced_with: "Synkronisert med %s",
+    due_today: "I dag", due_tomorrow: "I morgen", due_yesterday: "I g\u00e5r",
+    due_day_after_tomorrow: "I overmorgen", due_day_before_yesterday: "I forg\u00e5rs",
+    due_in_hours: "Om {0} t {1} min", due_in_minutes: "Om {0} min", due_in_seconds: "N\u00e5",
+    due_ago_hours: "{0} t {1} min siden", due_ago_minutes: "{0} min siden", due_ago_seconds: "Akkurat n\u00e5",
   },
   fi: {
     my_tasks: "Omat teht\u00e4v\u00e4t",
@@ -701,6 +749,10 @@ const _TRANSLATIONS = {
     history_reset: "Automaattinen palautus", history_changed: "muutettu", history_empty: "Ei historiaa", hist_title: "Otsikko", history_disabled: "K\u00e4yt\u00f6ss\u00e4 poistettu",
     ed_show_history: "N\u00e4yt\u00e4 historia", hist_by_user: "K\u00e4ytt\u00e4j\u00e4",
     assigned_unknown: "Tuntematon (%s)", recurrence_readonly: "Hallinnoi %s", synced_with: "Synkronoitu %s kanssa",
+    due_today: "T\u00e4n\u00e4\u00e4n", due_tomorrow: "Huomenna", due_yesterday: "Eilen",
+    due_day_after_tomorrow: "Ylihuomenna", due_day_before_yesterday: "Toissap\u00e4iv\u00e4n\u00e4",
+    due_in_hours: "{0} t {1} min p\u00e4\u00e4st\u00e4", due_in_minutes: "{0} min p\u00e4\u00e4st\u00e4", due_in_seconds: "Nyt",
+    due_ago_hours: "{0} t {1} min sitten", due_ago_minutes: "{0} min sitten", due_ago_seconds: "Juuri nyt",
   },
   hu: {
     my_tasks: "Feladataim",
@@ -751,6 +803,10 @@ const _TRANSLATIONS = {
     history_reset: "Automatikus visszavonas", history_changed: "m\u00f3dos\u00edtva", history_empty: "Nincs el\u0151zm\u00e9ny", hist_title: "C\u00edm", history_disabled: "Letiltva",
     ed_show_history: "El\u0151zm\u00e9nyek mutat\u00e1sa", hist_by_user: "Felhaszn\u00e1l\u00f3",
     assigned_unknown: "Ismeretlen (%s)", recurrence_readonly: "Kezeli: %s", synced_with: "Szinkroniz\u00e1lva: %s",
+    due_today: "Ma", due_tomorrow: "Holnap", due_yesterday: "Tegnap",
+    due_day_after_tomorrow: "Holnaput\u00e1n", due_day_before_yesterday: "Tegnapel\u0151tt",
+    due_in_hours: "{0} \u00f3 {1} perc m\u00falva", due_in_minutes: "{0} perc m\u00falva", due_in_seconds: "Most",
+    due_ago_hours: "{0} \u00f3 {1} perccel ezel\u0151tt", due_ago_minutes: "{0} perccel ezel\u0151tt", due_ago_seconds: "\u00c9pp most",
   },
   de: {
     my_tasks: "Meine Aufgaben",
@@ -844,6 +900,10 @@ const _TRANSLATIONS = {
     history_reset: "Automatisch zur\u00fcckgesetzt", history_changed: "ge\u00e4ndert", history_empty: "Noch kein Verlauf", hist_title: "Titel", history_disabled: "Deaktiviert",
     ed_show_history: "Verlauf anzeigen", hist_by_user: "Benutzer",
     assigned_unknown: "Unbekannt (%s)", recurrence_readonly: "Verwaltet von %s", synced_with: "Synchronisiert mit %s",
+    due_today: "Heute", due_tomorrow: "Morgen", due_yesterday: "Gestern",
+    due_day_after_tomorrow: "\u00dcbermorgen", due_day_before_yesterday: "Vorgestern",
+    due_in_hours: "In {0} Std {1} Min", due_in_minutes: "In {0} Min", due_in_seconds: "Jetzt",
+    due_ago_hours: "Vor {0} Std {1} Min", due_ago_minutes: "Vor {0} Min", due_ago_seconds: "Gerade eben",
   },
 };
 
@@ -1727,14 +1787,44 @@ class HomeTasksCard extends HTMLElement {
 
   _formatDueDate(dueDate, dueTime) {
     if (!dueDate) return "";
-    const date = new Date(dueDate + "T00:00:00");
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const target = new Date(dueDate + "T00:00:00");
+    const diffDays = Math.round((target - today) / 86400000);
     const lang = (this._hass && this._hass.language) || "en";
-    let formatted = date.toLocaleDateString(lang, {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-    if (dueTime) formatted += " " + dueTime;
+
+    // Near dates: relative labels
+    if (diffDays >= -2 && diffDays <= 2) {
+      if (diffDays === 0 && dueTime) {
+        // Today with time: show relative hours/minutes
+        const [h, m] = dueTime.split(":").map(Number);
+        const dueMs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime();
+        const diffMs = dueMs - now.getTime();
+        const absDiffMs = Math.abs(diffMs);
+        const mins = Math.floor(absDiffMs / 60000);
+        const hrs = Math.floor(mins / 60);
+        const remMins = mins % 60;
+        if (diffMs >= 0) {
+          if (hrs > 0) return this._t("due_in_hours", hrs, remMins);
+          if (mins > 0) return this._t("due_in_minutes", mins);
+          return this._t("due_in_seconds");
+        } else {
+          if (hrs > 0) return this._t("due_ago_hours", hrs, remMins);
+          if (mins > 0) return this._t("due_ago_minutes", mins);
+          return this._t("due_ago_seconds");
+        }
+      }
+      const relKey = { "-2": "due_day_before_yesterday", "-1": "due_yesterday", 0: "due_today", 1: "due_tomorrow", 2: "due_day_after_tomorrow" }[diffDays];
+      return this._t(relKey);
+    }
+
+    // Further dates: "6. Apr" or "6. Apr 27"
+    const day = target.getDate();
+    const month = target.toLocaleDateString(lang, { month: "short" });
+    let formatted = `${day}. ${month}`;
+    if (target.getFullYear() !== now.getFullYear()) {
+      formatted += " " + String(target.getFullYear()).slice(-2);
+    }
     return formatted;
   }
 
