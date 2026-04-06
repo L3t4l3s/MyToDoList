@@ -5,7 +5,7 @@
  * Security: All user-controlled content is set via textContent or DOM properties,
  * never via innerHTML with unsanitized data.
  */
-console.info("%c HOME-TASKS-CARD %c v1.7.2 ", "color: white; background: #03a9f4; font-weight: bold;", "color: #03a9f4; background: white; font-weight: bold;");
+console.info("%c HOME-TASKS-CARD %c v1.6.0 ", "color: white; background: #03a9f4; font-weight: bold;", "color: #03a9f4; background: white; font-weight: bold;");
 
 const _TRANSLATIONS = {
   en: {
@@ -3737,8 +3737,8 @@ class HomeTasksCard extends HTMLElement {
       .due-input-row .field-wrap input { padding: 18px 4px 4px 8px; font-size: 13px; }
       .due-input-row .field-wrap input:focus { padding: 17px 3px 3px 7px; }
       .due-input-row .field-wrap > span { left: 8px; font-size: 10px; }
-      .field-wrap input[type="date"], .field-wrap input[type="time"] { text-align: left; padding-right: 6px; }
-      .field-wrap { position: relative; width: 100%; }
+      .field-wrap input[type="date"], .field-wrap input[type="time"] { text-align: left; padding-right: 6px; max-width: 100%; -webkit-appearance: none; appearance: none; }
+      .field-wrap { position: relative; width: 100%; overflow: hidden; }
       .due-input-row.single { grid-template-columns: 1fr; }
       .field-wrap input, .field-wrap textarea { width: 100%; box-sizing: border-box; padding: 20px 12px 6px; border: 1px solid var(--outline-color, var(--divider-color, rgba(255,255,255,0.12))); border-radius: 4px; background: var(--mdc-text-field-fill-color, var(--input-fill-color, transparent)); color: var(--primary-text-color); font-size: 0.875rem; font-family: inherit; outline: none; }
       .field-wrap input:focus, .field-wrap textarea:focus { border: 2px solid var(--primary-color); padding: 19px 11px 5px; }
