@@ -210,9 +210,13 @@ class GenericAdapter(ProviderAdapter):
     # -- writes -------------------------------------------------------------
 
     async def async_create_task(self, fields: dict) -> str | None:
+        state = self._hass.states.get(self._entity_id)
+        supports_datetime = bool(
+            state and state.attributes and state.attributes.get("supported_features", 0) & 32
+        )
         service_data: dict[str, Any] = {"item": fields.get("title", "")}
         if fields.get("due_date"):
-            if fields.get("due_time"):
+            if fields.get("due_time") and supports_datetime:
                 service_data["due_datetime"] = f"{fields['due_date']} {fields['due_time']}:00"
             else:
                 service_data["due_date"] = fields["due_date"]
@@ -236,13 +240,19 @@ class GenericAdapter(ProviderAdapter):
             service_data["status"] = "completed" if fields["completed"] else "needs_action"
         if "notes" in fields:
             service_data["description"] = fields["notes"]
+        # Check if entity supports due_datetime (SET_DUE_DATETIME_ON_ITEM = 32)
+        state = self._hass.states.get(self._entity_id)
+        supports_datetime = bool(
+            state and state.attributes and state.attributes.get("supported_features", 0) & 32
+        )
+
         if "due_date" in fields:
             if fields["due_date"] is None:
                 # Explicitly clearing due date
                 service_data["due_date"] = None
-            elif fields.get("due_time"):
+            elif fields.get("due_time") and supports_datetime:
                 service_data["due_datetime"] = f"{fields['due_date']} {fields['due_time']}:00"
-            elif "due_time" in fields and fields["due_time"] is None:
+            elif "due_time" in fields and fields["due_time"] is None and supports_datetime:
                 # Time explicitly cleared while date remains — set date at midnight
                 # to force CalDAV to downgrade from due_datetime to due_date.
                 service_data["due_datetime"] = f"{fields['due_date']} 00:00:00"
