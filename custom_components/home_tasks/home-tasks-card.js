@@ -3740,14 +3740,15 @@ class HomeTasksCard extends HTMLElement {
       .field-wrap input[type="date"], .field-wrap input[type="time"] { text-align: left; padding-right: 6px; max-width: 100%; -webkit-appearance: none; appearance: none; }
       .field-wrap { position: relative; width: 100%; overflow: hidden; }
       .due-input-row.single { grid-template-columns: 1fr; }
-      .field-wrap input, .field-wrap textarea { width: 100%; box-sizing: border-box; padding: 20px 12px 6px; border: 1px solid var(--outline-color, var(--divider-color, rgba(255,255,255,0.12))); border-radius: 4px; background: var(--mdc-text-field-fill-color, var(--input-fill-color, transparent)); color: var(--primary-text-color); font-size: 0.875rem; font-family: inherit; outline: none; }
+      .field-wrap input, .field-wrap textarea { width: 100%; box-sizing: border-box; padding: 20px 12px 6px; height: 48px; border: 1px solid var(--outline-color, var(--divider-color, rgba(255,255,255,0.12))); border-radius: 4px; background: var(--mdc-text-field-fill-color, var(--input-fill-color, transparent)); color: var(--primary-text-color); font-size: 0.875rem; font-family: inherit; outline: none; }
+      .field-wrap textarea { height: auto; }
       .field-wrap input:focus, .field-wrap textarea:focus { border: 2px solid var(--primary-color); padding: 19px 11px 5px; }
       .field-wrap input:disabled, .field-wrap textarea:disabled { opacity: 0.4; }
       .field-wrap textarea { resize: vertical; min-height: 60px; }
       .field-wrap > span { position: absolute; top: 6px; left: 12px; font-size: 11px; font-weight: 400; color: var(--secondary-text-color); text-transform: none; letter-spacing: 0; pointer-events: none; }
       .field-wrap input:focus ~ span, .field-wrap textarea:focus ~ span { color: var(--primary-color); }
       .field-wrap.inline { flex: 1; width: auto; }
-      .field-wrap.inline input { height: 40px; padding: 16px 8px 4px; box-sizing: border-box; }
+      .field-wrap.inline input { height: 48px; padding: 20px 8px 4px; box-sizing: border-box; }
       .field-wrap.inline input[type="number"] { padding-right: 28px; -moz-appearance: textfield; }
       .field-wrap.inline input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
       .field-wrap.inline > span { top: 4px; left: 8px; }
@@ -3762,7 +3763,7 @@ class HomeTasksCard extends HTMLElement {
       .sel-wrap > span { position: absolute; top: 6px; left: 12px; font-size: 11px; font-weight: 400; color: var(--secondary-text-color); text-transform: none; letter-spacing: 0; pointer-events: none; }
       .sel-wrap::after { content: "▾"; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--secondary-text-color); font-size: 16px; line-height: 1; }
       .sel-wrap.inline { flex: 1; width: auto; }
-      .sel-wrap.inline select { height: 40px; padding: 14px 28px 4px 10px; }
+      .sel-wrap.inline select { height: 48px; padding: 18px 28px 4px 10px; }
       .sel-wrap.inline > span { top: 4px; left: 10px; font-size: 10px; }
       .field-wrap.no-label input, .field-wrap.no-label textarea { padding: 10px 12px; }
       .field-wrap.no-label input:focus, .field-wrap.no-label textarea:focus { padding: 9px 11px; }
