@@ -320,7 +320,7 @@ class TodoistAdapter(ProviderAdapter):
             can_sync_order=True,
             can_sync_due_time=True,
             can_sync_description=True,
-            can_sync_assignee=False,  # API v1 silently ignores assignee_id
+            can_sync_assignee=True,
             can_sync_sub_items=True,
             can_sync_recurrence=True,
             can_sync_reminders=True,
@@ -779,6 +779,9 @@ class TodoistAdapter(ProviderAdapter):
                 collab_id = self._match_person_to_collaborator(fields["assigned_person"])
                 if collab_id:
                     api_fields["assignee_id"] = collab_id
+            else:
+                # Unassign: explicitly clear assignee in Todoist
+                api_fields["assignee_id"] = None
             unsynced["assigned_person"] = fields["assigned_person"]
 
         # --- Fields that ALWAYS go to overlay ---

@@ -56,20 +56,7 @@ Any other integration that creates `todo.*` entities following HA's standard `To
 
 #### Todoist Deep Integration
 
-When you link a Todoist list, Home Tasks automatically detects the Todoist provider and uses the **Todoist REST API directly** (via the existing Todoist integration's API token — no extra configuration required). This enables full bidirectional sync for nearly all fields:
-
-| Field | Sync | Details |
-|-------|------|---------|
-| Title, Status, Description | Full | Read + write via API |
-| Due date & time | Full | Read + write via API, including timezone support |
-| Priority | Full | Mapped: Home Tasks Low/Medium/High = Todoist P3/P2/P1 |
-| Labels / Tags | Full | Direct 1:1 mapping (both use string names) |
-| Sort order | Full | Via Todoist task `child_order` field |
-| Sub-tasks | Full | Created as real Todoist sub-tasks (`parent_id`) |
-| Assigned person | Local | Stored in overlay only — the Todoist REST API v1 silently ignores `assignee_id` on both create and update. |
-| Recurrence | Full | Mapped: structured recurrence to Todoist natural language strings (e.g. "every monday at 9am"). Complex Todoist patterns displayed read-only. End date supported; **repetition count** ("after N times") is local only. |
-| Reminders | Full | Synced via Todoist Reminders API (minute offsets) |
-| History / audit log | Local | Always stored locally |
+When you link a Todoist list, Home Tasks automatically detects the Todoist provider and uses the **Todoist REST API directly** (via the existing Todoist integration's API token — no extra configuration required). This enables full bidirectional sync for nearly all fields including title, status, description, due date/time, priority, labels/tags, sort order, sub-tasks, assigned person, recurrence, and reminders.
 
 Home Tasks uses its **own lightweight REST API client** (no dependency on `todoist-api-python`) to communicate directly with the Todoist API. The only requirement is the existing HA Todoist integration being configured — the API token is read from its config entry automatically.
 
@@ -83,7 +70,6 @@ Home Tasks uses its **own lightweight REST API client** (no dependency on `todoi
 - **Deadline vs. due date** — Todoist separates planned work date (due) from deadline
 - **Favorites** — marking tasks or projects as favorites
 - **Saved filters** — Todoist's own filter query language
-- **Task assignment** — the REST API v1 silently ignores `assignee_id`; assignment only works via the Todoist app or Sync API
 
 ### Dashboard Card
 
