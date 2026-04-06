@@ -242,6 +242,10 @@ class GenericAdapter(ProviderAdapter):
                 service_data["due_date"] = None
             elif fields.get("due_time"):
                 service_data["due_datetime"] = f"{fields['due_date']} {fields['due_time']}:00"
+            elif "due_time" in fields and fields["due_time"] is None:
+                # Time explicitly cleared while date remains — set date at midnight
+                # to force CalDAV to downgrade from due_datetime to due_date.
+                service_data["due_datetime"] = f"{fields['due_date']} 00:00:00"
             else:
                 service_data["due_date"] = fields["due_date"]
         elif "due_time" in fields:
@@ -766,7 +770,10 @@ class TodoistAdapter(ProviderAdapter):
         _DUE_KEYS = {"due_date", "due_time", "recurrence_enabled", "recurrence_type",
                      "recurrence_value", "recurrence_unit", "recurrence_weekdays",
                      "recurrence_start_date", "recurrence_time", "recurrence_end_date"}
-        if _DUE_KEYS & fields.keys():
+        if "due_date" in fields and fields["due_date"] is None:
+            # Explicitly clearing due date — bypass merge to avoid recurrence overriding
+            api_fields["due_string"] = "no date"
+        elif _DUE_KEYS & fields.keys():
             merged_due = await self._merge_due_fields(api, task_uid, fields)
             due_params = self._build_due_params(merged_due)
             if due_params:

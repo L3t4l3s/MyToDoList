@@ -2466,25 +2466,54 @@ class HomeTasksCard extends HTMLElement {
     });
     if (!task.due_date) timeInput.disabled = true;
 
-    dateInput.addEventListener("change", () => {
+    const saveDueDate = () => {
       if (!dateInput.value) timeInput.value = "";
       timeInput.disabled = !dateInput.value;
       this._updateTaskDue(task.id, dateInput.value, supportsTime ? timeInput.value : "", colIdx);
+    };
+    const saveDueTime = () =>
+      this._updateTaskDue(task.id, dateInput.value, timeInput.value, colIdx);
+
+    const dateClearBtn = this._el("button", { className: "field-clear-btn", textContent: "\u00D7" });
+    const timeClearBtn = this._el("button", { className: "field-clear-btn", textContent: "\u00D7" });
+    if (!dateInput.value) dateClearBtn.style.display = "none";
+    if (!timeInput.value) timeClearBtn.style.display = "none";
+
+    dateInput.addEventListener("change", () => {
+      saveDueDate();
+      dateClearBtn.style.display = dateInput.value ? "" : "none";
     });
     dateInput.addEventListener("keydown", (e) => { if (e.key === "Enter") dateInput.blur(); });
-    timeInput.addEventListener("change", () =>
-      this._updateTaskDue(task.id, dateInput.value, timeInput.value, colIdx)
-    );
+    timeInput.addEventListener("change", () => {
+      saveDueTime();
+      timeClearBtn.style.display = timeInput.value ? "" : "none";
+    });
     timeInput.addEventListener("keydown", (e) => { if (e.key === "Enter") timeInput.blur(); });
 
-    const dateWrap = this._el("div", { className: "field-wrap" }, [
+    dateClearBtn.addEventListener("click", () => {
+      dateInput.value = "";
+      timeInput.value = "";
+      timeInput.disabled = true;
+      saveDueDate();
+      dateClearBtn.style.display = "none";
+      timeClearBtn.style.display = "none";
+    });
+    timeClearBtn.addEventListener("click", () => {
+      timeInput.value = "";
+      saveDueTime();
+      timeClearBtn.style.display = "none";
+    });
+
+    const dateFieldWrap = this._el("div", { className: "field-wrap" }, [
       dateInput,
       this._el("span", { textContent: this._t("due_date_lbl") }),
     ]);
-    const timeWrap = this._el("div", { className: "field-wrap" }, [
+    const dateWrap = this._el("div", { className: "field-with-clear" }, [dateFieldWrap, dateClearBtn]);
+    const timeFieldWrap = this._el("div", { className: "field-wrap" }, [
       timeInput,
       this._el("span", { textContent: this._t("due_time_lbl") }),
     ]);
+    const timeWrap = this._el("div", { className: "field-with-clear" }, [timeFieldWrap, timeClearBtn]);
     if (!supportsTime) timeWrap.style.display = "none";
     const dateSection = this._el("div", { className: "detail-section" }, [
       this._el("label", { className: "detail-label", textContent: this._t("due_date") }),
@@ -2640,15 +2669,37 @@ class HomeTasksCard extends HTMLElement {
     // Start date + reactivation time (start date + time row, time hidden for hours mode)
     const _todayStr = new Date().toISOString().slice(0, 10);
     const recurrenceStartDateInput = this._el("input", { type: "date", value: recurrenceStartDate, min: _todayStr });
-    const recurrenceStartDateWrap = this._el("div", { className: "field-wrap" }, [
+    const recStartClearBtn = this._el("button", { className: "field-clear-btn", textContent: "\u00D7" });
+    recStartClearBtn.addEventListener("click", () => {
+      recurrenceStartDateInput.value = "";
+      saveStartDate();
+      recStartClearBtn.style.display = "none";
+    });
+    if (!recurrenceStartDate) recStartClearBtn.style.display = "none";
+    recurrenceStartDateInput.addEventListener("change", () => { recStartClearBtn.style.display = recurrenceStartDateInput.value ? "" : "none"; });
+
+    const recStartFieldWrap = this._el("div", { className: "field-wrap" }, [
       recurrenceStartDateInput,
       this._el("span", { textContent: this._t("rec_start_date_lbl") }),
     ]);
+    const recurrenceStartDateWrap = this._el("div", { className: "field-with-clear" }, [recStartFieldWrap, recStartClearBtn]);
+
     const recurrenceTimeInput = this._el("input", { type: "time", value: recurrenceTime });
-    const recurrenceTimeWrap = this._el("div", { className: "field-wrap" }, [
+    const recTimeClearBtn = this._el("button", { className: "field-clear-btn", textContent: "\u00D7" });
+    recTimeClearBtn.addEventListener("click", () => {
+      recurrenceTimeInput.value = "";
+      saveRecurrenceTime();
+      recTimeClearBtn.style.display = "none";
+    });
+    if (!recurrenceTime) recTimeClearBtn.style.display = "none";
+    recurrenceTimeInput.addEventListener("change", () => { recTimeClearBtn.style.display = recurrenceTimeInput.value ? "" : "none"; });
+
+    const recTimeFieldWrap = this._el("div", { className: "field-wrap" }, [
       recurrenceTimeInput,
       this._el("span", { textContent: this._t("rec_time") }),
     ]);
+    const recurrenceTimeWrap = this._el("div", { className: "field-with-clear" }, [recTimeFieldWrap, recTimeClearBtn]);
+
     const recurrenceDateTimeRow = this._el("div", { className: "due-input-row" }, [
       recurrenceStartDateWrap,
       recurrenceTimeWrap,
@@ -2694,11 +2745,21 @@ class HomeTasksCard extends HTMLElement {
       }
     };
     const recurrenceEndDateInput = this._el("input", { type: "date", value: recurrenceEndDate, min: _computeMinEndDate() });
+    const recEndClearBtn = this._el("button", { className: "field-clear-btn", textContent: "\u00D7" });
+    recEndClearBtn.addEventListener("click", () => {
+      recurrenceEndDateInput.value = "";
+      saveEndCondition();
+      recEndClearBtn.style.display = "none";
+    });
+    if (!recurrenceEndDate) recEndClearBtn.style.display = "none";
+    recurrenceEndDateInput.addEventListener("change", () => { recEndClearBtn.style.display = recurrenceEndDateInput.value ? "" : "none"; });
+
+    const recEndFieldWrap = this._el("div", { className: "field-wrap" }, [
+      recurrenceEndDateInput,
+      this._el("span", { textContent: this._t("rec_end_date_lbl") }),
+    ]);
     const recurrenceEndDateWrap = this._el("div", { className: "due-input-row single" }, [
-      this._el("div", { className: "field-wrap" }, [
-        recurrenceEndDateInput,
-        this._el("span", { textContent: this._t("rec_end_date_lbl") }),
-      ]),
+      this._el("div", { className: "field-with-clear" }, [recEndFieldWrap, recEndClearBtn]),
     ]);
 
     const recurrenceMaxCountInput = this._el("input", { type: "number", value: recurrenceMaxCount !== null ? recurrenceMaxCount : "" });
@@ -3746,6 +3807,13 @@ class HomeTasksCard extends HTMLElement {
       .field-wrap input:disabled, .field-wrap textarea:disabled { opacity: 0.4; }
       .field-wrap textarea { resize: vertical; min-height: 60px; }
       .field-wrap > span { position: absolute; top: 6px; left: 12px; font-size: 11px; font-weight: 400; color: var(--secondary-text-color); text-transform: none; letter-spacing: 0; pointer-events: none; }
+      .field-with-clear { display: flex; align-items: center; gap: 4px; }
+      .field-with-clear .field-wrap { flex: 1; min-width: 0; }
+      .field-clear-btn {
+        flex-shrink: 0; background: none; border: none; color: var(--secondary-text-color);
+        cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 4px; line-height: 1;
+      }
+      .field-clear-btn:hover { color: var(--error-color, #f44336); background: rgba(244, 67, 54, 0.15); }
       .field-wrap input:focus ~ span, .field-wrap textarea:focus ~ span { color: var(--primary-color); }
       .field-wrap.inline { flex: 1; width: auto; }
       .field-wrap.inline input { height: 48px; padding: 20px 8px 4px; box-sizing: border-box; }
