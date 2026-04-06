@@ -1304,11 +1304,9 @@ class HomeTasksCard extends HTMLElement {
       due_date: dueDate || null,
       due_time: dueDate ? (dueTime || null) : null,
     });
-    if (!this._isExternalCol(colIdx)) {
-      await this._loadAllTasks();
+    if (this._isExternalCol(colIdx)) {
+      this._reloadExternal();
     }
-    // External: no reload — optimistic update is shown, service call runs
-    // in background. Avoids DOM rebuild that steals focus from date/time inputs.
   }
 
   async _deleteTask(taskId, colIdx) {
@@ -2385,9 +2383,11 @@ class HomeTasksCard extends HTMLElement {
       timeInput.disabled = !dateInput.value;
       this._updateTaskDue(task.id, dateInput.value, supportsTime ? timeInput.value : "", colIdx);
     });
+    dateInput.addEventListener("keydown", (e) => { if (e.key === "Enter") dateInput.blur(); });
     timeInput.addEventListener("change", () =>
       this._updateTaskDue(task.id, dateInput.value, timeInput.value, colIdx)
     );
+    timeInput.addEventListener("keydown", (e) => { if (e.key === "Enter") timeInput.blur(); });
 
     const dateWrap = this._el("div", { className: "field-wrap" }, [
       dateInput,
@@ -2705,27 +2705,31 @@ class HomeTasksCard extends HTMLElement {
       this._updateTaskRouted(colIdx, task.id, fields)?.then(() => this._loadAllTasks());
     };
 
+    const _saveAndReload = (promise) => {
+      promise?.then(() => { if (this._isExternalCol(colIdx)) this._reloadExternal(); });
+    };
+
     const saveStartDate = () => {
-      this._updateTaskRouted(colIdx, task.id, {
+      _saveAndReload(this._updateTaskRouted(colIdx, task.id, {
         recurrence_start_date: recurrenceStartDateInput.value || null,
-      })?.then(() => this._loadAllTasks());
+      }));
     };
 
     const saveRecurrenceTime = () => {
-      this._updateTaskRouted(colIdx, task.id, {
+      _saveAndReload(this._updateTaskRouted(colIdx, task.id, {
         recurrence_time: recurrenceTimeInput.value || null,
-      })?.then(() => this._loadAllTasks());
+      }));
     };
 
     const saveEndCondition = () => {
       const endType = recurrenceEndSelect.value;
       // "date" with empty field = no end (equivalent to old "none" mode)
       const effectiveEndType = (endType === "date" && !recurrenceEndDateInput.value) ? "none" : endType;
-      this._updateTaskRouted(colIdx, task.id, {
+      _saveAndReload(this._updateTaskRouted(colIdx, task.id, {
         recurrence_end_type: effectiveEndType,
         recurrence_end_date: endType === "date" ? (recurrenceEndDateInput.value || null) : null,
         recurrence_max_count: endType === "count" ? (parseInt(recurrenceMaxCountInput.value) || null) : null,
-      })?.then(() => this._loadAllTasks());
+      }));
     };
 
     recSwitch.addEventListener("change", () => {
@@ -2764,9 +2768,13 @@ class HomeTasksCard extends HTMLElement {
     recurrenceUnitSelect.addEventListener("change", saveInterval);
     weekdayCheckboxes.forEach(cb => cb.addEventListener("change", saveWeekdays));
     recurrenceStartDateInput.addEventListener("change", saveStartDate);
+    recurrenceStartDateInput.addEventListener("change", saveStartDate);
+    recurrenceStartDateInput.addEventListener("keydown", (e) => { if (e.key === "Enter") recurrenceStartDateInput.blur(); });
     recurrenceTimeInput.addEventListener("change", saveRecurrenceTime);
+    recurrenceTimeInput.addEventListener("keydown", (e) => { if (e.key === "Enter") recurrenceTimeInput.blur(); });
     recurrenceEndSelect.addEventListener("change", () => { applyEndTypeVisibility(recurrenceEndSelect.value); saveEndCondition(); });
     recurrenceEndDateInput.addEventListener("change", saveEndCondition);
+    recurrenceEndDateInput.addEventListener("keydown", (e) => { if (e.key === "Enter") recurrenceEndDateInput.blur(); });
     recurrenceMaxCountInput.addEventListener("change", saveEndCondition);
 
     const recurrenceSection = this._el("div", { className: "detail-section" }, [
