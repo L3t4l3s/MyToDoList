@@ -456,10 +456,10 @@ class TodoistAdapter(ProviderAdapter):
                     min_end = today + timedelta(days=1)
                 else:  # days
                     min_end = today + timedelta(days=value)
-                if end_d >= min_end:
-                    parts.append(f"ending {end}")
-                else:
-                    _LOGGER.debug("Dropping recurrence end date %s (before next occurrence ~%s)", end, min_end)
+                if end_d < min_end:
+                    end = min_end.isoformat()
+                    _LOGGER.debug("Clamped recurrence end date to %s (before next occurrence ~%s)", end, min_end)
+                parts.append(f"ending {end}")
             except ValueError:
                 pass
 

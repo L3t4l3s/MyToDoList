@@ -2362,11 +2362,9 @@ class HomeTasksCard extends HTMLElement {
     const col = this._config.columns[colIdx];
 
     // Due section
-    const _todayForDue = new Date().toISOString().slice(0, 10);
     const dateInput = this._el("input", {
       type: "date",
       value: task.due_date || "",
-      min: _todayForDue,
     });
     // Check if external provider supports due time (SET_DUE_DATETIME_ON_ITEM = 32)
     const features = this._colSupportedFeatures(colIdx);
@@ -2723,6 +2721,13 @@ class HomeTasksCard extends HTMLElement {
 
     const saveEndCondition = () => {
       const endType = recurrenceEndSelect.value;
+      // Clamp manually entered end date to the minimum allowed
+      if (endType === "date" && recurrenceEndDateInput.value) {
+        const minEnd = _computeMinEndDate();
+        if (recurrenceEndDateInput.value < minEnd) {
+          recurrenceEndDateInput.value = minEnd;
+        }
+      }
       // "date" with empty field = no end (equivalent to old "none" mode)
       const effectiveEndType = (endType === "date" && !recurrenceEndDateInput.value) ? "none" : endType;
       _saveAndReload(this._updateTaskRouted(colIdx, task.id, {
