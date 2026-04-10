@@ -252,7 +252,7 @@ class TestProviderCapabilities:
         assert caps.can_sync_labels is True
         assert caps.can_sync_order is True
         assert caps.can_sync_sub_items is True
-        assert caps.can_sync_assignee is False  # False until collaborators loaded
+        assert caps.can_sync_assignee is True
         assert caps.can_sync_recurrence is True
         assert caps.can_sync_reminders is True
 
