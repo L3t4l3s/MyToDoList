@@ -3248,7 +3248,24 @@ class HomeTasksCard extends HTMLElement {
     if (col.show_history) details.push(historySection);
     details.push(actions);
     const inner = this._el("div", { className: "task-details-inner" }, details);
-    return this._el("div", { className: "task-details" }, [inner]);
+    const wrapper = this._el("div", { className: "task-details" }, [inner]);
+
+    // Stop mousedown on text inputs from reaching the draggable parent task.
+    // Without this, the browser's drag detection intercepts mousedown and
+    // prevents text selection / cursor positioning inside notes, due date,
+    // tag, and reminder inputs.
+    wrapper.addEventListener("mousedown", (e) => {
+      if (this._isInteractiveTarget(e.target)) e.stopPropagation();
+    });
+
+    return wrapper;
+  }
+
+  _isInteractiveTarget(el) {
+    if (!el) return false;
+    const tag = el.tagName;
+    return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT"
+        || el.isContentEditable === true;
   }
 
   _buildSubTask(taskId, sub, colIdx) {
@@ -3576,6 +3593,9 @@ class HomeTasksCard extends HTMLElement {
     // Touch Events (Mobile) — long-press anywhere on the task row to drag
     taskEl.addEventListener("touchstart", (e) => {
       if (e.touches.length !== 1) return;
+      // Don't arm the long-press drag when the user taps a text input —
+      // they want to focus / select / scroll the field, not drag the task.
+      if (this._isInteractiveTarget(e.target)) return;
       const touch = e.touches[0];
       this._touchStartTimer = setTimeout(() => {
         this._draggedTaskId = taskId;

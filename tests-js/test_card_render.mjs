@@ -372,3 +372,136 @@ describe('column type helpers', () => {
     assert.equal(card._colEntityId(0), 'todo.test');
   });
 });
+
+
+// ---------------------------------------------------------------------------
+// REGRESSION: text input inside an expanded task must allow text selection
+//
+// The whole .task element is draggable=true. Without protection, mousedown
+// on a textarea/input inside the expanded task-details container is
+// intercepted by the browser's drag-detection system: the cursor cannot
+// be positioned, text cannot be selected, and on touch the long-press
+// timer fires after 150ms and starts a drag instead of focusing the input.
+// ---------------------------------------------------------------------------
+
+
+describe('REGRESSION: input fields inside expanded tasks accept text selection', () => {
+  async function expandedCard() {
+    const { HomeTasksCard } = await loadCard({ force: true });
+    const hass = makeRecordingHass({
+      'home_tasks/get_lists': { lists: [{ id: 'L1', name: 'Test' }] },
+      'home_tasks/get_tasks': {
+        tasks: [{
+          id: 'T1', title: 'Has notes', notes: 'existing notes',
+          sort_order: 0, sub_items: [], tags: [], reminders: [],
+        }],
+      },
+    });
+    const card = new HomeTasksCard();
+    card.setConfig({ columns: [{ list_id: 'L1' }] });
+    card.hass = hass;
+    await flush(card);
+
+    // Expand the task so its details (including the notes textarea) render
+    card._expandedTasks.add('T1');
+    card._render();
+    return card;
+  }
+
+  test('mousedown on the notes textarea is intercepted before reaching the draggable parent', async () => {
+    const card = await expandedCard();
+    const notesEl = card.shadowRoot.querySelector('.task-details textarea');
+    assert.ok(notesEl, 'notes textarea must exist in expanded task');
+
+    // Listen on the parent .task to verify the mousedown does NOT bubble there
+    const taskEl = card.shadowRoot.querySelector('.task[data-task-id="T1"]');
+    let bubbled = false;
+    taskEl.addEventListener('mousedown', () => { bubbled = true; });
+
+    notesEl.dispatchEvent(new card.shadowRoot.ownerDocument.defaultView.MouseEvent(
+      'mousedown', { bubbles: true, cancelable: true }
+    ));
+    assert.equal(bubbled, false,
+      'mousedown on the notes textarea must be stopped before reaching the draggable .task');
+  });
+
+  test('mousedown on the tag input is intercepted', async () => {
+    const card = await expandedCard();
+    const inputs = card.shadowRoot.querySelectorAll('.task-details input[type="text"]');
+    // Find the tag input by its placeholder
+    const tagInput = [...inputs].find(i => i.placeholder && i.placeholder.length);
+    if (!tagInput) return;  // tag input only renders when tags section visible
+
+    const taskEl = card.shadowRoot.querySelector('.task[data-task-id="T1"]');
+    let bubbled = false;
+    taskEl.addEventListener('mousedown', () => { bubbled = true; });
+
+    tagInput.dispatchEvent(new card.shadowRoot.ownerDocument.defaultView.MouseEvent(
+      'mousedown', { bubbles: true, cancelable: true }
+    ));
+    assert.equal(bubbled, false);
+  });
+
+  test('mousedown on a non-input element inside details DOES bubble', async () => {
+    // Sanity check: only inputs are protected, the rest of the details
+    // area still allows the parent task's drag detection.
+    const card = await expandedCard();
+    const taskEl = card.shadowRoot.querySelector('.task[data-task-id="T1"]');
+    const label = card.shadowRoot.querySelector('.task-details .detail-label');
+    assert.ok(label);
+
+    let bubbled = false;
+    taskEl.addEventListener('mousedown', () => { bubbled = true; });
+
+    label.dispatchEvent(new card.shadowRoot.ownerDocument.defaultView.MouseEvent(
+      'mousedown', { bubbles: true, cancelable: true }
+    ));
+    assert.equal(bubbled, true,
+      'mousedown on non-input details element must reach the parent .task');
+  });
+
+  test('touchstart on a textarea inside details does NOT arm the drag timer', async () => {
+    const card = await expandedCard();
+    const notesEl = card.shadowRoot.querySelector('.task-details textarea');
+    assert.ok(notesEl);
+
+    // Verify no timer is set after a touchstart on the input
+    card._touchStartTimer = null;
+    const win = card.shadowRoot.ownerDocument.defaultView;
+    const TouchEvent = win.TouchEvent || win.Event;
+    // jsdom may not implement TouchEvent — fall back to a synthetic Event
+    // with the same shape that the handler reads.
+    const evt = new win.Event('touchstart', { bubbles: true, cancelable: true });
+    Object.defineProperty(evt, 'touches', {
+      value: [{ clientX: 0, clientY: 0 }],
+      configurable: true,
+    });
+    Object.defineProperty(evt, 'target', { value: notesEl, configurable: true });
+    notesEl.dispatchEvent(evt);
+
+    assert.equal(card._touchStartTimer, null,
+      'long-press drag timer must NOT be armed when tapping a text input');
+  });
+
+  test('touchstart on the task body DOES arm the drag timer', async () => {
+    // Sanity check: tapping outside an input still triggers the long press
+    const card = await expandedCard();
+    const win = card.shadowRoot.ownerDocument.defaultView;
+    const taskEl = card.shadowRoot.querySelector('.task[data-task-id="T1"]');
+    const titleSpan = taskEl.querySelector('.task-title') || taskEl;
+
+    card._touchStartTimer = null;
+    const evt = new win.Event('touchstart', { bubbles: true, cancelable: true });
+    Object.defineProperty(evt, 'touches', {
+      value: [{ clientX: 0, clientY: 0 }],
+      configurable: true,
+    });
+    Object.defineProperty(evt, 'target', { value: titleSpan, configurable: true });
+    taskEl.dispatchEvent(evt);
+
+    assert.notEqual(card._touchStartTimer, null,
+      'long-press drag timer should arm when tapping the task body');
+    // Clean up the timer so it doesn't fire after the test
+    clearTimeout(card._touchStartTimer);
+  });
+});
