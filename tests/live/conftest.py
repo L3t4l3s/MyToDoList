@@ -191,6 +191,6 @@ async def clean_external_list_factory(ws_client: HAWebSocketClient):
                     "todo", "remove_item",
                     {"entity_id": entity_id, "item": task["id"]},
                 )
-            except Exception:  # noqa: BLE001
-                pass  # best effort cleanup
+            except Exception as err:  # noqa: BLE001
+                print(f"[live cleanup] failed to remove {task.get('id')} from {entity_id}: {err}")
     return _wipe

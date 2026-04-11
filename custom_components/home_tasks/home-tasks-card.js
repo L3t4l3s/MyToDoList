@@ -2545,19 +2545,39 @@ class HomeTasksCard extends HTMLElement {
   _buildTaskDetails(task, colIdx) {
     const col = this._config.columns[colIdx];
 
-    // Due section
-    const dateInput = this._el("input", {
-      type: "date",
-      value: task.due_date || "",
+    const details = [];
+    if (col.show_notes !== false) details.push(this._buildNotesSection(task, colIdx));
+    if ((col.show_sub_tasks ?? col.show_sub_items) !== false) details.push(this._buildSubTasksSection(task, colIdx));
+    if (col.show_assigned_person !== false) details.push(this._buildAssignedPersonSection(task, colIdx));
+    if (col.show_priority !== false) details.push(this._buildPrioritySection(task, colIdx));
+    if (col.show_tags !== false) details.push(this._buildTagsSection(task, colIdx));
+    if (col.show_due_date !== false) details.push(this._buildDateSection(task, colIdx));
+    if (col.show_reminders !== false) details.push(this._buildRemindersSection(task, colIdx));
+    if (col.show_recurrence !== false) details.push(this._buildRecurrenceSection(task, colIdx));
+    if (col.show_history) details.push(this._buildHistorySection(task));
+    details.push(this._buildActionsSection(task, colIdx));
+
+    const inner = this._el("div", { className: "task-details-inner" }, details);
+    const wrapper = this._el("div", { className: "task-details" }, [inner]);
+
+    // Stop mousedown on text inputs from reaching the draggable parent task.
+    // Without this, the browser's drag detection intercepts mousedown and
+    // prevents text selection / cursor positioning inside notes, due date,
+    // tag, and reminder inputs.
+    wrapper.addEventListener("mousedown", (e) => {
+      if (this._isInteractiveTarget(e.target)) e.stopPropagation();
     });
+
+    return wrapper;
+  }
+
+  _buildDateSection(task, colIdx) {
+    const dateInput = this._el("input", { type: "date", value: task.due_date || "" });
     // Check if external provider supports due time (SET_DUE_DATETIME_ON_ITEM = 32)
     const features = this._colSupportedFeatures(colIdx);
     const supportsTime = !this._isExternalCol(colIdx) || !!(features & 32);
 
-    const timeInput = this._el("input", {
-      type: "time",
-      value: task.due_time || "",
-    });
+    const timeInput = this._el("input", { type: "time", value: task.due_time || "" });
     if (!task.due_date) timeInput.disabled = true;
 
     const saveDueDate = () => {
@@ -2609,12 +2629,13 @@ class HomeTasksCard extends HTMLElement {
     ]);
     const timeWrap = this._el("div", { className: "field-with-clear" }, [timeFieldWrap, timeClearBtn]);
     if (!supportsTime) timeWrap.style.display = "none";
-    const dateSection = this._el("div", { className: "detail-section" }, [
+    return this._el("div", { className: "detail-section" }, [
       this._el("label", { className: "detail-label", textContent: this._t("due_date") }),
       this._el("div", { className: "due-input-row" }, [dateWrap, timeWrap]),
     ]);
+  }
 
-    // Notes section
+  _buildNotesSection(task, colIdx) {
     const notesInput = this._el("textarea", {
       placeholder: this._t("notes_placeholder"),
       rows: 2,
@@ -2632,12 +2653,13 @@ class HomeTasksCard extends HTMLElement {
     });
     notesInput.addEventListener("blur", saveNotes);
     const notesWrap = this._el("div", { className: "field-wrap no-label" }, [notesInput]);
-    const notesSection = this._el("div", { className: "detail-section" }, [
+    return this._el("div", { className: "detail-section" }, [
       this._el("label", { className: "detail-label", textContent: this._t("notes") }),
       notesWrap,
     ]);
+  }
 
-    // Sub-tasks section
+  _buildSubTasksSection(task, colIdx) {
     const subList = this._el("div", { className: "sub-task-list" });
     subList.dataset.taskId = task.id;
     for (const sub of (task.sub_items || [])) {
@@ -2650,13 +2672,14 @@ class HomeTasksCard extends HTMLElement {
       textContent: this._t("add_sub_item"),
     });
     addSubBtn.addEventListener("click", () => this._addSubTask(task.id, colIdx));
-    const subSection = this._el("div", { className: "detail-section" }, [
+    return this._el("div", { className: "detail-section" }, [
       this._el("label", { className: "detail-label", textContent: this._t("sub_items") }),
       subList,
       addSubBtn,
     ]);
+  }
 
-    // Priority section
+  _buildPrioritySection(task, colIdx) {
     const currentPriority = task.priority || null;
     const priorityBtnRow = this._el("div", { className: "priority-btn-row" });
     for (const [val, key] of [[1, "pri_low"], [2, "pri_medium"], [3, "pri_high"]]) {
@@ -2672,12 +2695,13 @@ class HomeTasksCard extends HTMLElement {
       });
       priorityBtnRow.appendChild(btn);
     }
-    const prioritySection = this._el("div", { className: "detail-section" }, [
+    return this._el("div", { className: "detail-section" }, [
       this._el("label", { className: "detail-label", textContent: this._t("priority") }),
       priorityBtnRow,
     ]);
+  }
 
-    // Recurrence section
+  _buildRecurrenceSection(task, colIdx) {
     const recurrenceEnabled = task.recurrence_enabled || false;
     const recurrenceValue = task.recurrence_value || 1;
     const recurrenceUnit = task.recurrence_unit || "days";
@@ -3029,7 +3053,7 @@ class HomeTasksCard extends HTMLElement {
     recurrenceEndDateInput.addEventListener("keydown", (e) => { if (e.key === "Enter") recurrenceEndDateInput.blur(); });
     recurrenceMaxCountInput.addEventListener("change", saveEndCondition);
 
-    const recurrenceSection = this._el("div", { className: "detail-section" }, [
+    return this._el("div", { className: "detail-section" }, [
       recurrenceToggleRow,
       recurrenceModeWrap,
       recurrenceIntervalRow,
@@ -3039,8 +3063,9 @@ class HomeTasksCard extends HTMLElement {
       recurrenceEndDateWrap,
       recurrenceCountRow,
     ]);
+  }
 
-    // Assigned person section
+  _buildAssignedPersonSection(task, colIdx) {
     const personSelect = this._el("select", {});
     const noneOpt = this._el("option", { value: "", textContent: this._t("nobody") });
     if (!task.assigned_person) noneOpt.selected = true;
@@ -3063,12 +3088,13 @@ class HomeTasksCard extends HTMLElement {
       this._updateTaskRouted(colIdx, task.id, { assigned_person: task.assigned_person });
     });
     const personWrap = this._el("div", { className: "sel-wrap no-label" }, [personSelect]);
-    const personSection = this._el("div", { className: "detail-section" }, [
+    return this._el("div", { className: "detail-section" }, [
       this._el("label", { className: "detail-label", textContent: this._t("assigned_to") }),
       personWrap,
     ]);
+  }
 
-    // Tags section
+  _buildTagsSection(task, colIdx) {
     const tagSectionChildren = [
       this._el("label", { className: "detail-label", textContent: this._t("tags") }),
     ];
@@ -3118,9 +3144,10 @@ class HomeTasksCard extends HTMLElement {
       this._el("span", { textContent: this._t("add_tag").replace("+ ", "") }),
     ]);
     tagSectionChildren.push(tagInputWrap);
-    const tagSection = this._el("div", { className: "detail-section" }, tagSectionChildren);
+    return this._el("div", { className: "detail-section" }, tagSectionChildren);
+  }
 
-    // Reminders section
+  _buildRemindersSection(task, colIdx) {
     const taskReminders = task.reminders || [];
     const reminderSectionChildren = [
       this._el("label", { className: "detail-label", textContent: this._t("reminder") }),
@@ -3170,17 +3197,19 @@ class HomeTasksCard extends HTMLElement {
       });
       reminderSectionChildren.push(addReminderBtn);
     }
-    const reminderSection = this._el("div", { className: "detail-section" }, reminderSectionChildren);
+    return this._el("div", { className: "detail-section" }, reminderSectionChildren);
+  }
 
-    // Delete button
+  _buildActionsSection(task, colIdx) {
     const deleteBtn = this._el("button", {
       className: "delete-task-btn",
       textContent: this._t("delete_task"),
     });
     deleteBtn.addEventListener("click", () => this._deleteTask(task.id, colIdx));
-    const actions = this._el("div", { className: "detail-actions" }, [deleteBtn]);
+    return this._el("div", { className: "detail-actions" }, [deleteBtn]);
+  }
 
-    // History section
+  _buildHistorySection(task) {
     const taskHistory = (task.history || []).slice().reverse();
     const histContent = this._el("div", { className: "history-list" });
     if (taskHistory.length === 0) {
@@ -3239,34 +3268,10 @@ class HomeTasksCard extends HTMLElement {
         histContent.appendChild(row);
       }
     }
-    const historySection = this._el("div", { className: "detail-section" }, [
+    return this._el("div", { className: "detail-section" }, [
       this._el("label", { className: "detail-label", textContent: this._t("history") }),
       histContent,
     ]);
-
-    const details = [];
-    if (col.show_notes !== false) details.push(notesSection);
-    if ((col.show_sub_tasks ?? col.show_sub_items) !== false) details.push(subSection);
-    if (col.show_assigned_person !== false) details.push(personSection);
-    if (col.show_priority !== false) details.push(prioritySection);
-    if (col.show_tags !== false) details.push(tagSection);
-    if (col.show_due_date !== false) details.push(dateSection);
-    if (col.show_reminders !== false) details.push(reminderSection);
-    if (col.show_recurrence !== false) details.push(recurrenceSection);
-    if (col.show_history) details.push(historySection);
-    details.push(actions);
-    const inner = this._el("div", { className: "task-details-inner" }, details);
-    const wrapper = this._el("div", { className: "task-details" }, [inner]);
-
-    // Stop mousedown on text inputs from reaching the draggable parent task.
-    // Without this, the browser's drag detection intercepts mousedown and
-    // prevents text selection / cursor positioning inside notes, due date,
-    // tag, and reminder inputs.
-    wrapper.addEventListener("mousedown", (e) => {
-      if (this._isInteractiveTarget(e.target)) e.stopPropagation();
-    });
-
-    return wrapper;
   }
 
   _isInteractiveTarget(el) {

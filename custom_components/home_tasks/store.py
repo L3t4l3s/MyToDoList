@@ -222,9 +222,31 @@ class HomeTasksStore:
                 return task
         raise ValueError("Task not found")
 
+    _UPDATABLE_FIELDS = (
+        "title", "completed", "notes", "due_date", "due_time", "priority",
+        "reminders", "recurrence_value", "recurrence_unit", "recurrence_enabled",
+        "recurrence_type", "recurrence_weekdays", "recurrence_start_date",
+        "recurrence_time", "recurrence_end_type", "recurrence_end_date",
+        "recurrence_max_count", "recurrence_remaining_count",
+        "assigned_person", "tags",
+    )
+
     async def async_update_task(self, task_id: str, actor: str | None = None, **kwargs) -> dict:
         """Update a task's fields."""
         task = self.get_task(task_id)
+        self._validate_update_kwargs(kwargs)
+        snapshot = self._snapshot_task(task)
+        self._apply_field_updates(task, kwargs)
+        self._handle_completion_transition(task, snapshot, kwargs)
+        if any(k in kwargs for k in _HISTORY_FIELDS) or "completed" in kwargs:
+            self._record_history(task, snapshot, kwargs, actor)
+        self._fire_update_callbacks(task, snapshot)
+        await self._async_save()
+        return task
+
+    @staticmethod
+    def _validate_update_kwargs(kwargs: dict) -> None:
+        """Validate every field present in kwargs and normalise list values in-place."""
         if "title" in kwargs:
             kwargs["title"] = validate_text(kwargs["title"], MAX_TITLE_LENGTH, "Task title")
         if "notes" in kwargs:
@@ -294,8 +316,8 @@ class HomeTasksStore:
                 raise ValueError("tags must be a list")
             if len(tags) > MAX_TAGS_PER_TASK:
                 raise ValueError(f"Maximum of {MAX_TAGS_PER_TASK} tags allowed")
-            cleaned = []
-            seen = set()
+            cleaned: list[str] = []
+            seen: set[str] = set()
             for tag in tags:
                 if not isinstance(tag, str):
                     raise ValueError("Each tag must be a string")
@@ -318,27 +340,34 @@ class HomeTasksStore:
                 raise ValueError(f"Each reminder must be an integer between 0 and {MAX_REMINDER_OFFSET_MINUTES}")
             kwargs["reminders"] = sorted(set(val))
 
-        was_completed = task.get("completed", False)
-        previous_person = task.get("assigned_person")
-        old_due_date = task.get("due_date")
-        old_due_time = task.get("due_time")
-        old_reminders = task.get("reminders", [])
-        old_title = task.get("title", "")
-        old_priority = task.get("priority")
-        old_tags = list(task.get("tags", []))
-        old_notes = task.get("notes", "")
-        old_recurrence_enabled = task.get("recurrence_enabled", False)
+    @staticmethod
+    def _snapshot_task(task: dict) -> dict:
+        """Capture pre-update field values for diffing in callbacks/history."""
+        return {
+            "completed": task.get("completed", False),
+            "assigned_person": task.get("assigned_person"),
+            "due_date": task.get("due_date"),
+            "due_time": task.get("due_time"),
+            "reminders": task.get("reminders", []),
+            "title": task.get("title", ""),
+            "priority": task.get("priority"),
+            "tags": list(task.get("tags", [])),
+            "notes": task.get("notes", ""),
+            "recurrence_enabled": task.get("recurrence_enabled", False),
+        }
 
-        allowed = ("title", "completed", "notes", "due_date", "due_time", "priority", "reminders", "recurrence_value", "recurrence_unit", "recurrence_enabled", "recurrence_type", "recurrence_weekdays", "recurrence_start_date", "recurrence_time", "recurrence_end_type", "recurrence_end_date", "recurrence_max_count", "recurrence_remaining_count", "assigned_person", "tags")
+    def _apply_field_updates(self, task: dict, kwargs: dict) -> None:
+        """Copy validated kwargs into the task dict (whitelisted fields only)."""
         for key, value in kwargs.items():
-            if key in allowed:
+            if key in self._UPDATABLE_FIELDS:
                 task[key] = value
-
         # When max_count is set without an explicit remaining override, reset remaining to match
         if "recurrence_max_count" in kwargs and "recurrence_remaining_count" not in kwargs:
             task["recurrence_remaining_count"] = task.get("recurrence_max_count")
 
-        # Track completed_at timestamp
+    def _handle_completion_transition(self, task: dict, snapshot: dict, kwargs: dict) -> None:
+        """Update completed_at, decrement remaining recurrence count, fire callbacks."""
+        was_completed = snapshot["completed"]
         is_completed = task.get("completed", False)
         if is_completed and not was_completed:
             task["completed_at"] = datetime.now(timezone.utc).isoformat()
@@ -356,51 +385,53 @@ class HomeTasksStore:
             if self.on_task_reopened:
                 self.on_task_reopened(task)
 
-        # History tracking
-        if any(k in kwargs for k in _HISTORY_FIELDS) or "completed" in kwargs:
-            _now = datetime.now(timezone.utc).isoformat()
-            _by = {"by": actor} if actor else {}
-            new_hist = []
-            if "title" in kwargs and task.get("title") != old_title:
-                new_hist.append({"ts": _now, "action": "updated", "field": "title", "from": old_title, "to": task.get("title"), **_by})
-            if "due_date" in kwargs and task.get("due_date") != old_due_date:
-                new_hist.append({"ts": _now, "action": "updated", "field": "due_date", "from": old_due_date, "to": task.get("due_date"), **_by})
-            if "due_time" in kwargs and task.get("due_time") != old_due_time:
-                new_hist.append({"ts": _now, "action": "updated", "field": "due_time", "from": old_due_time, "to": task.get("due_time"), **_by})
-            if "priority" in kwargs and task.get("priority") != old_priority:
-                new_hist.append({"ts": _now, "action": "updated", "field": "priority", "from": old_priority, "to": task.get("priority"), **_by})
-            if "assigned_person" in kwargs and task.get("assigned_person") != previous_person:
-                new_hist.append({"ts": _now, "action": "updated", "field": "assigned_person", "from": previous_person, "to": task.get("assigned_person"), **_by})
-            if "tags" in kwargs and task.get("tags") != old_tags:
-                new_hist.append({"ts": _now, "action": "updated", "field": "tags", "from": old_tags, "to": list(task.get("tags", [])), **_by})
-            if "notes" in kwargs and task.get("notes") != old_notes:
-                new_hist.append({"ts": _now, "action": "updated", "field": "notes", **_by})
-            if "recurrence_enabled" in kwargs and task.get("recurrence_enabled") != old_recurrence_enabled:
-                new_hist.append({"ts": _now, "action": "updated", "field": "recurrence_enabled", "to": task.get("recurrence_enabled"), **_by})
-            if is_completed and not was_completed:
-                new_hist.append({"ts": _now, "action": "completed", **_by})
-            elif not is_completed and was_completed:
-                new_hist.append({"ts": _now, "action": "reopened", "by": actor or "user"})
-            if new_hist:
-                hist = task.setdefault("history", [])
-                hist.extend(new_hist)
-                _trim_history(hist)
+    @staticmethod
+    def _record_history(task: dict, snapshot: dict, kwargs: dict, actor: str | None) -> None:
+        """Append history entries for any fields that actually changed."""
+        _now = datetime.now(timezone.utc).isoformat()
+        _by = {"by": actor} if actor else {}
+        new_hist: list[dict] = []
+        was_completed = snapshot["completed"]
+        is_completed = task.get("completed", False)
 
-        # Notify reminder scheduler when due date/time or reminders change
+        if "title" in kwargs and task.get("title") != snapshot["title"]:
+            new_hist.append({"ts": _now, "action": "updated", "field": "title", "from": snapshot["title"], "to": task.get("title"), **_by})
+        if "due_date" in kwargs and task.get("due_date") != snapshot["due_date"]:
+            new_hist.append({"ts": _now, "action": "updated", "field": "due_date", "from": snapshot["due_date"], "to": task.get("due_date"), **_by})
+        if "due_time" in kwargs and task.get("due_time") != snapshot["due_time"]:
+            new_hist.append({"ts": _now, "action": "updated", "field": "due_time", "from": snapshot["due_time"], "to": task.get("due_time"), **_by})
+        if "priority" in kwargs and task.get("priority") != snapshot["priority"]:
+            new_hist.append({"ts": _now, "action": "updated", "field": "priority", "from": snapshot["priority"], "to": task.get("priority"), **_by})
+        if "assigned_person" in kwargs and task.get("assigned_person") != snapshot["assigned_person"]:
+            new_hist.append({"ts": _now, "action": "updated", "field": "assigned_person", "from": snapshot["assigned_person"], "to": task.get("assigned_person"), **_by})
+        if "tags" in kwargs and task.get("tags") != snapshot["tags"]:
+            new_hist.append({"ts": _now, "action": "updated", "field": "tags", "from": snapshot["tags"], "to": list(task.get("tags", [])), **_by})
+        if "notes" in kwargs and task.get("notes") != snapshot["notes"]:
+            new_hist.append({"ts": _now, "action": "updated", "field": "notes", **_by})
+        if "recurrence_enabled" in kwargs and task.get("recurrence_enabled") != snapshot["recurrence_enabled"]:
+            new_hist.append({"ts": _now, "action": "updated", "field": "recurrence_enabled", "to": task.get("recurrence_enabled"), **_by})
+        if is_completed and not was_completed:
+            new_hist.append({"ts": _now, "action": "completed", **_by})
+        elif not is_completed and was_completed:
+            new_hist.append({"ts": _now, "action": "reopened", "by": actor or "user"})
+
+        if new_hist:
+            hist = task.setdefault("history", [])
+            hist.extend(new_hist)
+            _trim_history(hist)
+
+    def _fire_update_callbacks(self, task: dict, snapshot: dict) -> None:
+        """Fire reminder/assignment callbacks when their fields changed."""
         if self.on_reminders_changed and (
-            task.get("due_date") != old_due_date
-            or task.get("due_time") != old_due_time
-            or task.get("reminders", []) != old_reminders
+            task.get("due_date") != snapshot["due_date"]
+            or task.get("due_time") != snapshot["due_time"]
+            or task.get("reminders", []) != snapshot["reminders"]
         ):
             self.on_reminders_changed(task)
 
-        # Notify about person assignment changes
         new_person = task.get("assigned_person")
-        if new_person != previous_person and self.on_task_assigned:
-            self.on_task_assigned(task, previous_person)
-
-        await self._async_save()
-        return task
+        if new_person != snapshot["assigned_person"] and self.on_task_assigned:
+            self.on_task_assigned(task, snapshot["assigned_person"])
 
     async def async_reopen_task(self, task_id: str, actor: str | None = None) -> dict:
         """Reopen a completed task and reset its sub-tasks.

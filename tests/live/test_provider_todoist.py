@@ -39,8 +39,8 @@ async def _wipe_todoist(ws: HAWebSocketClient, entity_id: str) -> None:
                 "todo", "remove_item",
                 {"entity_id": entity_id, "item": t["id"]},
             )
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as err:  # noqa: BLE001
+            print(f"[todoist cleanup] failed to remove {t.get('id')}: {err}")
     if tasks:
         await asyncio.sleep(TODOIST_SETTLE)
 

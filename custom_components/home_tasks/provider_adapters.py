@@ -830,8 +830,8 @@ class TodoistAdapter(ProviderAdapter):
             try:
                 existing = await api.get_reminders(task_uid)
                 saved_reminders = [r["minute_offset"] for r in existing if r.get("minute_offset") is not None]
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.debug("Could not snapshot reminders for %s: %s", task_uid, err)
 
         if "completed" in fields:
             try:
