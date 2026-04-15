@@ -1,6 +1,6 @@
 # Home Tasks
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://github.com/hacs/integration)
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
 [![Validate](https://github.com/L3t4l3s/home-tasks/actions/workflows/validate.yaml/badge.svg)](https://github.com/L3t4l3s/home-tasks/actions/workflows/validate.yaml)
 
 A feature-rich, highly customizable task management solution for Home Assistant — combining a native **integration** (sensors, events, services) with a versatile Lovelace **dashboard card**. Supports linking **external todo lists** from CalDAV, Google Tasks, Todoist, and other providers.
@@ -107,10 +107,10 @@ English · German · French · Spanish · Portuguese · Italian · Dutch · Poli
 ### HACS (recommended)
 
 1. Open HACS in Home Assistant
-2. Go to **Integrations**
-3. Click the **three dots** menu (top right) → **Custom repositories**
-4. Add `https://github.com/L3t4l3s/home-tasks` with category **Integration**
-5. Install **Home Tasks**
+2. Click the **three dots** menu (top right) → **Custom repositories**
+3. Paste `https://github.com/L3t4l3s/home-tasks` and select category **Integration**
+4. Click **Add**
+5. Search for **Home Tasks** in HACS Integrations and click **Download**
 6. Restart Home Assistant
 
 ### Manual
@@ -124,18 +124,20 @@ English · German · French · Spanish · Portuguese · Italian · Dutch · Poli
 
 1. Go to **Settings** → **Devices & Services** → **Add Integration**
 2. Search for **Home Tasks**
-3. Choose **Create a new task list**
-4. Enter a name for your list
-5. Repeat for additional lists
+3. Click **Add Device**
+4. Choose **Create a new task list**
+5. Enter a name for your list
+6. Repeat for additional lists
 
 ### External Lists
 
 1. Set up the external provider's HA integration first (e.g. CalDAV, Google Tasks, Todoist)
 2. Go to **Settings** → **Devices & Services** → **Add Integration**
 3. Search for **Home Tasks**
-4. Choose **Link an external todo list**
-5. Select the todo entity from the dropdown
-6. The external list is now available in the card editor
+4. Click **Add Device**
+5. Choose **Link an external todo list**
+6. Select the todo entity from the dropdown
+7. The external list is now available in the card editor
 
 The Lovelace card is automatically registered — just add it to your dashboard.
 
