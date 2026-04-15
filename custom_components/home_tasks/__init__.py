@@ -12,6 +12,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HassJob, HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.event import async_call_later, async_track_time_interval
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, RECURRENCE_UNIT_SECONDS
 
@@ -273,7 +274,7 @@ def _check_end_date(task: dict, target: datetime) -> bool:
         return False
     try:
         end_date = date.fromisoformat(end_date_str)
-        return target.astimezone().date() > end_date
+        return target.astimezone(dt_util.DEFAULT_TIME_ZONE).date() > end_date
     except ValueError:
         return False
 
@@ -288,7 +289,7 @@ def _apply_start_date(task: dict, target: datetime) -> datetime:
         return target
     try:
         start_date = date.fromisoformat(start_date_str)
-        local_target = target.astimezone()
+        local_target = target.astimezone(dt_util.DEFAULT_TIME_ZONE)
         if local_target.date() < start_date:
             t_h, t_m = _parse_rec_time(task)
             return local_target.replace(
@@ -315,7 +316,7 @@ def _compute_reopen_delay(task: dict, completed_at: datetime) -> float | None:
         weekdays = task.get("recurrence_weekdays", [])
         if not weekdays:
             return None
-        local_completed = completed_at.astimezone()
+        local_completed = completed_at.astimezone(dt_util.DEFAULT_TIME_ZONE)
         completed_weekday = local_completed.weekday()  # local weekday, not UTC
         min_days = min((w - completed_weekday) % 7 or 7 for w in weekdays)
         target = (local_completed + timedelta(days=min_days)).replace(
@@ -339,7 +340,7 @@ def _compute_reopen_delay(task: dict, completed_at: datetime) -> float | None:
         return (reopen_at.astimezone(timezone.utc) - now).total_seconds()
 
     # days / weeks / months / years → recurrence_time (or midnight) of target day in local timezone
-    local_completed = completed_at.astimezone()
+    local_completed = completed_at.astimezone(dt_util.DEFAULT_TIME_ZONE)
     if unit == "days":
         target_local = local_completed + timedelta(days=value)
     elif unit == "weeks":
@@ -439,8 +440,7 @@ def _compute_due_datetime(task: dict) -> datetime | None:
             h, m = 0, 0
     else:
         h, m = 0, 0
-    local_tz = datetime.now().astimezone().tzinfo
-    return datetime(d.year, d.month, d.day, h, m, 0, tzinfo=local_tz)
+    return datetime(d.year, d.month, d.day, h, m, 0, tzinfo=dt_util.DEFAULT_TIME_ZONE)
 
 
 def _schedule_reminders(hass: HomeAssistant, entry_id: str, task: dict) -> None:

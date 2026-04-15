@@ -21,6 +21,7 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 
@@ -572,7 +573,7 @@ class TodoistAdapter(ProviderAdapter):
             return None
         try:
             parsed = dt.fromisoformat(str(date_str).replace("Z", "+00:00"))
-            local = parsed.astimezone()
+            local = parsed.astimezone(dt_util.DEFAULT_TIME_ZONE)
             return local.strftime("%H:%M")
         except (ValueError, TypeError):
             return None
@@ -589,7 +590,7 @@ class TodoistAdapter(ProviderAdapter):
         if "T" in s:
             try:
                 parsed = dt.fromisoformat(s.replace("Z", "+00:00"))
-                local = parsed.astimezone()
+                local = parsed.astimezone(dt_util.DEFAULT_TIME_ZONE)
                 return local.date().isoformat()
             except (ValueError, TypeError):
                 return s[:10]
@@ -1015,7 +1016,7 @@ def _get_external_todo_items(hass: HomeAssistant, entity_id: str) -> list[dict]:
                 due_time = None
                 if item.due is not None:
                     if isinstance(item.due, dt):
-                        local_due = item.due.astimezone()
+                        local_due = item.due.astimezone(dt_util.DEFAULT_TIME_ZONE)
                         due_date = local_due.date().isoformat()
                         due_time = local_due.strftime("%H:%M")
                     else:

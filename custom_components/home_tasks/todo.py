@@ -11,6 +11,7 @@ from homeassistant.components.todo import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 
@@ -69,11 +70,10 @@ class HomeTasksEntity(TodoListEntity):
             due = None
             if task.get("due_date"):
                 if task.get("due_time"):
-                    local_tz = datetime.now().astimezone().tzinfo
                     h, m = int(task["due_time"][:2]), int(task["due_time"][3:5])
                     due = datetime(
                         *map(int, task["due_date"].split("-")),
-                        h, m, tzinfo=local_tz,
+                        h, m, tzinfo=dt_util.DEFAULT_TIME_ZONE,
                     )
                 else:
                     due = date.fromisoformat(task["due_date"])

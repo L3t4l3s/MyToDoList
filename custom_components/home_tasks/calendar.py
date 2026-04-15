@@ -12,6 +12,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from homeassistant.util import dt as dt_util
+
 from .const import DOMAIN
 
 
@@ -122,7 +124,7 @@ class HomeTasksCalendarEntity(CalendarEntity):
         if due_time_str:
             try:
                 h, m = int(due_time_str[:2]), int(due_time_str[3:5])
-                local_tz = datetime.now().astimezone().tzinfo
+                local_tz = dt_util.DEFAULT_TIME_ZONE
                 start = datetime(due_date.year, due_date.month, due_date.day,
                                  h, m, tzinfo=local_tz)
                 end = start + timedelta(hours=1)
