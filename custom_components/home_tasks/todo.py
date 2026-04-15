@@ -1,6 +1,6 @@
 """Todo platform for Home Tasks integration."""
 
-from datetime import date
+from datetime import date, datetime, timezone
 
 from homeassistant.components.todo import (
     TodoItem,
@@ -36,7 +36,9 @@ class HomeTasksEntity(TodoListEntity):
         TodoListEntityFeature.CREATE_TODO_ITEM
         | TodoListEntityFeature.UPDATE_TODO_ITEM
         | TodoListEntityFeature.DELETE_TODO_ITEM
+        | TodoListEntityFeature.MOVE_TODO_ITEM
         | TodoListEntityFeature.SET_DUE_DATE_ON_ITEM
+        | TodoListEntityFeature.SET_DUE_DATETIME_ON_ITEM
         | TodoListEntityFeature.SET_DESCRIPTION_ON_ITEM
     )
 
@@ -63,6 +65,29 @@ class HomeTasksEntity(TodoListEntity):
         """Return the todo items."""
         items = []
         for task in self._store.tasks:
+            # due: expose as datetime when due_time is set, date otherwise
+            due = None
+            if task.get("due_date"):
+                if task.get("due_time"):
+                    local_tz = datetime.now().astimezone().tzinfo
+                    h, m = int(task["due_time"][:2]), int(task["due_time"][3:5])
+                    due = datetime(
+                        *map(int, task["due_date"].split("-")),
+                        h, m, tzinfo=local_tz,
+                    )
+                else:
+                    due = date.fromisoformat(task["due_date"])
+
+            # completed: expose the completion timestamp if available
+            completed_dt = None
+            if task.get("completed") and task.get("completed_at"):
+                try:
+                    completed_dt = datetime.fromisoformat(task["completed_at"])
+                    if completed_dt.tzinfo is None:
+                        completed_dt = completed_dt.replace(tzinfo=timezone.utc)
+                except (ValueError, TypeError):
+                    pass
+
             items.append(
                 TodoItem(
                     uid=task["id"],
@@ -72,8 +97,9 @@ class HomeTasksEntity(TodoListEntity):
                         if task["completed"]
                         else TodoItemStatus.NEEDS_ACTION
                     ),
-                    due=date.fromisoformat(task["due_date"]) if task.get("due_date") else None,
+                    due=due,
                     description=task.get("notes") or None,
+                    completed=completed_dt,
                 )
             )
         return items
@@ -84,7 +110,13 @@ class HomeTasksEntity(TodoListEntity):
         # Apply optional fields
         kwargs = {}
         if item.due:
-            kwargs["due_date"] = item.due.isoformat()
+            kwargs["due_date"] = (
+                item.due.date().isoformat()
+                if isinstance(item.due, datetime)
+                else item.due.isoformat()
+            )
+            if isinstance(item.due, datetime):
+                kwargs["due_time"] = item.due.strftime("%H:%M")
         if item.description:
             kwargs["notes"] = item.description
         if item.status == TodoItemStatus.COMPLETED:
@@ -107,7 +139,14 @@ class HomeTasksEntity(TodoListEntity):
         if item.status is not None:
             kwargs["completed"] = item.status == TodoItemStatus.COMPLETED
         # due can be a date, datetime, or None (cleared)
-        kwargs["due_date"] = item.due.isoformat() if item.due else None
+        if isinstance(item.due, datetime):
+            kwargs["due_date"] = item.due.date().isoformat()
+            kwargs["due_time"] = item.due.strftime("%H:%M")
+        elif isinstance(item.due, date):
+            kwargs["due_date"] = item.due.isoformat()
+            kwargs["due_time"] = None
+        else:
+            kwargs["due_date"] = None
         if item.description is not None:
             kwargs["notes"] = item.description
         if kwargs:
@@ -118,4 +157,25 @@ class HomeTasksEntity(TodoListEntity):
         """Delete todo items."""
         for uid in uids:
             await self._store.async_delete_task(uid)
+        self.async_write_ha_state()
+
+    async def async_move_todo_item(
+        self, uid: str, previous_uid: str | None = None
+    ) -> None:
+        """Re-order a todo item by placing it after previous_uid (or first if None)."""
+        current_ids = [t["id"] for t in sorted(
+            self._store.tasks, key=lambda t: t.get("sort_order", 0)
+        )]
+        if uid not in current_ids:
+            return
+        current_ids.remove(uid)
+        if previous_uid is None:
+            current_ids.insert(0, uid)
+        else:
+            try:
+                idx = current_ids.index(previous_uid)
+                current_ids.insert(idx + 1, uid)
+            except ValueError:
+                current_ids.append(uid)
+        await self._store.async_reorder_tasks(current_ids)
         self.async_write_ha_state()
