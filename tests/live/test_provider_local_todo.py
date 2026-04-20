@@ -189,3 +189,16 @@ async def test_clear_due_date(
     items = await _list_items(ws_client, local_todo_entity)
     item = next(i for i in items if i["summary"] == "Clearable due")
     assert item.get("due") is None
+
+
+# NOTE: no reorder-via-home_tasks test here.  In the live test setup
+# `todo.ht_test_local` is configured as a NATIVE home_tasks list (it
+# exposes sensor.*, binary_sensor.* and calendar.* siblings created by
+# home_tasks itself), not as an externally linked list.  Reordering
+# through the home_tasks/reorder_external_tasks path therefore errors
+# with "No overlay store found".
+#
+# The GenericAdapter + MOVE_TODO_ITEM code path it would exercise is
+# already covered by the Google Tasks reorder test.  If we ever want
+# a second confirmation of that path we'd need a dedicated Local-Todo
+# entity linked as an external list in home_tasks.

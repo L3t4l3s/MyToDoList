@@ -404,14 +404,20 @@ async def test_recurrence_end_type_persists_via_overlay(
 async def test_reorder_external_tasks(
     ws_client: HAWebSocketClient, todoist_entity: str
 ) -> None:
-    """reorder_external_tasks via the Todoist provider sets child_order and
-    the new order is reflected by the next get_external_tasks call.
+    """reorder_external_tasks must push the new order to Todoist itself.
 
-    Todoist uses the rich-adapter path: child_order is set via the REST API,
-    and async_read_tasks() returns items with their updated order field.
+    Dual-view test: we verify BOTH our merged get_external_tasks view AND
+    the provider-native todo.get_items view.  If Todoist never received
+    the reorder, todo.get_items (which re-fetches from Todoist) still
+    returns the old order — both views agreeing is evidence the change
+    reached Todoist.
+
+    Todoist uses the rich-adapter path: TodoistAdapter.async_reorder_tasks
+    sets child_order via the REST API directly.
     """
+    titles_in_order = ["Order 1", "Order 2", "Order 3"]
     uids = []
-    for title in ("Order 1", "Order 2", "Order 3"):
+    for title in titles_in_order:
         r = await ws_client.send_command(
             "home_tasks/create_external_task",
             entity_id=todoist_entity, title=title,
@@ -420,19 +426,41 @@ async def test_reorder_external_tasks(
     await asyncio.sleep(TODOIST_SETTLE)
 
     new_order = list(reversed(uids))
+    expected_titles = list(reversed(titles_in_order))
+
     result = await ws_client.send_command(
         "home_tasks/reorder_external_tasks",
         entity_id=todoist_entity,
         task_uids=new_order,
     )
-    assert result["provider_handled"] is True
-    await asyncio.sleep(TODOIST_SETTLE)
+    assert result["provider_handled"] is True, (
+        "Todoist reorder was NOT handled by the provider adapter — "
+        "the card's overlay fallback took over.  Todoist itself still "
+        "has the old order.  Check TodoistAdapter.async_reorder_tasks."
+    )
+    # Todoist sync is asynchronous — allow a beat for child_order to propagate.
+    await asyncio.sleep(TODOIST_SETTLE * 2)
 
-    # Verify the new order is reflected in get_external_tasks
+    # --- View 1: our merged view ---
     result = await ws_client.send_command(
         "home_tasks/get_external_tasks", entity_id=todoist_entity,
     )
-    # Filter to our 3 test tasks and sort by sort_order
     our_tasks = [t for t in result["tasks"] if t["id"] in uids]
     ordered = sorted(our_tasks, key=lambda t: t["sort_order"])
     assert [t["id"] for t in ordered] == new_order
+
+    # --- View 2: provider's own view via todo.get_items ---
+    # TodoistAdapter writes directly to Todoist's REST API, so HA's
+    # Todoist integration entity lags until its next poll.  Force-refresh
+    # before reading so the get_items call reflects what Todoist currently
+    # holds rather than HA's cached snapshot.
+    provider_items = await ws_client.get_provider_items(
+        todoist_entity, refresh_first=True,
+    )
+    provider_titles = [
+        i["summary"] for i in provider_items if i["uid"] in uids
+    ]
+    assert provider_titles == expected_titles, (
+        f"Todoist provider still reports order {provider_titles}, expected "
+        f"{expected_titles}.  The reorder did NOT reach Todoist."
+    )

@@ -182,12 +182,17 @@ async def test_priority_persists_via_overlay(
 async def test_reorder_external_tasks(
     ws_client: HAWebSocketClient, google_entity: str
 ) -> None:
-    """reorder_external_tasks persists the new order via todo.move_item.
+    """reorder_external_tasks must push the new order to Google Tasks itself.
 
-    Google Tasks supports MOVE_TODO_ITEM (feature bit 8), so
-    GenericAdapter.async_reorder_tasks() calls todo.move_item for each task
-    with blocking=True.  The next get_external_tasks must reflect the
-    new order from the entity's updated todo_items.
+    This is the dual-view test that would have caught the original bug:
+    we verify BOTH our merged get_external_tasks view AND the provider-native
+    todo.get_items view.  If the Google Tasks API never received the change,
+    todo.get_items still returns the old order — so if both views agree on
+    the new order, the reorder really reached Google.
+
+    Google Tasks reports MOVE_TODO_ITEM (feature bit 8), so the reorder must
+    be marked provider_handled=True and go through the direct entity path
+    (GenericAdapter calls TodoListEntity.async_move_todo_item).
     """
     # Create 3 tasks (GenericAdapter returns uid=None; fetch real UIDs afterwards)
     titles_in_order = ["Reorder A", "Reorder B", "Reorder C"]
@@ -205,22 +210,42 @@ async def test_reorder_external_tasks(
 
     # Reorder: C, A, B
     new_order = [uids[2], uids[0], uids[1]]
-    await ws_client.send_command(
+    expected_titles = ["Reorder C", "Reorder A", "Reorder B"]
+
+    result = await ws_client.send_command(
         "home_tasks/reorder_external_tasks",
         entity_id=google_entity,
         task_uids=new_order,
     )
-    # Note: provider_handled may be False on HA 2026.4.2 because todo.move_item
-    # is not registered despite MOVE_TODO_ITEM in supported_features.  The overlay
-    # fallback still gives us the correct order, which is what we verify below.
+    # Provider MUST have handled the reorder natively.  If this asserts
+    # False, our code fell back to overlay and Google Tasks does NOT have
+    # the new order — exactly the silent bug we're guarding against.
+    assert result["provider_handled"] is True, (
+        "Google Tasks reorder was NOT pushed to the provider — "
+        "home_tasks used its overlay fallback.  Google itself still has "
+        "the old order.  Check provider_adapters.GenericAdapter.async_reorder_tasks."
+    )
     await asyncio.sleep(SETTLE)
 
-    # Verify the new order is reflected in get_external_tasks
+    # --- View 1: our merged view ---
     tasks = await _refetch(ws_client, google_entity)
-    # Filter to our 3 test tasks and sort by sort_order
     our_tasks = [t for t in tasks if t["id"] in uids]
     ordered = sorted(our_tasks, key=lambda t: t["sort_order"])
-    assert [t["title"] for t in ordered] == ["Reorder C", "Reorder A", "Reorder B"]
+    assert [t["title"] for t in ordered] == expected_titles
+
+    # --- View 2: provider's own view via todo.get_items ---
+    # This bypasses our overlay entirely and returns what Google Tasks
+    # itself told HA.  Must match the expected order too, otherwise the
+    # reorder reached only our overlay and not Google.
+    provider_items = await ws_client.get_provider_items(google_entity)
+    provider_titles = [
+        i["summary"] for i in provider_items if i["uid"] in uids
+    ]
+    assert provider_titles == expected_titles, (
+        f"Google Tasks provider still reports order {provider_titles}, "
+        f"expected {expected_titles}.  The reorder landed in our overlay "
+        "but was NOT pushed to Google."
+    )
 
 
 async def test_tags_persist_via_overlay(

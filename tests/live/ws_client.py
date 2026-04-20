@@ -91,6 +91,7 @@ class HAWebSocketClient:
         service: str,
         service_data: dict | None = None,
         *,
+        target: dict | None = None,
         return_response: bool = False,
     ) -> Any:
         """Convenience: call a HA service via the WS API.
@@ -103,6 +104,8 @@ class HAWebSocketClient:
             "service": service,
             "service_data": service_data or {},
         }
+        if target is not None:
+            kwargs["target"] = target
         if return_response:
             kwargs["return_response"] = True
         return await self.send_command("call_service", **kwargs)
@@ -110,3 +113,52 @@ class HAWebSocketClient:
     async def get_states(self) -> list[dict]:
         """Convenience: fetch all entity states."""
         return await self.send_command("get_states")
+
+    async def refresh_entity(self, entity_id: str) -> None:
+        """Force HA to re-fetch an entity's state from its underlying provider.
+
+        Rich adapters (e.g. TodoistAdapter) talk to their provider's REST
+        API directly, bypassing HA's own integration entity.  HA's entity
+        therefore only learns about changes on its own polling cadence.
+        Tests that want to see the provider's view right after a rich
+        adapter wrote to it should call this first.
+        """
+        await self.call_service(
+            "homeassistant", "update_entity",
+            {"entity_id": entity_id},
+        )
+
+    async def get_provider_items(
+        self,
+        entity_id: str,
+        *,
+        status: str | None = None,
+        refresh_first: bool = False,
+    ) -> list[dict]:
+        """Return the provider's own view of items on a todo entity.
+
+        Calls HA's native ``todo.get_items`` service so we see what the
+        provider (Google Tasks, Todoist, CalDAV, ...) actually reports —
+        bypassing our overlay merge entirely.  This is how live tests
+        verify that a reorder really reached the external system, rather
+        than only landing in our local overlay.
+
+        Pass refresh_first=True for rich-adapter providers (Todoist) whose
+        integration entity lags behind direct API writes.
+        """
+        if refresh_first:
+            await self.refresh_entity(entity_id)
+            # give HA's coordinator a beat to finish the refresh
+            await asyncio.sleep(2)
+
+        service_data: dict[str, Any] = {}
+        if status is not None:
+            service_data["status"] = status
+        result = await self.call_service(
+            "todo", "get_items",
+            service_data,
+            target={"entity_id": entity_id},
+            return_response=True,
+        )
+        response = result.get("response") or result.get("service_response") or {}
+        return response.get(entity_id, {}).get("items", [])
