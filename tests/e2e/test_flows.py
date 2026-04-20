@@ -280,16 +280,72 @@ async def test_reorder_external_tasks_generic_adapter_move_flow(
     assert titles == ["Gamma", "Alpha", "Beta"]
 
 
+async def test_reorder_external_tasks_move_fails_overlay_wins_flow(
+    hass: HomeAssistant,
+    hass_ws_client,
+    external_entry: MockConfigEntry,
+) -> None:
+    """MOVE_TODO_ITEM supported but todo.move_item fails → overlay order persists on get.
+
+    This is the direct E2E regression test for the original Google Tasks bug:
+      1. supported_features=8  (MOVE_TODO_ITEM set)  → provider_owns_order=True
+      2. todo.move_item service not available → GenericAdapter returns False
+      3. ws_reorder_external_tasks writes sort_order to overlay (fallback)
+      4. ws_get_external_tasks with features & 8 = True must STILL use overlay
+
+    With the old broken code (provider_owns_order=True always used idx) this
+    test would FAIL — the returned order would be the original provider order.
+
+    Note: the existing overlay_fallback and adapter_declines tests both use
+    supported_features=0, so provider_owns_order=False — they would have passed
+    even with the old broken code and don't catch this specific regression.
+    """
+    from custom_components.home_tasks.provider_adapters import GenericAdapter
+
+    entity_id = "todo.e2e_external"
+
+    mock_entity = MagicMock()
+    mock_entity.todo_items = [
+        MagicMock(uid="t1", summary="Alpha",
+                  status=MagicMock(value="needs_action"), due=None, description=None),
+        MagicMock(uid="t2", summary="Beta",
+                  status=MagicMock(value="needs_action"), due=None, description=None),
+        MagicMock(uid="t3", summary="Gamma",
+                  status=MagicMock(value="needs_action"), due=None, description=None),
+    ]
+    mock_comp = MagicMock()
+    mock_comp.get_entity.return_value = mock_entity
+    mock_comp.async_unload_entry = AsyncMock(return_value=True)
+    mock_comp.async_setup_entry = AsyncMock(return_value=True)
+    hass.data["todo"] = mock_comp
+    # supported_features=8: GenericAdapter tries todo.move_item, but no handler
+    # is registered → ServiceNotFound → returns False → overlay fallback
+    hass.states.async_set(entity_id, "0", {"supported_features": 8})
+
+    ws = await _ws(hass, hass_ws_client)
+
+    result = await _cmd(ws, 1, "home_tasks/reorder_external_tasks",
+                        entity_id=entity_id, task_uids=["t3", "t1", "t2"])
+    assert result.get("provider_handled") is False  # move failed → overlay used
+
+    # Despite features & 8 = True (provider_owns_order), overlay must win
+    ws2 = await _ws(hass, hass_ws_client)
+    result = await _cmd(ws2, 2, "home_tasks/get_external_tasks", entity_id=entity_id)
+    titles = [t["title"] for t in sorted(result["tasks"], key=lambda t: t["sort_order"])]
+    assert titles == ["Gamma", "Alpha", "Beta"]
+
+
 async def test_reorder_external_tasks_adapter_declines_falls_back_to_overlay(
     hass: HomeAssistant,
     hass_ws_client,
     external_entry: MockConfigEntry,
 ) -> None:
-    """When adapter returns False, overlay fallback keeps the correct order on get.
+    """When a registered adapter explicitly returns False, overlay keeps the order.
 
-    This tests the defensive path: even when the adapter declines to reorder,
-    the overlay stores the user's intended order, and get_external_tasks
-    returns it correctly.
+    Complementary to test_reorder_external_tasks_move_fails_overlay_wins_flow:
+    here the adapter is a GenericAdapter subclass that declines rather than a
+    missing service.  supported_features=0 so this doesn't exercise the
+    provider_owns_order=True path — that's covered by the _move_fails_ test above.
     """
     from custom_components.home_tasks.provider_adapters import GenericAdapter
 
@@ -485,3 +541,113 @@ async def test_sub_task_crud_flow(
     parent = next(t for t in result["tasks"] if t["id"] == task_id)
     assert len(parent["sub_items"]) == 1
     assert parent["sub_items"][0]["title"] == "Sub A"
+
+
+# ---------------------------------------------------------------------------
+# External task CRUD + overlay field flows
+# ---------------------------------------------------------------------------
+
+
+def _setup_mock_external_entity(hass, entity_id: str, supported_features: int = 0):
+    """Register a writable mock todo entity for external task tests.
+
+    Returns (mock_entity, uid_store) where uid_store is a list that
+    capture_create_uid() appends to when create_external_task is called.
+    """
+    mock_entity = MagicMock()
+    mock_entity.todo_items = []
+
+    mock_comp = MagicMock()
+    mock_comp.get_entity.return_value = mock_entity
+    mock_comp.async_unload_entry = AsyncMock(return_value=True)
+    mock_comp.async_setup_entry = AsyncMock(return_value=True)
+    hass.data["todo"] = mock_comp
+    hass.states.async_set(entity_id, "0", {"supported_features": supported_features})
+    return mock_entity
+
+
+async def test_create_external_task_appears_in_get_flow(
+    hass: HomeAssistant,
+    hass_ws_client,
+    external_entry: MockConfigEntry,
+) -> None:
+    """create_external_task → get_external_tasks returns the new task.
+
+    Catches bugs in the create→get round-trip: wrong field mapping, missing
+    UID propagation, or _merge_tasks_with_overlays discarding new tasks.
+    """
+    entity_id = "todo.e2e_external"
+    mock_entity = _setup_mock_external_entity(hass, entity_id)
+
+    # Simulate HA adding the item to the entity when todo.add_item is called
+    from homeassistant.core import ServiceCall
+
+    async def handle_add_item(call: ServiceCall) -> None:
+        mock_entity.todo_items = [
+            MagicMock(uid="new-uid-1", summary=call.data["item"],
+                      status=MagicMock(value="needs_action"), due=None, description=None),
+        ]
+
+    hass.services.async_register("todo", "add_item", handle_add_item)
+
+    ws = await _ws(hass, hass_ws_client)
+    result = await _cmd(ws, 1, "home_tasks/create_external_task",
+                        entity_id=entity_id, title="External smoke")
+    # create_external_task returns {"uid": ...} or {}; UID may be None for generic
+    # The important thing is it doesn't error
+
+    # After create, entity has the new item — get must return it
+    result = await _cmd(ws, 2, "home_tasks/get_external_tasks", entity_id=entity_id)
+    assert any(t["title"] == "External smoke" for t in result["tasks"])
+
+
+async def test_external_overlay_fields_persist_through_get_flow(
+    hass: HomeAssistant,
+    hass_ws_client,
+    external_entry: MockConfigEntry,
+) -> None:
+    """update_external_task with overlay fields → get_external_tasks returns them.
+
+    Overlay fields (priority, tags, due_time) are not synced to the provider —
+    they live only in the overlay store.  This test verifies that
+    _merge_tasks_with_overlays correctly injects them into the get response.
+
+    Catches bugs where the overlay merge silently drops fields, or where
+    a code change to _merge_tasks_with_overlays breaks field propagation
+    while all reorder tests remain green (since they don't check these fields).
+    """
+    entity_id = "todo.e2e_external"
+    mock_entity = _setup_mock_external_entity(hass, entity_id)
+    mock_entity.todo_items = [
+        MagicMock(uid="overlay-task", summary="Overlay Test",
+                  status=MagicMock(value="needs_action"), due=None, description=None),
+    ]
+
+    ws = await _ws(hass, hass_ws_client)
+
+    # Verify task is present before overlay
+    result = await _cmd(ws, 1, "home_tasks/get_external_tasks", entity_id=entity_id)
+    task = next(t for t in result["tasks"] if t["id"] == "overlay-task")
+    assert task["priority"] is None
+    assert task["tags"] == []
+
+    # Set overlay fields via update_external_task
+    await _cmd(ws, 2, "home_tasks/update_external_task",
+               entity_id=entity_id, task_uid="overlay-task",
+               priority=1, tags=["urgent", "e2e"])
+
+    # get must return the overlay fields merged into the task
+    result = await _cmd(ws, 3, "home_tasks/get_external_tasks", entity_id=entity_id)
+    task = next(t for t in result["tasks"] if t["id"] == "overlay-task")
+    assert task["priority"] == 1
+    assert sorted(task["tags"]) == ["e2e", "urgent"]
+
+    # Update again: change priority, add a tag → previous values replaced
+    await _cmd(ws, 4, "home_tasks/update_external_task",
+               entity_id=entity_id, task_uid="overlay-task",
+               priority=3, tags=["urgent", "e2e", "new-tag"])
+
+    result = await _cmd(ws, 5, "home_tasks/get_external_tasks", entity_id=entity_id)
+    task = next(t for t in result["tasks"] if t["id"] == "overlay-task")
+    assert task["priority"] == 3
+    assert sorted(task["tags"]) == ["e2e", "new-tag", "urgent"]
