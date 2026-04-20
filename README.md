@@ -3,7 +3,7 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
 [![Validate](https://github.com/L3t4l3s/home-tasks/actions/workflows/validate.yaml/badge.svg)](https://github.com/L3t4l3s/home-tasks/actions/workflows/validate.yaml)
 
-A feature-rich, highly customizable task management solution for Home Assistant — combining a native **integration** (sensors, events, services) with a versatile Lovelace **dashboard card**. Supports linking **external todo lists** from CalDAV, Google Tasks, Todoist, and other providers.
+A feature-rich, highly customizable task management solution for Home Assistant — combining a native **integration** (sensors, calendar, events, services) with a versatile Lovelace **dashboard card**. Supports linking **external todo lists** from CalDAV, Google Tasks, Todoist, Bring, Local Todo, and other providers.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/L3t4l3s/home-tasks/main/docs/header-light.png" width="400" alt="Home Tasks in light mode">
@@ -51,8 +51,12 @@ Display tasks from **any HA todo integration** alongside native Home Tasks lists
 | **CalDAV** (Nextcloud, etc.) | [CalDAV](https://www.home-assistant.io/integrations/caldav/) (Core) | yes | yes | yes | no | no | no | no | no | no | no | |
 | **Google Tasks** | [Google Tasks](https://www.home-assistant.io/integrations/google_tasks/) (Core) | yes | no | yes | yes | no | no | no | no | no | no | Google's API does not expose due times or recurrence ([open issue](https://issuetracker.google.com/issues/36759725)) |
 | **Todoist** | [Todoist](https://www.home-assistant.io/integrations/todoist/) (Core) | yes | yes | yes | yes | yes | yes | yes | no | yes | yes | Full bidirectional sync via direct Todoist API |
+| **Local Todo** | [Local Todo](https://www.home-assistant.io/integrations/local_todo/) (Core) | yes | no | yes | no | no | no | no | no | no | no | Simple file-based lists built into HA |
+| **Bring** | [Bring](https://www.home-assistant.io/integrations/bring/) (Core) | no | no | no | no | no | no | no | no | no | no | Shopping list provider — all extra fields via overlay |
 
 Any other integration that creates `todo.*` entities following HA's standard `TodoListEntity` should also work. Fields marked "no" are available locally in Home Tasks but not synced to the provider.
+
+Tasks can be **moved between native and external lists** via drag & drop on multi-column cards. Fields that the target provider cannot sync are preserved in the local overlay.
 
 #### Todoist Deep Integration
 
@@ -79,7 +83,7 @@ Home Tasks uses its **own lightweight REST API client** (no dependency on `todoi
 - **Cross-list drag & drop** — move tasks between columns (multi-column cards only)
 - **Click anywhere** to expand / collapse task details
 - **Double-click title** to rename inline
-- **Filter** per column — All / Open / Done
+- **Filter** per column — All / Open / Done, plus optional **Due Soon** filter (shows tasks due within a configurable number of days)
 - **Sort** per column — manual, due date, priority, title, assigned person
 - **Tag & person filter chips** in the column header
 - **Compact mode** for denser task rows
@@ -92,6 +96,8 @@ Home Tasks uses its **own lightweight REST API client** (no dependency on `todoi
 - **7 automation events**: created, completed, reopened, due, overdue, assigned, reminder
 - **Services**: add, complete, reopen, and assign tasks from automations
 - **Sensors**: open task count + overdue binary sensor per list
+- **Calendar**: each native list gets a `calendar.*` entity — tasks with due dates appear as all-day or timed events, usable in any HA calendar card or automation
+- **Todo entity**: each native list is exposed as a standard `todo.*` entity with full HA todo platform support (Companion App, Apple Watch, etc.)
 - **Multiple lists** via separate integration config entries
 
 ### Languages
@@ -155,7 +161,7 @@ All options are available in the visual card editor. The examples below cover th
 | `entity_id` | — | An external todo entity to display (use this **or** `list_id`) |
 | `title` | List name | Custom column title |
 | `icon` | — | MDI icon shown next to the column title (e.g. `mdi:home`) |
-| `default_filter` | `all` | Initial filter: `all`, `open`, or `done` |
+| `default_filter` | `all` | Initial filter: `all`, `open`, `done`, or `due_soon` |
 | `default_sort` | `manual` | Initial sort: `manual`, `due`, `priority`, `title`, or `person` |
 | `show_title` | `true` | Show/hide the column title |
 | `show_progress` | `true` | Show/hide the task progress counter |
@@ -170,6 +176,9 @@ All options are available in the visual card editor. The examples below cover th
 | `show_recurrence` | `true` | Show/hide recurrence settings |
 | `compact` | `false` | Compact mode for denser task rows |
 | `auto_delete_completed` | `false` | Automatically delete completed tasks |
+| `show_history` | `false` | Show/hide the task change history |
+| `show_due_soon_filter` | `false` | Enable the "Due Soon" filter button |
+| `due_soon_days` | `7` | Number of days ahead for the "Due Soon" filter (1–90) |
 
 The old flat format (`list_id` at root level) is still supported and migrated automatically.
 
@@ -404,10 +413,12 @@ Target by single task, person, tag, or a combination.
 
 *\* Either `list_name` or `entry_id`. \*\* See individual service descriptions for required combinations.*
 
-### Sensors
+### Entities
 
-For each list, the integration creates:
+For each native list, the integration creates:
 
+- **Todo** (`todo.{list_name}`): Standard HA todo entity — works with the Companion App, Apple Watch, Google Home, and any HA automation that targets `todo.*` entities.
+- **Calendar** (`calendar.{list_name}_calendar`): Tasks with a due date appear as calendar events. Tasks with only a due date show as all-day events; tasks with both due date and due time show as 1-hour timed events with a rich description (notes, priority, assignee, tags, sub-task progress, reminders).
 - **Sensor** (`sensor.{list_name}_open_tasks`): Number of open tasks. Attributes: `open_task_titles`, `overdue_count`.
 - **Binary Sensor** (`binary_sensor.{list_name}_overdue`): `on` if any task is past its due date.
 

@@ -14,6 +14,9 @@ const _TRANSLATIONS = {
     filter_all: "All",
     filter_open: "Open",
     filter_done: "Done",
+    filter_due_soon: "Due Soon",
+    ed_show_due_soon_filter: "Due soon filter",
+    ed_due_soon_days: "Days ahead",
     progress: "{0} of {1} done",
     empty: "No tasks",
     drag_handle: "Drag to reorder",
@@ -109,7 +112,8 @@ const _TRANSLATIONS = {
   nl: {
     my_tasks: "Mijn taken",
     add_placeholder: "Nieuwe taak toevoegen...",
-    filter_all: "Alle", filter_open: "Open", filter_done: "Klaar",
+    filter_all: "Alle", filter_open: "Open", filter_done: "Klaar", filter_due_soon: "Binnenkort",
+    ed_show_due_soon_filter: "Binnenkort-filter", ed_due_soon_days: "Dagen vooruit",
     progress: "{0} van {1} klaar",
     empty: "Geen taken",
     drag_handle: "Slepen om te herordenen",
@@ -163,7 +167,8 @@ const _TRANSLATIONS = {
   it: {
     my_tasks: "Le mie attivit\u00e0",
     add_placeholder: "Aggiungi nuova attivit\u00e0...",
-    filter_all: "Tutte", filter_open: "Aperte", filter_done: "Completate",
+    filter_all: "Tutte", filter_open: "Aperte", filter_done: "Completate", filter_due_soon: "In scadenza",
+    ed_show_due_soon_filter: "Filtro in scadenza", ed_due_soon_days: "Giorni avanti",
     progress: "{0} di {1} completate",
     empty: "Nessuna attivit\u00e0",
     drag_handle: "Trascina per riordinare",
@@ -217,7 +222,8 @@ const _TRANSLATIONS = {
   pl: {
     my_tasks: "Moje zadania",
     add_placeholder: "Dodaj nowe zadanie...",
-    filter_all: "Wszystkie", filter_open: "Otwarte", filter_done: "Uko\u0144czone",
+    filter_all: "Wszystkie", filter_open: "Otwarte", filter_done: "Uko\u0144czone", filter_due_soon: "Wkr\u00f3tce",
+    ed_show_due_soon_filter: "Filtr wkr\u00f3tce", ed_due_soon_days: "Dni naprz\u00f3d",
     progress: "{0} z {1} uko\u0144czono",
     empty: "Brak zada\u0144",
     drag_handle: "Przeci\u0105gnij, aby zmieni\u0107 kolejno\u015b\u0107",
@@ -271,7 +277,8 @@ const _TRANSLATIONS = {
   sv: {
     my_tasks: "Mina uppgifter",
     add_placeholder: "L\u00e4gg till ny uppgift...",
-    filter_all: "Alla", filter_open: "\u00d6ppna", filter_done: "Klara",
+    filter_all: "Alla", filter_open: "\u00d6ppna", filter_done: "Klara", filter_due_soon: "Snart",
+    ed_show_due_soon_filter: "Snart-filter", ed_due_soon_days: "Dagar fram\u00e5t",
     progress: "{0} av {1} klara",
     empty: "Inga uppgifter",
     drag_handle: "Dra f\u00f6r att \u00e4ndra ordning",
@@ -325,7 +332,8 @@ const _TRANSLATIONS = {
   fr: {
     my_tasks: "Mes t\u00e2ches",
     add_placeholder: "Ajouter une nouvelle t\u00e2che...",
-    filter_all: "Toutes", filter_open: "Ouvertes", filter_done: "Termin\u00e9es",
+    filter_all: "Toutes", filter_open: "Ouvertes", filter_done: "Termin\u00e9es", filter_due_soon: "Bient\u00f4t",
+    ed_show_due_soon_filter: "Filtre bient\u00f4t", ed_due_soon_days: "Jours \u00e0 venir",
     progress: "{0} sur {1} termin\u00e9es",
     empty: "Aucune t\u00e2che",
     drag_handle: "Glisser pour r\u00e9organiser",
@@ -379,7 +387,8 @@ const _TRANSLATIONS = {
   pt: {
     my_tasks: "Minhas tarefas",
     add_placeholder: "Adicionar nova tarefa...",
-    filter_all: "Todas", filter_open: "Abertas", filter_done: "Conclu\u00eddas",
+    filter_all: "Todas", filter_open: "Abertas", filter_done: "Conclu\u00eddas", filter_due_soon: "Em breve",
+    ed_show_due_soon_filter: "Filtro em breve", ed_due_soon_days: "Dias \u00e0 frente",
     progress: "{0} de {1} conclu\u00eddas",
     empty: "Nenhuma tarefa",
     drag_handle: "Arrastar para reordenar",
@@ -433,7 +442,8 @@ const _TRANSLATIONS = {
   es: {
     my_tasks: "Mis tareas",
     add_placeholder: "A\u00f1adir nueva tarea...",
-    filter_all: "Todas", filter_open: "Abiertas", filter_done: "Completadas",
+    filter_all: "Todas", filter_open: "Abiertas", filter_done: "Completadas", filter_due_soon: "Pr\u00f3ximamente",
+    ed_show_due_soon_filter: "Filtro pr\u00f3ximo", ed_due_soon_days: "D\u00edas adelante",
     progress: "{0} de {1} completadas",
     empty: "Sin tareas",
     drag_handle: "Arrastrar para reordenar",
@@ -487,7 +497,8 @@ const _TRANSLATIONS = {
   ru: {
     my_tasks: "\u041c\u043e\u0438 \u0437\u0430\u0434\u0430\u0447\u0438",
     add_placeholder: "\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u043d\u043e\u0432\u0443\u044e \u0437\u0430\u0434\u0430\u0447\u0443...",
-    filter_all: "\u0412\u0441\u0435", filter_open: "\u041e\u0442\u043a\u0440\u044b\u0442\u044b\u0435", filter_done: "\u0412\u044b\u043f\u043e\u043b\u043d\u0435\u043d\u043d\u044b\u0435",
+    filter_all: "\u0412\u0441\u0435", filter_open: "\u041e\u0442\u043a\u0440\u044b\u0442\u044b\u0435", filter_done: "\u0412\u044b\u043f\u043e\u043b\u043d\u0435\u043d\u043d\u044b\u0435", filter_due_soon: "\u0421\u043a\u043e\u0440\u043e",
+    ed_show_due_soon_filter: "\u0424\u0438\u043b\u044c\u0442\u0440 \u0441\u043a\u043e\u0440\u043e", ed_due_soon_days: "\u0414\u043d\u0435\u0439 \u0432\u043f\u0435\u0440\u0451\u0434",
     progress: "{0} \u0438\u0437 {1} \u0432\u044b\u043f\u043e\u043b\u043d\u0435\u043d\u043e",
     empty: "\u041d\u0435\u0442 \u0437\u0430\u0434\u0430\u0447",
     drag_handle: "\u041f\u0435\u0440\u0435\u0442\u0430\u0449\u0438\u0442\u044c \u0434\u043b\u044f \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u044f \u043f\u043e\u0440\u044f\u0434\u043a\u0430",
@@ -541,7 +552,8 @@ const _TRANSLATIONS = {
   cs: {
     my_tasks: "Moje \u00fakoly",
     add_placeholder: "P\u0159idat nov\u00fd \u00fakol...",
-    filter_all: "V\u0161e", filter_open: "Otev\u0159en\u00e9", filter_done: "Dokon\u010den\u00e9",
+    filter_all: "V\u0161e", filter_open: "Otev\u0159en\u00e9", filter_done: "Dokon\u010den\u00e9", filter_due_soon: "Brzy",
+    ed_show_due_soon_filter: "Filtr brzy", ed_due_soon_days: "Dn\u016f dop\u0159edu",
     progress: "{0} z {1} dokon\u010deno",
     empty: "\u017d\u00e1dn\u00e9 \u00fakoly",
     drag_handle: "P\u0159et\u00e1hnout pro zm\u011bnu po\u0159ad\u00ed",
@@ -595,7 +607,8 @@ const _TRANSLATIONS = {
   da: {
     my_tasks: "Mine opgaver",
     add_placeholder: "Tilf\u00f8j ny opgave...",
-    filter_all: "Alle", filter_open: "\u00c5bne", filter_done: "F\u00e6rdige",
+    filter_all: "Alle", filter_open: "\u00c5bne", filter_done: "F\u00e6rdige", filter_due_soon: "Snart",
+    ed_show_due_soon_filter: "Snart-filter", ed_due_soon_days: "Dage frem",
     progress: "{0} af {1} f\u00e6rdige",
     empty: "Ingen opgaver",
     drag_handle: "Tr\u00e6k for at sortere",
@@ -649,7 +662,8 @@ const _TRANSLATIONS = {
   no: {
     my_tasks: "Mine oppgaver",
     add_placeholder: "Legg til ny oppgave...",
-    filter_all: "Alle", filter_open: "\u00c5pne", filter_done: "Ferdige",
+    filter_all: "Alle", filter_open: "\u00c5pne", filter_done: "Ferdige", filter_due_soon: "Snart",
+    ed_show_due_soon_filter: "Snart-filter", ed_due_soon_days: "Dager fremover",
     progress: "{0} av {1} ferdige",
     empty: "Ingen oppgaver",
     drag_handle: "Dra for \u00e5 endre rekkefl\u00f8lge",
@@ -703,7 +717,8 @@ const _TRANSLATIONS = {
   fi: {
     my_tasks: "Omat teht\u00e4v\u00e4t",
     add_placeholder: "Lis\u00e4\u00e4 uusi teht\u00e4v\u00e4...",
-    filter_all: "Kaikki", filter_open: "Avoimet", filter_done: "Valmiit",
+    filter_all: "Kaikki", filter_open: "Avoimet", filter_done: "Valmiit", filter_due_soon: "Pian",
+    ed_show_due_soon_filter: "Pian-suodatin", ed_due_soon_days: "P\u00e4ivi\u00e4 eteenp\u00e4in",
     progress: "{0} / {1} valmis",
     empty: "Ei teht\u00e4vi\u00e4",
     drag_handle: "Vet\u00e4\u00e4 j\u00e4rjest\u00e4\u00e4ksesi",
@@ -757,7 +772,8 @@ const _TRANSLATIONS = {
   hu: {
     my_tasks: "Feladataim",
     add_placeholder: "\u00daj feladat hozz\u00e1ad\u00e1sa...",
-    filter_all: "\u00d6sszes", filter_open: "Nyitott", filter_done: "K\u00e9sz",
+    filter_all: "\u00d6sszes", filter_open: "Nyitott", filter_done: "K\u00e9sz", filter_due_soon: "Hamarosan",
+    ed_show_due_soon_filter: "Hamarosan sz\u0171r\u0151", ed_due_soon_days: "Napok el\u0151re",
     progress: "{0} / {1} k\u00e9sz",
     empty: "Nincsenek feladatok",
     drag_handle: "H\u00fazza az \u00e1trendez\u00e9shez",
@@ -814,6 +830,9 @@ const _TRANSLATIONS = {
     filter_all: "Alle",
     filter_open: "Offen",
     filter_done: "Erledigt",
+    filter_due_soon: "Bald f\u00e4llig",
+    ed_show_due_soon_filter: "Bald-f\u00e4llig-Filter",
+    ed_due_soon_days: "Tage voraus",
     progress: "{0} von {1} erledigt",
     empty: "Keine Aufgaben vorhanden",
     drag_handle: "Verschieben",
@@ -1010,6 +1029,9 @@ class HomeTasksCard extends HTMLElement {
       const colSourceChanged = col.list_id !== prevCol?.list_id || col.entity_id !== prevCol?.entity_id;
       if (colSourceChanged || col.default_filter !== prevCol?.default_filter) {
         this._columns[i].filter = col.default_filter || "all";
+        if (this._columns[i].filter === "due_soon" && col.show_due_soon_filter !== true) {
+          this._columns[i].filter = "all";
+        }
         this._columns[i].tagFilters = new Set();
         this._columns[i].personFilters = new Set();
       }
@@ -1658,6 +1680,15 @@ class HomeTasksCard extends HTMLElement {
       case "done":
         tasks = cs.tasks.filter((t) => t.completed);
         break;
+      case "due_soon": {
+        const col = this._config.columns[colIdx];
+        const days = col.due_soon_days ?? 7;
+        tasks = cs.tasks.filter((t) =>
+          !t.completed && t.due_date &&
+          (this._isDueDateOverdue(t.due_date) || this._isDueDateWithinDays(t.due_date, days))
+        );
+        break;
+      }
       default:
         tasks = cs.tasks;
     }
@@ -1838,6 +1869,19 @@ class HomeTasksCard extends HTMLElement {
       String(now.getMonth() + 1).padStart(2, "0") + "-" +
       String(now.getDate()).padStart(2, "0");
     return dueDate === localToday;
+  }
+
+  _isDueDateWithinDays(dueDate, days) {
+    if (!dueDate) return false;
+    const [y, m, d] = dueDate.split("-").map(Number);
+    if (!y || !m || !d) return false;
+    const due = new Date(y, m - 1, d);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const future = new Date(today);
+    future.setDate(future.getDate() + days);
+    future.setHours(23, 59, 59, 999);
+    return due >= today && due <= future;
   }
 
   _formatDueDate(dueDate, dueTime) {
@@ -2186,6 +2230,12 @@ class HomeTasksCard extends HTMLElement {
         this._buildFilterBtn(this._t("filter_open"), "open", colIdx),
         this._buildFilterBtn(this._t("filter_done"), "done", colIdx),
       );
+      const col = this._config.columns[colIdx];
+      if (col.show_due_soon_filter === true) {
+        children.push(
+          this._buildFilterBtn(this._t("filter_due_soon"), "due_soon", colIdx),
+        );
+      }
       children.push(this._el("div", { className: "filter-spacer" }));
       if (sortBtnWrapper) children.push(sortBtnWrapper);
     } else if (sortBtnWrapper && !sortInTagRow && !sortInPersonRow) {
@@ -2770,7 +2820,7 @@ class HomeTasksCard extends HTMLElement {
     const recurrenceWeekdays = task.recurrence_weekdays || [];
     const recurrenceStartDate = task.recurrence_start_date || "";
     const recurrenceTime = task.recurrence_time || "00:00";
-    const recurrenceEndType = task.recurrence_end_type === "count" ? "count" : task.recurrence_end_type === "date" ? "date" : "none";
+    const recurrenceEndType = task.recurrence_end_type === "count" ? "count" : "date";
     const recurrenceEndDate = task.recurrence_end_date || "";
     const recurrenceMaxCount = task.recurrence_max_count ?? null;
     const recurrenceRemainingCount = task.recurrence_remaining_count ?? task.recurrence_max_count ?? null;
@@ -2891,7 +2941,7 @@ class HomeTasksCard extends HTMLElement {
     const providerSupportsCount = !this._isExternalCol(colIdx) || !caps || !caps.can_sync_recurrence;
 
     const recurrenceEndSelect = this._el("select", {});
-    const endOptions = [["none", "rec_end_never"], ["date", "rec_end_date"]];
+    const endOptions = [["date", "rec_end_date"]];
     if (providerSupportsCount) endOptions.push(["count", "rec_end_count"]);
     for (const [val, key] of endOptions) {
       const opt = this._el("option", { value: val, textContent: this._t(key) });
@@ -2988,7 +3038,7 @@ class HomeTasksCard extends HTMLElement {
     applyRowVisibility(recurrenceType, recurrenceUnit);
 
     const applyEndTypeVisibility = (endType) => {
-      recurrenceEndDateWrap.style.display = endType === "date" ? "" : "none";
+      recurrenceEndDateWrap.style.display = endType === "count" ? "none" : "";
       recurrenceCountRow.style.display = endType === "count" ? "" : "none";
     };
     applyEndTypeVisibility(recurrenceEndType);
@@ -3061,8 +3111,10 @@ class HomeTasksCard extends HTMLElement {
           recurrenceEndDateInput.value = minEnd;
         }
       }
+      // "date" with empty field = no end (equivalent to old "none" mode)
+      const effectiveEndType = (endType === "date" && !recurrenceEndDateInput.value) ? "none" : endType;
       _saveAndReload(this._updateTaskRouted(colIdx, task.id, {
-        recurrence_end_type: endType,
+        recurrence_end_type: effectiveEndType,
         recurrence_end_date: endType === "date" ? (recurrenceEndDateInput.value || null) : null,
         recurrence_max_count: endType === "count" ? (parseInt(recurrenceMaxCountInput.value) || null) : null,
       }));
@@ -4363,6 +4415,16 @@ class HomeTasksCardEditor extends HTMLElement {
       .hint { font-size: 12px; color: var(--secondary-text-color); font-style: italic; margin-top: 2px; }
       .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; min-height: 40px; }
       .toggle-label { font-size: 14px; color: var(--primary-text-color); }
+      .field-wrap { position: relative; width: 100%; }
+      .field-wrap input { width: 100%; box-sizing: border-box; padding: 20px 12px 6px; height: 48px; border: 1px solid var(--outline-color, var(--divider-color, rgba(255,255,255,0.12))); border-radius: 4px; background: var(--mdc-text-field-fill-color, var(--input-fill-color, transparent)); color: var(--primary-text-color); font-size: 0.875rem; font-family: inherit; outline: none; }
+      .field-wrap input:focus { border: 2px solid var(--primary-color); padding: 19px 11px 5px; }
+      .field-wrap input[type="number"] { padding-right: 28px; -moz-appearance: textfield; }
+      .field-wrap input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+      .field-wrap > span { position: absolute; top: 6px; left: 12px; font-size: 11px; font-weight: 400; color: var(--secondary-text-color); pointer-events: none; }
+      .field-wrap input:focus ~ span { color: var(--primary-color); }
+      .spin-btns { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; }
+      .spin-btn { background: none; border: none; padding: 2px 4px; cursor: pointer; color: var(--secondary-text-color); line-height: 1; font-size: 12px; }
+      .spin-btn:hover { color: var(--primary-color); }
       ha-yaml-editor { display: block; }
     `;
     root.appendChild(style);
@@ -4630,9 +4692,13 @@ class HomeTasksCardEditor extends HTMLElement {
     iconPicker.value = col.icon || "";
     iconPicker.addEventListener("value-changed", (e) => updateCol({ icon: e.detail.value || undefined }));
 
+    const filterOptions = [["all", "filter_all"], ["open", "filter_open"], ["done", "filter_done"]];
+    if (col.show_due_soon_filter === true) {
+      filterOptions.push(["due_soon", "filter_due_soon"]);
+    }
     const [filterLabel, filterSelect] = makeSelect(
       "ed_default_filter",
-      [["all", "filter_all"], ["open", "filter_open"], ["done", "filter_done"]],
+      filterOptions,
       col.default_filter || "all",
       (val) => { if (val !== (col.default_filter || "all")) updateCol({ default_filter: val }); }
     );
@@ -4737,7 +4803,52 @@ class HomeTasksCardEditor extends HTMLElement {
           makeToggle("auto-delete", "ed_auto_delete", "auto_delete_completed", false),
           makeToggle("show-sort", "ed_show_sort", "show_sort", true),
           makeToggle("compact", "ed_compact", "compact", false),
+          (() => {
+            const dueSoonChecked = col.show_due_soon_filter === true;
+            const sw = document.createElement("ha-switch");
+            sw.checked = dueSoonChecked;
+            sw.setAttribute("aria-label", this._t("ed_show_due_soon_filter"));
+            sw.addEventListener("change", () => {
+              const updates = { show_due_soon_filter: sw.checked };
+              if (!sw.checked && col.default_filter === "due_soon") {
+                updates.default_filter = "all";
+              }
+              updateCol(updates);
+              this._render();
+            });
+            return this._el("div", { className: "toggle-row" }, [
+              this._el("span", { className: "toggle-label", textContent: this._t("ed_show_due_soon_filter") }),
+              sw,
+            ]);
+          })(),
         ]),
+        ...(col.show_due_soon_filter === true ? [(() => {
+          const daysInput = this._el("input", { type: "number", value: col.due_soon_days ?? 7 });
+          daysInput.min = 1;
+          daysInput.max = 90;
+          daysInput.addEventListener("change", () => {
+            const v = Math.max(1, Math.min(90, parseInt(daysInput.value) || 7));
+            daysInput.value = v;
+            updateCol({ due_soon_days: v });
+          });
+          const spinUp = this._el("button", { className: "spin-btn spin-up", textContent: "\u25b4", type: "button" });
+          const spinDown = this._el("button", { className: "spin-btn spin-down", textContent: "\u25be", type: "button" });
+          spinUp.addEventListener("click", () => {
+            const v = Math.min(90, (parseInt(daysInput.value) || 7) + 1);
+            daysInput.value = v;
+            daysInput.dispatchEvent(new Event("change"));
+          });
+          spinDown.addEventListener("click", () => {
+            const v = Math.max(1, (parseInt(daysInput.value) || 7) - 1);
+            daysInput.value = v;
+            daysInput.dispatchEvent(new Event("change"));
+          });
+          return this._el("div", { className: "field-wrap inline" }, [
+            daysInput,
+            this._el("span", { textContent: this._t("ed_due_soon_days") }),
+            this._el("div", { className: "spin-btns" }, [spinUp, spinDown]),
+          ]);
+        })()] : []),
         this._el("div", { className: "field" }, [filterLabel, filterSelect]),
         this._el("div", { className: "field" }, [sortLabel, sortSelect]),
       ]),

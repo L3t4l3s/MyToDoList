@@ -611,3 +611,82 @@ describe('REGRESSION: draggable attribute toggles with expanded state', () => {
     assert.equal(taskEl.getAttribute('draggable'), 'true');
   });
 });
+
+
+// ---------------------------------------------------------------------------
+// Due soon filter
+// ---------------------------------------------------------------------------
+
+
+describe('due soon filter', () => {
+  const TASKS = [
+    { id: 'T1', title: 'Overdue',   due_date: '2027-06-10', completed: false, sort_order: 0, sub_items: [] },
+    { id: 'T2', title: 'Today',     due_date: '2027-06-15', completed: false, sort_order: 1, sub_items: [] },
+    { id: 'T3', title: 'In 3 days', due_date: '2027-06-18', completed: false, sort_order: 2, sub_items: [] },
+    { id: 'T4', title: 'In 10 days',due_date: '2027-06-25', completed: false, sort_order: 3, sub_items: [] },
+    { id: 'T5', title: 'No due',    due_date: null,         completed: false, sort_order: 4, sub_items: [] },
+    { id: 'T6', title: 'Done',      due_date: '2027-06-15', completed: true,  sort_order: 5, sub_items: [] },
+  ];
+
+  test('filter button hidden by default', async () => {
+    const { HomeTasksCard } = await loadCard({ force: true, frozenNow: '2027-06-15T12:00:00Z' });
+    const hass = makeRecordingHass({
+      'home_tasks/get_lists': { lists: [{ id: 'L1', name: 'Test' }] },
+      'home_tasks/get_tasks': { tasks: TASKS },
+    });
+    const card = new HomeTasksCard();
+    card.setConfig({ columns: [{ list_id: 'L1' }] });
+    card.hass = hass;
+    await flush(card);
+
+    const btns = [...card.shadowRoot.querySelectorAll('.filter-btn')];
+    const labels = btns.map(b => b.textContent);
+    assert.equal(labels.length, 3);
+    assert.ok(!labels.includes('Due Soon'));
+  });
+
+  test('filter button shown when show_due_soon_filter is true', async () => {
+    const { HomeTasksCard } = await loadCard({ force: true, frozenNow: '2027-06-15T12:00:00Z' });
+    const hass = makeRecordingHass({
+      'home_tasks/get_lists': { lists: [{ id: 'L1', name: 'Test' }] },
+      'home_tasks/get_tasks': { tasks: TASKS },
+    });
+    const card = new HomeTasksCard();
+    card.setConfig({ columns: [{ list_id: 'L1', show_due_soon_filter: true }] });
+    card.hass = hass;
+    await flush(card);
+
+    const btns = [...card.shadowRoot.querySelectorAll('.filter-btn')];
+    const labels = btns.map(b => b.textContent);
+    assert.equal(labels.length, 4);
+    assert.ok(labels.includes('Due Soon'));
+  });
+
+  test('due_soon filter shows only open tasks with due dates within range', async () => {
+    const { HomeTasksCard } = await loadCard({ force: true, frozenNow: '2027-06-15T12:00:00Z' });
+    const hass = makeRecordingHass({
+      'home_tasks/get_lists': { lists: [{ id: 'L1', name: 'Test' }] },
+      'home_tasks/get_tasks': { tasks: TASKS },
+    });
+    const card = new HomeTasksCard();
+    card.setConfig({ columns: [{ list_id: 'L1', show_due_soon_filter: true, due_soon_days: 7 }] });
+    card.hass = hass;
+    await flush(card);
+
+    // Set filter to due_soon
+    card._columns[0].filter = 'due_soon';
+    card._render();
+
+    const taskEls = [...card.shadowRoot.querySelectorAll('.task')];
+    const titles = taskEls.map(el => el.querySelector('.task-title')?.textContent?.trim());
+    // Should include: Overdue (past due), Today, In 3 days
+    // Should exclude: In 10 days (beyond 7 days), No due (no date), Done (completed)
+    assert.ok(titles.includes('Overdue'), 'overdue tasks should be included');
+    assert.ok(titles.includes('Today'), 'today tasks should be included');
+    assert.ok(titles.includes('In 3 days'), 'tasks within range should be included');
+    assert.ok(!titles.includes('In 10 days'), 'tasks beyond range should be excluded');
+    assert.ok(!titles.includes('No due'), 'tasks without due date should be excluded');
+    assert.ok(!titles.includes('Done'), 'completed tasks should be excluded');
+    assert.equal(taskEls.length, 3);
+  });
+});

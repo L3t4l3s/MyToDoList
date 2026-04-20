@@ -75,6 +75,40 @@ describe('_isDueDateToday', () => {
 });
 
 
+// With FROZEN_NOW = 2027-06-15, "within 7 days" means 2027-06-15 .. 2027-06-22.
+describe('_isDueDateWithinDays', () => {
+  test('returns false for empty input', async () => {
+    const card = await makeCard();
+    assert.equal(card._isDueDateWithinDays(null, 7), false);
+    assert.equal(card._isDueDateWithinDays('', 7), false);
+  });
+
+  test('returns true for today', async () => {
+    const card = await makeCard();
+    assert.equal(card._isDueDateWithinDays('2027-06-15', 0), true);
+    assert.equal(card._isDueDateWithinDays('2027-06-15', 7), true);
+  });
+
+  test('returns true for date within range', async () => {
+    const card = await makeCard();
+    assert.equal(card._isDueDateWithinDays('2027-06-18', 7), true);  // 3 days ahead
+    assert.equal(card._isDueDateWithinDays('2027-06-22', 7), true);  // exactly 7 days
+  });
+
+  test('returns false for date beyond range', async () => {
+    const card = await makeCard();
+    assert.equal(card._isDueDateWithinDays('2027-06-23', 7), false); // 8 days ahead
+    assert.equal(card._isDueDateWithinDays('2099-01-01', 7), false);
+  });
+
+  test('returns false for past dates', async () => {
+    const card = await makeCard();
+    assert.equal(card._isDueDateWithinDays('2027-06-14', 7), false); // yesterday
+    assert.equal(card._isDueDateWithinDays('2000-01-01', 7), false);
+  });
+});
+
+
 describe('_getSubTaskProgress', () => {
   test('returns null when there are no sub_items', async () => {
     const card = await makeCard();
