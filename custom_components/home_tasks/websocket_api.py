@@ -619,12 +619,17 @@ def _merge_tasks_with_overlays(
     for idx, item in enumerate(external_items):
         uid = item.get("uid") or ""
         overlay = overlays.get(uid, {})
-        # Always prefer an explicit overlay sort_order (set by ws_reorder_external_tasks)
-        # over the provider's index.  This guarantees that a user-initiated reorder in
-        # our card persists even when the provider move call fails silently.
-        # When no overlay sort_order exists, fall back to the provider's position (idx).
-        raw = raw_overlays.get(uid, {})
-        sort_order = raw["sort_order"] if "sort_order" in raw else idx
+        if provider_owns_order:
+            # Provider can reorder natively (MOVE_TODO_ITEM supported) — its index
+            # is authoritative.  This lets external reorders (e.g. in the Google
+            # Tasks app) flow back through our card without a stale overlay
+            # sort_order overriding them.
+            sort_order = idx
+        else:
+            # No MOVE support — overlay sort_order is our only way to persist a
+            # user-initiated reorder, so it wins when explicitly set.
+            raw = raw_overlays.get(uid, {})
+            sort_order = raw["sort_order"] if "sort_order" in raw else idx
         completed = item.get("status") == "completed"
         task = {
             "id": uid,

@@ -290,19 +290,38 @@ class GenericAdapter(ProviderAdapter):
         if not (features & 8):  # MOVE_TODO_ITEM
             return False  # caller should use overlay sort_order
 
+        # HA's todo platform exposes MOVE as a WebSocket command `todo/item/move`,
+        # NOT as a regular service — so `hass.services.async_call("todo", "move_item")`
+        # fails with ServiceNotFound.  Instead we look up the TodoListEntity and
+        # call `async_move_todo_item` directly, mirroring what HA's own WS handler
+        # does in homeassistant/components/todo/__init__.py::websocket_handle_move.
+        entity_component = self._hass.data.get("todo")
+        if entity_component is None:
+            _LOGGER.warning(
+                "Cannot reorder %s: todo entity component not loaded",
+                self._entity_id,
+            )
+            return False
+
+        entity = entity_component.get_entity(self._entity_id)
+        if entity is None:
+            _LOGGER.warning(
+                "Cannot reorder %s: entity not found in todo component",
+                self._entity_id,
+            )
+            return False
+
         for i, uid in enumerate(task_uids):
             try:
-                service_data: dict[str, Any] = {"uid": uid}
-                if i > 0:
-                    service_data["previous_uid"] = task_uids[i - 1]
-                await self._hass.services.async_call(
-                    "todo", "move_item",
-                    service_data,
-                    target={"entity_id": self._entity_id},
-                    blocking=True,
+                previous_uid = task_uids[i - 1] if i > 0 else None
+                await entity.async_move_todo_item(
+                    uid=uid, previous_uid=previous_uid
                 )
             except Exception:  # noqa: BLE001
-                _LOGGER.warning("Failed to move task %s via todo.move_item", uid)
+                _LOGGER.warning(
+                    "Failed to move task %s via entity.async_move_todo_item",
+                    uid, exc_info=True,
+                )
                 return False
         return True
 

@@ -690,12 +690,25 @@ class TestTodoistAdapterReminderSync:
 
 
 def _make_generic_adapter(supported_features: int = 0):
-    """Build a GenericAdapter with a minimal mocked HA hass + entity state."""
+    """Build a GenericAdapter with a minimal mocked HA hass + entity state.
+
+    Also wires up hass.data['todo'] with a fake entity_component whose
+    entity exposes async_move_todo_item — that's the path async_reorder_tasks
+    uses to actually perform moves.
+    """
     hass = MagicMock()
     state = MagicMock()
     state.attributes = {"supported_features": supported_features}
     hass.states.get = MagicMock(return_value=state)
     hass.services.async_call = AsyncMock()
+
+    # Fake todo entity component with one entity
+    todo_entity = MagicMock()
+    todo_entity.async_move_todo_item = AsyncMock()
+    entity_component = MagicMock()
+    entity_component.get_entity = MagicMock(return_value=todo_entity)
+    hass.data = {"todo": entity_component}
+
     return GenericAdapter(hass, "todo.test_entity", {}), hass
 
 
@@ -840,37 +853,50 @@ class TestGenericAdapterDeleteTask:
 
 
 class TestGenericAdapterReorderTasks:
-    """async_reorder_tasks uses todo.move_item when MOVE_TODO_ITEM is supported."""
+    """async_reorder_tasks invokes TodoListEntity.async_move_todo_item when supported."""
 
     async def test_reorder_unsupported_returns_false(self):
         """Without MOVE_TODO_ITEM (8) feature, returns False (caller uses overlay)."""
         adapter, hass = _make_generic_adapter(supported_features=0)
         result = await adapter.async_reorder_tasks(["a", "b", "c"])
         assert result is False
-        hass.services.async_call.assert_not_awaited()
+        entity = hass.data["todo"].get_entity.return_value
+        entity.async_move_todo_item.assert_not_awaited()
 
-    async def test_reorder_supported_calls_move_item(self):
-        """With MOVE_TODO_ITEM, calls todo.move_item once per task."""
+    async def test_reorder_supported_calls_entity_move(self):
+        """With MOVE_TODO_ITEM, calls entity.async_move_todo_item once per task."""
         adapter, hass = _make_generic_adapter(supported_features=8)
         result = await adapter.async_reorder_tasks(["a", "b", "c"])
         assert result is True
-        # 3 calls, one per item
-        assert hass.services.async_call.await_count == 3
-        # First call: no previous_uid (first task has nothing before it)
-        first_call = hass.services.async_call.await_args_list[0]
-        assert first_call.args[0] == "todo"
-        assert first_call.args[1] == "move_item"
-        first_data = first_call.args[2]
-        assert first_data["uid"] == "a"
-        assert "previous_uid" not in first_data  # not passed for the first task
-        # Second call: previous_uid="a"
-        second_data = hass.services.async_call.await_args_list[1].args[2]
-        assert second_data["uid"] == "b"
-        assert second_data["previous_uid"] == "a"
+
+        entity = hass.data["todo"].get_entity.return_value
+        assert entity.async_move_todo_item.await_count == 3
+
+        calls = entity.async_move_todo_item.await_args_list
+        # First call: uid="a", previous_uid=None (first task)
+        assert calls[0].kwargs == {"uid": "a", "previous_uid": None}
+        # Second call: uid="b", previous_uid="a"
+        assert calls[1].kwargs == {"uid": "b", "previous_uid": "a"}
+        # Third call: uid="c", previous_uid="b"
+        assert calls[2].kwargs == {"uid": "c", "previous_uid": "b"}
 
     async def test_reorder_failure_returns_false(self):
         adapter, hass = _make_generic_adapter(supported_features=8)
-        hass.services.async_call = AsyncMock(side_effect=Exception("boom"))
+        entity = hass.data["todo"].get_entity.return_value
+        entity.async_move_todo_item = AsyncMock(side_effect=Exception("boom"))
+        result = await adapter.async_reorder_tasks(["a", "b"])
+        assert result is False
+
+    async def test_reorder_component_missing_returns_false(self):
+        """If the todo component isn't loaded yet, fail gracefully."""
+        adapter, hass = _make_generic_adapter(supported_features=8)
+        hass.data = {}  # no 'todo' key
+        result = await adapter.async_reorder_tasks(["a", "b"])
+        assert result is False
+
+    async def test_reorder_entity_missing_returns_false(self):
+        adapter, hass = _make_generic_adapter(supported_features=8)
+        hass.data["todo"].get_entity = MagicMock(return_value=None)
         result = await adapter.async_reorder_tasks(["a", "b"])
         assert result is False
 
