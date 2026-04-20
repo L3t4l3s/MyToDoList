@@ -9,6 +9,8 @@ from homeassistant.helpers import entity_registry as er
 
 DOMAIN = "home_tasks"
 
+pytestmark = pytest.mark.integration
+
 
 def _get_calendar_entity_id(hass: HomeAssistant, entry_id: str) -> str | None:
     """Look up a calendar entity_id by config entry."""

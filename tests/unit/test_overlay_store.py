@@ -4,6 +4,8 @@ from __future__ import annotations
 import pytest
 from homeassistant.core import HomeAssistant
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 async def overlay_store(hass: HomeAssistant):

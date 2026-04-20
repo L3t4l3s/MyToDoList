@@ -14,6 +14,8 @@ from pytest_homeassistant_custom_component.common import (
 
 DOMAIN = "home_tasks"
 
+pytestmark = pytest.mark.integration
+
 
 async def test_setup_creates_store(hass: HomeAssistant, mock_config_entry, store) -> None:
     """Setup creates a HomeTasksStore registered in hass.data."""

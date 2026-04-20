@@ -15,6 +15,8 @@ from custom_components.home_tasks.provider_adapters import (
     priority_to_todoist,
 )
 
+pytestmark = pytest.mark.unit
+
 
 # ---------------------------------------------------------------------------
 #  Priority mapping

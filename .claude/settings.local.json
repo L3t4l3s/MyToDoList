@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -c http.sslVerify=false clone https://github.com/L3t4l3s/home-tasks.git /tmp/home-tasks-clone)",
+      "Bash(node --check \"D:/projects/Home_Tasks/custom_components/home_tasks/home-tasks-card.js\")",
+      "WebSearch",
+      "WebFetch(domain:www.hacs.xyz)",
+      "Bash(gh release:*)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(python3 -c \":*)",
+      "Bash(ls -la icon* brand/)",
+      "WebFetch(domain:hacs.xyz)",
+      "Bash(gh api:*)",
+      "Bash(cd /tmp)",
+      "Bash(GIT_SSL_NO_VERIFY=true git clone https://github.com/L3t4l3s/default.git hacs-default)",
+      "Bash(find /d/projects/Home_Tasks -type f \\\\\\(-name *.ts -o -name *.tsx -o -name *.js -o -name *.jsx \\\\\\))",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\(''custom_components/home_tasks/overlay_store.py''\\).read\\(\\)\\); print\\(''overlay_store.py: OK''\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\(''custom_components/home_tasks/store.py''\\).read\\(\\)\\); print\\(''store.py: OK''\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\(''custom_components/home_tasks/__init__.py''\\).read\\(\\)\\); print\\(''__init__.py: OK''\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\(''custom_components/home_tasks/websocket_api.py''\\).read\\(\\)\\); print\\(''websocket_api.py: OK''\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\(''custom_components/home_tasks/config_flow.py''\\).read\\(\\)\\); print\\(''config_flow.py: OK''\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\(''custom_components/home_tasks/todo.py''\\).read\\(\\)\\); print\\(''todo.py: OK''\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\(''custom_components/home_tasks/sensor.py''\\).read\\(\\)\\); print\\(''sensor.py: OK''\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\(''custom_components/home_tasks/binary_sensor.py''\\).read\\(\\)\\); print\\(''binary_sensor.py: OK''\\)\")",
+      "mcp__ca29c868-1b25-46c6-935c-2b9f017e3af2__updateConfluencePage",
+      "mcp__ca29c868-1b25-46c6-935c-2b9f017e3af2__getConfluencePage",
+      "mcp__ca29c868-1b25-46c6-935c-2b9f017e3af2__getConfluencePageDescendants",
+      "mcp__ca29c868-1b25-46c6-935c-2b9f017e3af2__createConfluencePage"
+    ]
+  }
+}

@@ -7,6 +7,8 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 DOMAIN = "home_tasks"
 
+pytestmark = pytest.mark.integration
+
 
 async def test_ws_get_lists(hass: HomeAssistant, hass_ws_client, mock_config_entry) -> None:
     """get_lists returns the configured native list."""

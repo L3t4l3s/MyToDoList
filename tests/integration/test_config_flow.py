@@ -9,6 +9,8 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 DOMAIN = "home_tasks"
 
+pytestmark = pytest.mark.integration
+
 
 async def test_user_step_shows_menu(hass: HomeAssistant) -> None:
     """Initial user step shows the native/external menu."""

@@ -8,6 +8,8 @@ from homeassistant.helpers import entity_registry as er
 
 DOMAIN = "home_tasks"
 
+pytestmark = pytest.mark.integration
+
 
 def _get_sensor_entity_id(hass: HomeAssistant, unique_id: str) -> str | None:
     """Look up a sensor entity_id by its unique_id."""

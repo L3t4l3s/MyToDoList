@@ -20,6 +20,8 @@ from custom_components.home_tasks.todoist_api import (
     _build_payload,
 )
 
+pytestmark = pytest.mark.unit
+
 
 # ---------------------------------------------------------------------------
 # _build_payload helper

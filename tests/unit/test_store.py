@@ -6,6 +6,8 @@ from homeassistant.core import HomeAssistant
 
 from custom_components.home_tasks.const import MAX_TASKS_PER_LIST
 
+pytestmark = pytest.mark.unit
+
 
 async def test_add_task_defaults(hass: HomeAssistant, store) -> None:
     """A new task has correct default field values."""
