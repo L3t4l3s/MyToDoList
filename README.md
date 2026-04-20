@@ -46,15 +46,17 @@ Display tasks from **any HA todo integration** alongside native Home Tasks lists
 
 #### Verified Providers
 
-| Provider | HA Integration | Due Date | Due Time | Description | Reorder | Priority | Labels | Sub-tasks | Assignee | Recurrence | Reminders | Notes |
-|----------|---------------|----------|----------|-------------|---------|----------|--------|-----------|----------|------------|-----------|-------|
-| **CalDAV** (Nextcloud, etc.) | [CalDAV](https://www.home-assistant.io/integrations/caldav/) (Core) | yes | yes | yes | no | no | no | no | no | no | no | |
-| **Google Tasks** | [Google Tasks](https://www.home-assistant.io/integrations/google_tasks/) (Core) | yes | no | yes | yes | no | no | no | no | no | no | Google's API does not expose due times or recurrence ([open issue](https://issuetracker.google.com/issues/36759725)) |
-| **Todoist** | [Todoist](https://www.home-assistant.io/integrations/todoist/) (Core) | yes | yes | yes | yes | yes | yes | yes | no | yes | yes | Full bidirectional sync via direct Todoist API |
-| **Local Todo** | [Local Todo](https://www.home-assistant.io/integrations/local_todo/) (Core) | yes | no | yes | no | no | no | no | no | no | no | Simple file-based lists built into HA |
-| **Bring** | [Bring](https://www.home-assistant.io/integrations/bring/) (Core) | no | no | no | no | no | no | no | no | no | no | Shopping list provider — all extra fields via overlay |
+| Provider | HA Integration | Title & Status | Due Date | Due Time | Description | Reorder | Priority | Labels | Sub-tasks | Assignee | Recurrence | Reminders | Notes |
+|----------|---------------|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|-------|
+| **CalDAV** (Nextcloud, etc.) | [CalDAV](https://www.home-assistant.io/integrations/caldav/) (Core) | yes | yes | yes | yes | no | no | no | no | no | no | no | |
+| **Google Tasks** | [Google Tasks](https://www.home-assistant.io/integrations/google_tasks/) (Core) | yes | yes | no | yes | yes | no | no | no | no | no | no | Google's API does not expose due times or recurrence ([open issue](https://issuetracker.google.com/issues/36759725)) |
+| **Todoist** | [Todoist](https://www.home-assistant.io/integrations/todoist/) (Core) | yes | yes | yes | yes | yes | yes | yes | yes | no | yes | yes | Full bidirectional sync via direct Todoist API |
+| **Local Todo** | [Local Todo](https://www.home-assistant.io/integrations/local_todo/) (Core) | yes | yes | no | yes | no | no | no | no | no | no | no | Simple file-based lists built into HA |
+| **Bring** | [Bring](https://www.home-assistant.io/integrations/bring/) (Core) | yes | no | no | yes | no | no | no | no | no | no | no | Shopping list — all extra fields available locally via overlay |
 
-Any other integration that creates `todo.*` entities following HA's standard `TodoListEntity` should also work. Fields marked "no" are available locally in Home Tasks but not synced to the provider.
+**yes** = bidirectionally synced with the provider. **no** = not synced, but still available locally in Home Tasks via overlay.
+
+Any other integration that creates `todo.*` entities following HA's standard `TodoListEntity` should also work.
 
 Tasks can be **moved between native and external lists** via drag & drop on multi-column cards. Fields that the target provider cannot sync are preserved in the local overlay.
 
