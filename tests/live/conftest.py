@@ -87,6 +87,51 @@ def _attr_to_env(attr: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# CalDAV availability helper
+# ---------------------------------------------------------------------------
+
+
+async def ensure_caldav_available(ws: HAWebSocketClient, entity_id: str) -> None:
+    """Reload the CalDAV integration if the entity is unavailable.
+
+    The CalDAV server (e.g. Nextcloud on SQLite) is often slow to respond
+    after an HA restart.  Instead of skipping, reload the config entry once
+    and wait for the entity to come back.
+    """
+    states = await ws.get_states()
+    state = next((s for s in states if s["entity_id"] == entity_id), None)
+    if state and state.get("state") != "unavailable":
+        return  # already available
+
+    # Find the caldav config entry and reload it via the HA service
+    entries = await ws.send_command("config_entries/get")
+    caldav_entry = next(
+        (e for e in entries if e["domain"] == "caldav"),
+        None,
+    )
+    if caldav_entry:
+        print(f"[caldav] Entity {entity_id} unavailable — reloading config entry '{caldav_entry.get('title')}'")
+        try:
+            await ws.call_service(
+                "homeassistant", "reload_config_entry",
+                {"entry_id": caldav_entry["entry_id"]},
+            )
+        except Exception as err:
+            print(f"[caldav] Reload failed: {err}")
+
+    # Wait for the entity to become available (up to 15s)
+    for attempt in range(15):
+        await asyncio.sleep(1)
+        states = await ws.get_states()
+        state = next((s for s in states if s["entity_id"] == entity_id), None)
+        if state and state.get("state") != "unavailable":
+            print(f"[caldav] Entity available after {attempt + 1}s")
+            return
+
+    pytest.skip(f"{entity_id} still unavailable after CalDAV reload + 15s wait")
+
+
+# ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 

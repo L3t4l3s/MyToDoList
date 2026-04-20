@@ -152,6 +152,9 @@ async def test_native_to_caldav(
     """Native → CalDAV preserves base fields and overlay fields."""
     if not CONFIG.caldav_entity:
         pytest.skip("HT_CALDAV_TEST_ENTITY not set")
+    from .conftest import ensure_caldav_available
+
+    await ensure_caldav_available(ws_client, CONFIG.caldav_entity)
     await _wipe_external(ws_client, CONFIG.caldav_entity)
 
     await _native_to_external_then_back(
