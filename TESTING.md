@@ -231,6 +231,27 @@ pytest -m live tests/live/test_provider_todoist.py
 pytest -m live -v
 ```
 
+### Running from the Claude Code HA add-on container
+
+The add-on container's AppArmor profile blocks `.so` loading from `/share`,
+which prevents `pytest-homeassistant-custom-component` (and its transitive
+dependency `bcrypt`) from initialising.  Since live tests only need network
+access (no mock HA), disable the plugin and skip the root conftest:
+
+```bash
+cd /share/home-tasks
+.venv/bin/python -m pytest tests/live/ \
+  -p no:homeassistant \
+  -p no:pytest_homeassistant_custom_component \
+  --confcutdir=tests/live \
+  -m live -v
+```
+
+**Important:** In `tests/live/.env`, set `HT_HA_URL` to the IP of the
+**test** HA instance (e.g. `http://192.168.178.193:8123`), not `localhost`
+or `http://supervisor/core` (which points to the production instance running
+the add-on).
+
 ## Safety
 
 Each test list is **wiped before every test** (the autouse fixture deletes
