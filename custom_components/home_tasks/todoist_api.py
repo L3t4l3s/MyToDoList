@@ -82,9 +82,20 @@ class TodoistTask:
     due: TodoistDue | None = None
     assignee_id: str | None = None
     is_completed: bool = False
+    # Todoist's unified API (api/v1) returns soft-deleted tasks through
+    # GET /tasks/{id} with is_deleted=True (the list endpoint filters them).
+    # We keep this so callers can reason about "really gone" vs. "still in
+    # the API but marked deleted".
+    is_deleted: bool = False
 
     @classmethod
     def from_dict(cls, data: dict) -> TodoistTask:
+        # Todoist's unified API (api/v1) reports completion via "checked"
+        # (True/False); the older REST v2 used "is_completed".  Read both
+        # so this works with whichever shape the server currently returns.
+        completed = data.get("checked")
+        if completed is None:
+            completed = data.get("is_completed", False)
         return cls(
             id=str(data.get("id", "")),
             content=data.get("content", ""),
@@ -97,7 +108,8 @@ class TodoistTask:
             labels=data.get("labels") or [],
             due=TodoistDue.from_dict(data.get("due")),
             assignee_id=str(data["assignee_id"]) if data.get("assignee_id") else None,
-            is_completed=data.get("is_completed", False),
+            is_completed=bool(completed),
+            is_deleted=bool(data.get("is_deleted", False)),
         )
 
 
