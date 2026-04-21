@@ -2844,6 +2844,7 @@ class HomeTasksCard extends HTMLElement {
       placeholder: this._t("notes_placeholder"),
       rows: 2,
       value: task.notes || "",
+      "data-focus-key": "notes",
     });
     let debounceTimer;
     const saveNotes = () => {
@@ -3358,6 +3359,7 @@ class HomeTasksCard extends HTMLElement {
     const tagInput = this._el("input", {
       type: "text",
       placeholder: this._t("tag_placeholder"),
+      "data-focus-key": "tag_input",
     });
     tagInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
@@ -3555,6 +3557,7 @@ class HomeTasksCard extends HTMLElement {
         type: "text",
         className: "edit-sub-input",
         value: sub.title,
+        "data-focus-key": `sub_title_${sub.id}`,
       });
       titleEl.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
