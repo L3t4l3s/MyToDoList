@@ -750,6 +750,85 @@ async def test_reminder_silent_miss_for_past_offset(
     assert not any(k.startswith(f"{task['id']}_r") for k in timers)
 
 
+async def test_schedule_recurrence_pulls_reopen_back_by_max_reminder(
+    hass: HomeAssistant, mock_config_entry, store
+) -> None:
+    """_schedule_recurrence shortens its delay by max(reminders) minutes.
+
+    Before the fix the reopen timer landed at the exact recurrence
+    target time.  When _schedule_reminders then ran, each reminder's
+    target (`due_dt - offset`) was computed as `now - offset`, fell in
+    the past, and the reminder was silently dropped.
+
+    The fix subtracts max(reminders)*60 seconds from the reopen delay so
+    every reminder re-schedules in the future.  This test captures the
+    actual delay passed to async_call_later and compares the two cases
+    (with and without reminders).
+    """
+    from unittest.mock import patch
+    from freezegun import freeze_time
+    from custom_components.home_tasks import _schedule_recurrence
+
+    # Fixed clock: now = 2026-04-21 12:00 UTC, next occurrence tomorrow
+    # 12:00 UTC → base delay = 86400 s.
+    T0 = "2026-04-21 12:00:00"
+    captured: dict[str, float] = {}
+
+    def fake_async_call_later(_hass, delay, _cb):
+        captured["delay"] = delay
+        return lambda: None
+
+    with freeze_time(T0 + "+00:00"), patch(
+        "custom_components.home_tasks.async_call_later",
+        side_effect=fake_async_call_later,
+    ):
+        # Case A: no reminders → expect full 24 h delay
+        task_no_rem = {
+            "id": "t1",
+            "recurrence_enabled": True,
+            "recurrence_type": "interval",
+            "recurrence_unit": "days",
+            "recurrence_value": 1,
+            "recurrence_time": "12:00",
+            "reminders": [],
+        }
+        _schedule_recurrence(
+            hass, mock_config_entry.entry_id, task_no_rem,
+            completed_at=datetime(2026, 4, 21, 12, 0, 0, tzinfo=dt_util.UTC),
+        )
+        delay_no_rem = captured["delay"]
+
+        # Case B: reminder 15 min → expect delay shortened by 900 s
+        task_with_rem = {**task_no_rem, "id": "t2", "reminders": [15]}
+        _schedule_recurrence(
+            hass, mock_config_entry.entry_id, task_with_rem,
+            completed_at=datetime(2026, 4, 21, 12, 0, 0, tzinfo=dt_util.UTC),
+        )
+        delay_with_rem = captured["delay"]
+
+        # Case C: two reminders (15 and 60 min) → shortened by max(60)=3600 s
+        task_two_rem = {**task_no_rem, "id": "t3", "reminders": [15, 60]}
+        _schedule_recurrence(
+            hass, mock_config_entry.entry_id, task_two_rem,
+            completed_at=datetime(2026, 4, 21, 12, 0, 0, tzinfo=dt_util.UTC),
+        )
+        delay_two_rem = captured["delay"]
+
+    # We don't assert the absolute delay (it depends on HA's default
+    # time zone in the test env) — only the DIFFERENCES between the
+    # cases, which are zone-invariant.
+    assert delay_no_rem - delay_with_rem == pytest.approx(15 * 60, abs=2), (
+        f"Reminder offset 15 min should shorten the reopen delay by "
+        f"900 s; got {delay_no_rem} → {delay_with_rem} "
+        f"(diff = {delay_no_rem - delay_with_rem})"
+    )
+    assert delay_no_rem - delay_two_rem == pytest.approx(60 * 60, abs=2), (
+        f"With reminders [15, 60] the reopen delay should shorten by "
+        f"max=60 min = 3600 s; got {delay_no_rem} → {delay_two_rem} "
+        f"(diff = {delay_no_rem - delay_two_rem})"
+    )
+
+
 async def test_cancel_reminders_removes_pending_timers(
     hass: HomeAssistant, mock_config_entry, store
 ) -> None:

@@ -372,7 +372,18 @@ def _compute_reopen_delay(task: dict, completed_at: datetime) -> float | None:
 
 
 def _schedule_recurrence(hass: HomeAssistant, entry_id: str, task: dict, completed_at: datetime | None = None) -> None:
-    """Schedule a task to reopen based on its recurrence settings."""
+    """Schedule a task to reopen based on its recurrence settings.
+
+    Reopen fires slightly earlier than the computed target time when the
+    task has reminders: specifically, at target - max(reminder_offset_minutes).
+    Without this offset the reopen happens at the exact target moment,
+    and _schedule_reminders would then compute every reminder's target as
+    "due_dt - offset = now - offset = past" and silently drop them.
+    Pulling the reopen forward keeps all reminder targets in the future
+    so they schedule normally — the task becomes visibly "open" in the
+    UI a few minutes earlier, which matches the user intent of "remind
+    me N minutes before".
+    """
     timers = hass.data.setdefault(DATA_RECURRENCE_TIMERS, {})
     task_id = task["id"]
 
@@ -384,6 +395,13 @@ def _schedule_recurrence(hass: HomeAssistant, entry_id: str, task: dict, complet
     delay = _compute_reopen_delay(task, completed_at)
     if delay is None:
         return
+
+    reminders = task.get("reminders") or []
+    if reminders:
+        # Subtract the longest reminder offset so every reminder lands
+        # in the future of the reopen moment (see docstring).
+        delay -= max(reminders) * 60
+
     delay = max(0.0, delay)
 
     @callback
