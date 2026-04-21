@@ -129,6 +129,62 @@ async def test_create_with_due_date(
     assert pi.get("due") == "2027-12-10"
 
 
+async def test_due_time_is_dropped_for_google_without_pollution(
+    ws_client: HAWebSocketClient, google_entity: str
+) -> None:
+    """Google Tasks has no time-of-day support — due_time is intentionally dropped.
+
+    Google's Tasks API simply cannot store a time-of-day on a due date (open
+    since 2013: https://issuetracker.google.com/issues/36759725).  Home Tasks'
+    capability table therefore lists "Due Time = no" for Google, and the
+    feature bit SET_DUE_DATETIME_ON_ITEM is not exposed by the entity
+    (supported_features=95 lacks bit 32).
+
+    What the test fixes in stone:
+      - due_date still arrives at Google (date-only, as Google wants)
+      - due_time is silently dropped (None in our merged view)
+      - the time value must NEVER be smuggled into Google's summary or
+        description as a workaround — that would corrupt the task in the
+        Google Tasks app itself.
+    """
+    await ws_client.send_command(
+        "home_tasks/create_external_task",
+        entity_id=google_entity,
+        title="Google due time",
+        due_date="2027-12-10",
+        due_time="16:45",
+    )
+    await asyncio.sleep(SETTLE)
+
+    tasks = await _refetch(ws_client, google_entity)
+    task = next(t for t in tasks if t["title"] == "Google due time")
+    uid = task["id"]
+    # Date survives; time is dropped (Google limitation, documented in README).
+    assert task["due_date"] == "2027-12-10"
+    assert task["due_time"] in (None, ""), (
+        f"Home Tasks returned due_time={task['due_time']!r} for a Google task — "
+        "expected dropped (None) because Google has no time-of-day support."
+    )
+
+    # Provider side: summary unchanged, date-only due, no 16:45 smuggled
+    # anywhere in the Google task's user-visible fields.
+    items = await ws_client.get_provider_items(google_entity)
+    pi = _find_provider_item(items, uid)
+    assert pi is not None
+    assert pi["summary"] == "Google due time", (
+        f"Summary changed to {pi['summary']!r} — due_time leaked into the title"
+    )
+    due_raw = pi.get("due") or ""
+    assert due_raw == "2027-12-10", (
+        f"Google due={due_raw!r} contains more than date — "
+        "the time leaked into the provider's due field"
+    )
+    desc = pi.get("description") or ""
+    assert "16:45" not in desc, (
+        f"Description contains {desc!r} — due_time smuggled into Google's description"
+    )
+
+
 async def test_update_title(
     ws_client: HAWebSocketClient, google_entity: str
 ) -> None:

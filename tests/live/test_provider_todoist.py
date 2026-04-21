@@ -192,6 +192,42 @@ async def test_create_with_due_date(
     )
 
 
+async def test_create_with_due_date_and_time(
+    ws_client: HAWebSocketClient,
+    todoist_entity: str,
+    todoist_verifier,
+) -> None:
+    """due_date + due_time must reach Todoist as a datetime, not just a date."""
+    result = await ws_client.send_command(
+        "home_tasks/create_external_task",
+        entity_id=todoist_entity,
+        title="Due with time",
+        due_date="2027-08-15",
+        due_time="14:30",
+    )
+    uid = result["uid"]
+    await asyncio.sleep(TODOIST_SETTLE)
+
+    tasks = await _refetch(ws_client, todoist_entity)
+    task = next(t for t in tasks if t["id"] == uid)
+    assert task["due_date"] == "2027-08-15"
+    assert task["due_time"] == "14:30"
+
+    remote = await todoist_verifier.get_task(uid)
+    assert remote.due is not None, "Todoist stored no due info"
+    # Todoist represents "date+time" in the `date` field as an ISO-8601
+    # datetime string (e.g. 2027-08-15T14:30:00).  The date-only form is
+    # just "YYYY-MM-DD" without the T.
+    assert "T" in (remote.due.date or ""), (
+        f"Todoist due.date={remote.due.date!r} looks like a date-only value; "
+        "the time component didn't reach Todoist"
+    )
+    assert remote.due.date.startswith("2027-08-15T14:30"), (
+        f"Todoist due.date={remote.due.date!r}, expected to start with "
+        "'2027-08-15T14:30' (day + time we sent)"
+    )
+
+
 async def test_update_title_priority_notes(
     ws_client: HAWebSocketClient,
     todoist_entity: str,

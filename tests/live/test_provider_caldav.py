@@ -174,6 +174,49 @@ async def test_create_with_due_date(
     assert pi.get("due") == "2027-11-20"
 
 
+async def test_create_with_due_date_and_time(
+    ws_client: HAWebSocketClient, caldav_entity: str
+) -> None:
+    """due_date + due_time must be stored as a datetime on the VTODO, not a date.
+
+    Nextcloud reports SET_DUE_DATETIME (feature bit 32 in supported_features 119)
+    so the adapter sends due_datetime instead of due_date.  The CalDAV side
+    must then expose a datetime (with a time component) in ``todo.get_items``.
+    """
+    await ws_client.send_command(
+        "home_tasks/create_external_task",
+        entity_id=caldav_entity,
+        title="Due with time CalDAV",
+        due_date="2027-11-20",
+        due_time="09:15",
+    )
+    await asyncio.sleep(SETTLE)
+
+    tasks = await _refetch(ws_client, caldav_entity)
+    task = next(t for t in tasks if t["title"] == "Due with time CalDAV")
+    uid = task["id"]
+    assert task["due_date"] == "2027-11-20"
+    assert task["due_time"] == "09:15"
+
+    def has_time(pi):
+        due = pi.get("due") or ""
+        return due.startswith("2027-11-20") and "09:15" in due
+
+    pi = await _wait_for_provider_item(
+        ws_client, caldav_entity, uid, predicate=has_time,
+    )
+    assert pi is not None
+    # CalDAV returns due with a time component (e.g. "2027-11-20T09:15:00").
+    due_str = pi.get("due") or ""
+    assert due_str.startswith("2027-11-20"), (
+        f"Nextcloud due={due_str!r}, expected start '2027-11-20'"
+    )
+    assert "09:15" in due_str, (
+        f"Nextcloud due={due_str!r} is missing the '09:15' time — "
+        "the time component didn't reach Nextcloud"
+    )
+
+
 async def test_update_title_and_notes(
     ws_client: HAWebSocketClient, caldav_entity: str
 ) -> None:
