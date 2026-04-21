@@ -3188,12 +3188,18 @@ class HomeTasksCard extends HTMLElement {
     recurrenceValueInput.addEventListener("change", saveInterval);
     recurrenceUnitSelect.addEventListener("change", saveInterval);
     weekdayCheckboxes.forEach(cb => cb.addEventListener("change", saveWeekdays));
-    recurrenceStartDateInput.addEventListener("change", saveStartDate);
+    // Use "blur" instead of "change" for the time/date inputs: type="time"
+    // fires change the moment the hour alone becomes a valid time ("20:00"),
+    // which would trigger a save + re-render and yank the focus out before
+    // the user can type the minutes.  Blur triggers on Enter (via the keydown
+    // handler below) and when the user tabs or clicks away, which is the
+    // natural commit moment.
+    recurrenceStartDateInput.addEventListener("blur", saveStartDate);
     recurrenceStartDateInput.addEventListener("keydown", (e) => { if (e.key === "Enter") recurrenceStartDateInput.blur(); });
-    recurrenceTimeInput.addEventListener("change", saveRecurrenceTime);
+    recurrenceTimeInput.addEventListener("blur", saveRecurrenceTime);
     recurrenceTimeInput.addEventListener("keydown", (e) => { if (e.key === "Enter") recurrenceTimeInput.blur(); });
     recurrenceEndSelect.addEventListener("change", () => { applyEndTypeVisibility(recurrenceEndSelect.value); saveEndCondition(); });
-    recurrenceEndDateInput.addEventListener("change", saveEndCondition);
+    recurrenceEndDateInput.addEventListener("blur", saveEndCondition);
     recurrenceEndDateInput.addEventListener("keydown", (e) => { if (e.key === "Enter") recurrenceEndDateInput.blur(); });
     recurrenceMaxCountInput.addEventListener("change", saveEndCondition);
 
