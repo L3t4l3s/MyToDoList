@@ -1513,6 +1513,15 @@ class HomeTasksCard extends HTMLElement {
       if (this._editingSubTaskId === tempId) {
         this._editingSubTaskId = result.id;
       }
+      // Keep DOM identifiers in sync so a later unrelated _render's
+      // focus-restore can find the element: data-focus-key on the
+      // input (format "sub_title_<id>") and data-sub-task-id on the
+      // .sub-task wrapper both carried the temp id.
+      const root = this.shadowRoot;
+      const editedInput = root?.querySelector(`[data-focus-key="sub_title_${CSS.escape(tempId)}"]`);
+      if (editedInput) editedInput.setAttribute("data-focus-key", `sub_title_${result.id}`);
+      const subEl = root?.querySelector(`.sub-task[data-sub-task-id="${CSS.escape(tempId)}"]`);
+      if (subEl) subEl.dataset.subTaskId = result.id;
     }
   }
 
@@ -1982,14 +1991,22 @@ class HomeTasksCard extends HTMLElement {
       }
     }
 
-    // Foreground-render guard for native date/time/... inputs: they have
-    // internal segments (day/month/year, hour/minute) but no selectionStart
-    // API, so a DOM rebuild ALWAYS jumps the segment focus back to the
-    // first one.  Defer the render until the user leaves the field.
-    // (Text/number inputs are fine — focus-key + setSelectionRange cover them.)
+    // Foreground-render guard:
+    //   - <input type="date|time|...">: internal segments (day/month/year,
+    //     hour/minute) reset to the first segment on any DOM rebuild
+    //     because these inputs have no selectionStart API.
+    //   - <select>: loses its open dropdown state on DOM rebuild, so
+    //     picking an option while a background save is in flight would
+    //     snap the menu closed.
+    // In both cases the render is deferred until blur (the user leaves
+    // the field or picks an option).
     const activeNow = this.shadowRoot?.activeElement;
-    if (activeNow && activeNow.tagName === "INPUT" &&
-        ["date", "time", "datetime-local", "month", "week"].includes(activeNow.type)) {
+    const isStatefulInput = activeNow && (
+      (activeNow.tagName === "INPUT" &&
+        ["date", "time", "datetime-local", "month", "week"].includes(activeNow.type)) ||
+      activeNow.tagName === "SELECT"
+    );
+    if (isStatefulInput) {
       this._pendingRender = true;
       if (!this._deferredRenderBoundBlur) {
         this._deferredRenderBoundBlur = activeNow;
@@ -3258,7 +3275,7 @@ class HomeTasksCard extends HTMLElement {
         recurrence_end_date: endType === "date" ? (recurrenceEndDateInput.value || null) : null,
         recurrence_max_count: endType === "count" ? (parseInt(recurrenceMaxCountInput.value) || null) : null,
         reminders: task.reminders || [],
-      })?.then(() => setTimeout(() => this._loadAllTasks(), 250));
+      })?.then(() => this._loadAllTasks());
     });
 
     recurrenceModeSelect.addEventListener("change", () => {
