@@ -2027,19 +2027,27 @@ class HomeTasksCard extends HTMLElement {
     // if it still exists in the new tree.  Fields tagged with
     // data-focus-key are identified by (task-id, focus-key); caret
     // position is restored when the element supports selection ranges.
+    //
+    // Defer via rAF: right after root.appendChild(card) the browser has
+    // not yet done layout, so the target's offsetHeight is still 0 and
+    // Chrome refuses to focus invisible elements.  Waiting two frames
+    // lets CSS transitions settle and makes the focus call stick.
     const fs = this._pendingFocusRestore;
     this._pendingFocusRestore = null;
     if (fs && fs.key) {
       const selector = fs.taskId
         ? `[data-task-id="${CSS.escape(String(fs.taskId))}"] [data-focus-key="${fs.key}"]`
         : `[data-focus-key="${fs.key}"]`;
-      const target = root.querySelector(selector);
-      if (target && typeof target.focus === "function") {
-        target.focus();
-        if (fs.selStart != null && typeof target.setSelectionRange === "function") {
-          try { target.setSelectionRange(fs.selStart, fs.selEnd ?? fs.selStart); } catch { /* noop */ }
+      const restore = () => {
+        const target = root.querySelector(selector);
+        if (target && typeof target.focus === "function") {
+          target.focus();
+          if (fs.selStart != null && typeof target.setSelectionRange === "function") {
+            try { target.setSelectionRange(fs.selStart, fs.selEnd ?? fs.selStart); } catch { /* noop */ }
+          }
         }
-      }
+      };
+      requestAnimationFrame(() => requestAnimationFrame(restore));
     }
 
     // Close any open sort dropdowns on next outside click
@@ -2142,6 +2150,7 @@ class HomeTasksCard extends HTMLElement {
       className: "add-input",
       placeholder: this._t("add_placeholder"),
       value: cs.newTaskTitle,
+      "data-focus-key": `add_task_col_${colIdx}`,
     });
     addInput.addEventListener("input", (e) => { cs.newTaskTitle = e.target.value; });
     addInput.addEventListener("keydown", (e) => {
@@ -2420,6 +2429,7 @@ class HomeTasksCard extends HTMLElement {
         type: "text",
         className: "edit-title-input",
         value: task.title,
+        "data-focus-key": "task_title",
       });
       // Stop mousedown from reaching the draggable taskEl — otherwise the browser's
       // drag-detection system intercepts mousedown and prevents cursor positioning.
