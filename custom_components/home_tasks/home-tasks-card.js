@@ -1981,6 +1981,25 @@ class HomeTasksCard extends HTMLElement {
         return;
       }
     }
+
+    // Foreground-render guard for native date/time/... inputs: they have
+    // internal segments (day/month/year, hour/minute) but no selectionStart
+    // API, so a DOM rebuild ALWAYS jumps the segment focus back to the
+    // first one.  Defer the render until the user leaves the field.
+    // (Text/number inputs are fine — focus-key + setSelectionRange cover them.)
+    const activeNow = this.shadowRoot?.activeElement;
+    if (activeNow && activeNow.tagName === "INPUT" &&
+        ["date", "time", "datetime-local", "month", "week"].includes(activeNow.type)) {
+      this._pendingRender = true;
+      if (!this._deferredRenderBoundBlur) {
+        this._deferredRenderBoundBlur = activeNow;
+        activeNow.addEventListener("blur", () => {
+          this._deferredRenderBoundBlur = null;
+          if (this._pendingRender) this._render();
+        }, { once: true });
+      }
+      return;
+    }
     this._pendingRender = false;
 
     // Snapshot focus before tearing down the DOM so we can restore it
