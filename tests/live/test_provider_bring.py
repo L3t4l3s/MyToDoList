@@ -53,11 +53,17 @@ def _find_provider_item(items: list[dict], uid: str) -> dict | None:
 
 
 @pytest.fixture
-async def bring_entity(ws_client: HAWebSocketClient) -> str:
+async def bring_entity(ws_client: HAWebSocketClient):
     entity_id = CONFIG.bring_entity
     assert entity_id
     await _wipe(ws_client, entity_id)
-    return entity_id
+    yield entity_id
+    # Best-effort teardown so leftover test items don't linger on the
+    # Bring shopping list.
+    try:
+        await _wipe(ws_client, entity_id)
+    except Exception as err:  # noqa: BLE001
+        print(f"[bring teardown] wipe failed: {err}")
 
 
 # ---------------------------------------------------------------------------

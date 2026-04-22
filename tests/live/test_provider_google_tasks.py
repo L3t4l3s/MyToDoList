@@ -47,11 +47,16 @@ async def _refetch(ws: HAWebSocketClient, entity_id: str) -> list[dict]:
 
 
 @pytest.fixture
-async def google_entity(ws_client: HAWebSocketClient) -> str:
+async def google_entity(ws_client: HAWebSocketClient):
     entity_id = CONFIG.google_tasks_entity
     assert entity_id
     await _wipe(ws_client, entity_id)
-    return entity_id
+    yield entity_id
+    # Best-effort teardown so leftover test tasks don't pile up at Google.
+    try:
+        await _wipe(ws_client, entity_id)
+    except Exception as err:  # noqa: BLE001
+        print(f"[google_tasks teardown] wipe failed: {err}")
 
 
 # ---------------------------------------------------------------------------

@@ -87,14 +87,19 @@ async def _wait_for_provider_item(
 
 
 @pytest.fixture
-async def caldav_entity(ws_client: HAWebSocketClient) -> str:
+async def caldav_entity(ws_client: HAWebSocketClient):
     from .conftest import ensure_caldav_available
 
     entity_id = CONFIG.caldav_entity
     assert entity_id
     await ensure_caldav_available(ws_client, entity_id)
     await _wipe(ws_client, entity_id)
-    return entity_id
+    yield entity_id
+    # Best-effort teardown so leftover VTODOs don't pile up at Nextcloud.
+    try:
+        await _wipe(ws_client, entity_id)
+    except Exception as err:  # noqa: BLE001
+        print(f"[caldav teardown] wipe failed: {err}")
 
 
 # ---------------------------------------------------------------------------

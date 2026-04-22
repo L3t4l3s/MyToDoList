@@ -46,11 +46,18 @@ async def _wipe_todoist(ws: HAWebSocketClient, entity_id: str) -> None:
 
 
 @pytest.fixture
-async def todoist_entity(ws_client: HAWebSocketClient) -> str:
+async def todoist_entity(ws_client: HAWebSocketClient):
     entity_id = CONFIG.todoist_entity
     assert entity_id, "HT_TODOIST_TEST_ENTITY must be set"
     await _wipe_todoist(ws_client, entity_id)
-    return entity_id
+    yield entity_id
+    # Tear-down: wipe leftover tasks so Todoist doesn't mail us about them
+    # the next morning.  Best-effort — a cleanup error must not fail the
+    # test.
+    try:
+        await _wipe_todoist(ws_client, entity_id)
+    except Exception as err:  # noqa: BLE001
+        print(f"[todoist teardown] wipe failed: {err}")
 
 
 async def _refetch(

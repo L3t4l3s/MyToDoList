@@ -44,11 +44,16 @@ async def _wipe(ws: HAWebSocketClient, entity_id: str) -> None:
 
 
 @pytest.fixture
-async def local_todo_entity(ws_client: HAWebSocketClient) -> str:
+async def local_todo_entity(ws_client: HAWebSocketClient):
     entity_id = CONFIG.local_todo_entity
     assert entity_id, "HT_LOCAL_TODO_TEST_ENTITY must be set"
     await _wipe(ws_client, entity_id)
-    return entity_id
+    yield entity_id
+    # Best-effort teardown for consistency with the other provider fixtures.
+    try:
+        await _wipe(ws_client, entity_id)
+    except Exception as err:  # noqa: BLE001
+        print(f"[local_todo teardown] wipe failed: {err}")
 
 
 # ---------------------------------------------------------------------------

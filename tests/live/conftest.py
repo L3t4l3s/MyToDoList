@@ -190,13 +190,18 @@ async def native_list_id_secondary(ws_client: HAWebSocketClient) -> str:
 async def clean_native_list(
     ws_client: HAWebSocketClient, native_list_id: str
 ) -> AsyncIterator[str]:
-    """Wipe the native test list before each test.  Returns the list_id.
+    """Wipe the native test list before AND after each test.
 
     Safety: aborts if the list contains more than CONFIG.max_existing_items
-    so we never accidentally delete a real list's data.
+    so we never accidentally delete a real list's data.  Post-test wipe is
+    best-effort — a cleanup error must not fail the test.
     """
     await _wipe_native_list(ws_client, native_list_id)
     yield native_list_id
+    try:
+        await _wipe_native_list(ws_client, native_list_id)
+    except Exception as err:  # noqa: BLE001
+        print(f"[native teardown] wipe failed: {err}")
 
 
 async def _wipe_native_list(ws_client: HAWebSocketClient, list_id: str) -> None:
