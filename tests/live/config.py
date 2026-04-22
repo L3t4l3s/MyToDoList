@@ -58,6 +58,11 @@ class LiveConfig:
     google_tasks_entity: str | None
     caldav_entity: str | None
     local_todo_entity: str | None
+    # Entity that's linked as an *external* list in home_tasks, so the
+    # home_tasks/* adapter path can be exercised against Local Todo.
+    # Distinct from local_todo_entity (which may be a home_tasks-native
+    # list used for direct todo.* service tests).
+    local_todo_external_entity: str | None
     bring_entity: str | None
 
     # Provider-side API credentials (for dual-view verification against the
@@ -81,6 +86,7 @@ def load() -> LiveConfig:
         google_tasks_entity=os.environ.get("HT_GOOGLE_TASKS_TEST_ENTITY"),
         caldav_entity=os.environ.get("HT_CALDAV_TEST_ENTITY"),
         local_todo_entity=os.environ.get("HT_LOCAL_TODO_TEST_ENTITY"),
+        local_todo_external_entity=os.environ.get("HT_LOCAL_TODO_EXTERNAL_TEST_ENTITY"),
         bring_entity=os.environ.get("HT_BRING_TEST_ENTITY"),
         todoist_api_token=os.environ.get("HT_TODOIST_API_TOKEN"),
         max_existing_items=int(os.environ.get("HT_MAX_EXISTING_ITEMS", "50")),
