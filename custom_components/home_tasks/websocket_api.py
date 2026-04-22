@@ -514,14 +514,13 @@ async def ws_move_task_cross(hass, connection, msg):
                         create_fields[k] = task_data[k]
 
             if tgt_adapter:
-                new_uid = await tgt_adapter.async_create_task(create_fields)
+                new_uid, _adapter_unsynced = await tgt_adapter.async_create_task(create_fields)
             else:
                 generic = GenericAdapter(hass, tgt_entity_id, {})
-                await generic.async_create_task(create_fields)
-                new_uid = None
+                new_uid, _adapter_unsynced = await generic.async_create_task(create_fields)
 
-            # Generic adapters don't return the UID — discover it by
-            # re-fetching the task list and finding the new entry.
+            # If the adapter couldn't discover the UID on its own, fall back
+            # to re-fetching and picking the newest matching task by title.
             if new_uid is None:
                 import asyncio
                 await asyncio.sleep(1)  # give provider time to persist
@@ -635,8 +634,10 @@ def _merge_tasks_with_overlays(
             "id": uid,
             "title": item.get("summary") or "",
             "completed": completed,
-            "notes": item.get("description") or "",
-            "due_date": item.get("due"),
+            # Provider wins; fall back to overlay when the provider can't
+            # hold the field (e.g. shopping_list has no description/due).
+            "notes": item.get("description") or overlay.get("notes") or "",
+            "due_date": item.get("due") or overlay.get("due_date"),
             "sort_order": sort_order,
             "sub_items": overlay.get("sub_items", []),
             "priority": overlay.get("priority"),
@@ -695,13 +696,14 @@ def _merge_tasks_with_adapter_data(
             "id": uid,
             "title": item.get("summary") or "",
             "completed": completed,
-            "notes": item.get("description") or "",
-            "due_date": item.get("due"),
+            # Provider wins; overlay fallback for providers that can't hold it.
+            "notes": item.get("description") or overlay.get("notes") or "",
+            "due_date": item.get("due") or overlay.get("due_date"),
             "sort_order": sort_order,
             # --- Fields from adapter (synced) ---
             "priority": item.get("priority"),
             "tags": item.get("labels", []),
-            "due_time": item.get("due_time"),
+            "due_time": item.get("due_time") or overlay.get("due_time"),
             "sub_items": item.get("sub_items", []),
             "assigned_person": overlay.get("assigned_person"),
             # Recurrence (from adapter if synced, else overlay)
@@ -1012,25 +1014,35 @@ async def ws_create_external_task(hass, connection, msg):
         fields = {k: v for k, v in msg.items() if k not in ("id", "type", "entity_id")}
 
         if adapter:
-            new_uid = await adapter.async_create_task(fields)
-            # Store unsynced fields in overlay if adapter returned a uid
-            if new_uid:
-                overlay_store = _get_overlay_store(hass, entity_id)
-                overlay_fields = {}
-                # Fields the adapter doesn't sync go to overlay
-                if not adapter.capabilities.can_sync_reminders and fields.get("reminders"):
-                    overlay_fields["reminders"] = fields["reminders"]
-                for key in ("recurrence_end_type", "recurrence_max_count", "recurrence_remaining_count"):
-                    if key in fields:
-                        overlay_fields[key] = fields[key]
-                if overlay_fields:
-                    await overlay_store.async_set_overlay(new_uid, **overlay_fields)
-            connection.send_result(msg["id"], {"uid": new_uid})
+            new_uid, adapter_unsynced = await adapter.async_create_task(fields)
         else:
             # Fallback: generic create via todo.add_item
             generic = GenericAdapter(hass, entity_id, {})
-            await generic.async_create_task(fields)
-            connection.send_result(msg["id"], {"uid": None})
+            new_uid, adapter_unsynced = await generic.async_create_task(fields)
+
+        # Store overlay fields: the adapter's unsynced set (fields the
+        # provider couldn't accept) PLUS the fields that home_tasks keeps
+        # locally regardless of adapter (reminders for non-reminder-syncing
+        # adapters, recurrence bookkeeping).
+        if new_uid and adapter:  # overlay store only exists for registered externals
+            overlay_store = _get_overlay_store(hass, entity_id)
+            overlay_fields: dict = dict(adapter_unsynced) if adapter_unsynced else {}
+            if not adapter.capabilities.can_sync_reminders and fields.get("reminders"):
+                overlay_fields.setdefault("reminders", fields["reminders"])
+            for key in ("recurrence_end_type", "recurrence_max_count", "recurrence_remaining_count"):
+                if key in fields:
+                    overlay_fields.setdefault(key, fields[key])
+            # Only persist keys the overlay store knows about
+            overlay_kwargs = {k: v for k, v in overlay_fields.items() if k in OVERLAY_FIELDS}
+            if overlay_kwargs:
+                await overlay_store.async_set_overlay(new_uid, **overlay_kwargs)
+        elif adapter_unsynced:
+            _LOGGER.warning(
+                "Created external task on %s but could not discover UID; "
+                "overlay fields lost: %s",
+                entity_id, list(adapter_unsynced.keys()),
+            )
+        connection.send_result(msg["id"], {"uid": new_uid})
     except Exception as err:
         _handle_error(connection, msg["id"], err)
 

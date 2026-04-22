@@ -4795,7 +4795,7 @@ class HomeTasksCardEditor extends HTMLElement {
           show_tags: !!caps.can_sync_labels,
           show_sub_tasks: !!caps.can_sync_sub_items,
           show_assigned_person: !!caps.can_sync_assignee,
-          show_reminders: true,
+          show_reminders: !!HAS_DUE || !!caps.can_sync_due_time,
           show_recurrence: !!caps.can_sync_recurrence,
           show_history: false,
         });

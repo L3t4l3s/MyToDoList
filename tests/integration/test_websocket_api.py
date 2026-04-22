@@ -888,7 +888,7 @@ class _MockAdapter:
         item.update({k: v for k, v in fields.items() if k != "title"})
         self._tasks.append(item)
         self.created.append({"uid": uid, **fields})
-        return uid
+        return uid, {}
 
     async def async_delete_task(self, task_uid):
         self.deleted.append(task_uid)
@@ -1438,7 +1438,7 @@ async def test_ws_create_external_task_without_adapter_uses_generic(
         "custom_components.home_tasks.websocket_api.GenericAdapter"
     ) as mock_generic:
         instance = mock_generic.return_value
-        instance.async_create_task = AsyncMock(return_value=None)
+        instance.async_create_task = AsyncMock(return_value=(None, {}))
 
         client = await hass_ws_client(hass)
         await client.send_json({
@@ -1514,7 +1514,7 @@ async def test_ws_move_task_cross_native_to_generic_target(
         return_value=[{"uid": "new-uid-99", "summary": "Move via generic"}],
     ):
         instance = mock_generic.return_value
-        instance.async_create_task = AsyncMock(return_value=None)
+        instance.async_create_task = AsyncMock(return_value=(None, {}))
         instance.async_delete_task = AsyncMock()
 
         client = await hass_ws_client(hass)

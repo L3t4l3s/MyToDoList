@@ -51,6 +51,7 @@ _MARKER_REQUIREMENTS: dict[str, list[str]] = {
     "live_local_todo": ["ha_url", "ha_token", "local_todo_entity"],
     "live_local_todo_external": ["ha_url", "ha_token", "local_todo_external_entity"],
     "live_bring": ["ha_url", "ha_token", "bring_entity"],
+    "live_shopping_list": ["ha_url", "ha_token", "shopping_list_entity"],
 }
 
 
@@ -85,6 +86,7 @@ def _attr_to_env(attr: str) -> str:
         "local_todo_entity": "HT_LOCAL_TODO_TEST_ENTITY",
         "local_todo_external_entity": "HT_LOCAL_TODO_EXTERNAL_TEST_ENTITY",
         "bring_entity": "HT_BRING_TEST_ENTITY",
+        "shopping_list_entity": "HT_SHOPPING_LIST_TEST_ENTITY",
     }
     return mapping.get(attr, attr.upper())
 

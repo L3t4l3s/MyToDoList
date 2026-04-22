@@ -64,6 +64,7 @@ class LiveConfig:
     # list used for direct todo.* service tests).
     local_todo_external_entity: str | None
     bring_entity: str | None
+    shopping_list_entity: str | None
 
     # Provider-side API credentials (for dual-view verification against the
     # real provider, bypassing HA's integration entity).  Extracted from the
@@ -88,6 +89,7 @@ def load() -> LiveConfig:
         local_todo_entity=os.environ.get("HT_LOCAL_TODO_TEST_ENTITY"),
         local_todo_external_entity=os.environ.get("HT_LOCAL_TODO_EXTERNAL_TEST_ENTITY"),
         bring_entity=os.environ.get("HT_BRING_TEST_ENTITY"),
+        shopping_list_entity=os.environ.get("HT_SHOPPING_LIST_TEST_ENTITY"),
         todoist_api_token=os.environ.get("HT_TODOIST_API_TOKEN"),
         max_existing_items=int(os.environ.get("HT_MAX_EXISTING_ITEMS", "50")),
     )

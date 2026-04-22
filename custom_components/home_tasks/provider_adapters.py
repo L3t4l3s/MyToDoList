@@ -37,9 +37,13 @@ _VALID_RECURRENCE_UNITS = frozenset({"hours", "days", "weeks", "months", "years"
 _GENERIC_BASE_FIELDS = frozenset({"title", "completed", "notes", "due_date", "due_time"})
 
 # Fields that the TodoistAdapter syncs directly via the Todoist API.
+# Note: ``sub_items`` is synced via the provider too, but through separate
+# ``async_add_sub_task``/``async_update_sub_task`` calls rather than the
+# main task's create/update payload — we list it here so the create/update
+# loops don't mistakenly divert it to the overlay.
 _TODOIST_PROVIDER_FIELDS = frozenset({
     "title", "notes", "priority", "tags", "due_date", "due_time",
-    "completed", "reminders", "sort_order",
+    "completed", "reminders", "sort_order", "sub_items",
     "recurrence_enabled", "recurrence_type", "recurrence_value",
     "recurrence_unit", "recurrence_weekdays", "recurrence_start_date",
     "recurrence_time", "recurrence_end_date",
@@ -156,8 +160,18 @@ class ProviderAdapter(ABC):
         """Read tasks from provider (Home Tasks-compatible dicts)."""
 
     @abstractmethod
-    async def async_create_task(self, fields: dict) -> str | None:
-        """Create a task. Return the new UID or *None*."""
+    async def async_create_task(self, fields: dict) -> tuple[str | None, dict]:
+        """Create a task.
+
+        Returns ``(uid, unsynced)``:
+        - ``uid``  — the provider's new task UID, or *None* if it can't be
+          determined synchronously.
+        - ``unsynced`` — fields that the adapter could not push to the
+          provider (because the provider lacks the capability or doesn't
+          support the feature bit).  The caller writes these to the
+          overlay keyed on ``uid``.  If ``uid`` is *None*, overlay data
+          cannot be stored and the caller must surface this to the user.
+        """
 
     @abstractmethod
     async def async_update_task(self, task_uid: str, fields: dict) -> dict:
@@ -210,61 +224,158 @@ class GenericAdapter(ProviderAdapter):
 
     # -- writes -------------------------------------------------------------
 
-    async def async_create_task(self, fields: dict) -> str | None:
+    async def async_create_task(self, fields: dict) -> tuple[str | None, dict]:
         state = self._hass.states.get(self._entity_id)
-        supports_datetime = bool(
-            state and state.attributes and state.attributes.get("supported_features", 0) & 32
+        features = (
+            state.attributes.get("supported_features", 0)
+            if state and state.attributes else 0
         )
+        supports_datetime = bool(features & 32)  # SET_DUE_DATETIME_ON_ITEM
+        supports_due_date = bool(features & 16)  # SET_DUE_DATE_ON_ITEM
+        supports_description = bool(features & 64)  # SET_DESCRIPTION_ON_ITEM
+
+        # Snapshot existing UIDs so we can identify the new task afterwards.
+        # Only needed when we have overlay data to persist against the new UID;
+        # otherwise the caller doesn't care about the UID (always None today).
+        before_uids: set[str] = set()
+        need_uid = False  # flip to True as we accumulate unsynced fields
+
         service_data: dict[str, Any] = {"item": fields.get("title", "")}
+        unsynced: dict[str, Any] = {}
+
+        # due_date / due_time — three branches:
+        #   1. datetime supported + both given  → due_datetime
+        #   2. only date supported              → due_date
+        #   3. provider can't hold a due at all → overlay
         if fields.get("due_date"):
             if fields.get("due_time") and supports_datetime:
                 service_data["due_datetime"] = f"{fields['due_date']} {fields['due_time']}:00"
-            else:
+            elif supports_due_date:
                 service_data["due_date"] = fields["due_date"]
+                # due_time alone (without datetime support) stays local
+                if fields.get("due_time"):
+                    unsynced["due_time"] = fields["due_time"]
+                    need_uid = True
+            else:
+                unsynced["due_date"] = fields["due_date"]
+                if fields.get("due_time"):
+                    unsynced["due_time"] = fields["due_time"]
+                need_uid = True
+        elif fields.get("due_time"):
+            unsynced["due_time"] = fields["due_time"]
+            need_uid = True
+
+        # notes / description
         if fields.get("notes"):
-            service_data["description"] = fields["notes"]
+            if supports_description:
+                service_data["description"] = fields["notes"]
+            else:
+                unsynced["notes"] = fields["notes"]
+                need_uid = True
+
+        # Everything not in the base field set → overlay
+        for key, value in fields.items():
+            if key not in _GENERIC_BASE_FIELDS and key not in unsynced:
+                unsynced[key] = value
+                need_uid = True
+
+        if need_uid:
+            try:
+                before_uids = {item["uid"] for item in await self.async_read_tasks()}
+            except Exception:  # noqa: BLE001
+                _LOGGER.debug("Could not snapshot pre-create UIDs for %s", self._entity_id)
+
         await self._hass.services.async_call(
             "todo", "add_item", service_data,
             target={"entity_id": self._entity_id},
             blocking=True,
         )
-        return None  # UID is assigned by the provider; re-fetch to discover it
+
+        new_uid: str | None = None
+        if need_uid:
+            try:
+                after_items = await self.async_read_tasks()
+            except Exception:  # noqa: BLE001
+                _LOGGER.warning(
+                    "Could not re-read %s after create to discover new UID; "
+                    "overlay fields may be lost", self._entity_id,
+                )
+                return None, unsynced
+            new_candidates = [
+                item["uid"] for item in after_items
+                if item["uid"] not in before_uids
+            ]
+            if len(new_candidates) == 1:
+                new_uid = new_candidates[0]
+            elif new_candidates:
+                # Fall back to title match when multiple new tasks appear
+                # (race with another actor creating in parallel).
+                title_lower = (fields.get("title") or "").lower()
+                for item in reversed(after_items):
+                    if (
+                        item["uid"] in new_candidates
+                        and (item.get("summary") or "").lower() == title_lower
+                    ):
+                        new_uid = item["uid"]
+                        break
+        return new_uid, unsynced
 
     async def async_update_task(self, task_uid: str, fields: dict) -> dict:
-        """Send base fields to provider, return everything else as unsynced."""
+        """Send supported base fields to provider, return everything else as unsynced."""
         service_data: dict[str, Any] = {"item": task_uid}
         unsynced: dict[str, Any] = {}
+
+        # Feature bits — the HA todo service layer rejects writes that the
+        # entity's integration hasn't declared support for.  Route unsupported
+        # fields to the overlay instead of letting the service call crash.
+        state = self._hass.states.get(self._entity_id)
+        features = (
+            state.attributes.get("supported_features", 0)
+            if state and state.attributes else 0
+        )
+        supports_datetime = bool(features & 32)   # SET_DUE_DATETIME_ON_ITEM
+        supports_due_date = bool(features & 16)   # SET_DUE_DATE_ON_ITEM
+        supports_description = bool(features & 64)  # SET_DESCRIPTION_ON_ITEM
 
         if "title" in fields:
             service_data["rename"] = fields["title"]
         if "completed" in fields:
             service_data["status"] = "completed" if fields["completed"] else "needs_action"
         if "notes" in fields:
-            service_data["description"] = fields["notes"]
-        # Check if entity supports due_datetime (SET_DUE_DATETIME_ON_ITEM = 32)
-        state = self._hass.states.get(self._entity_id)
-        supports_datetime = bool(
-            state and state.attributes and state.attributes.get("supported_features", 0) & 32
-        )
+            if supports_description:
+                service_data["description"] = fields["notes"]
+            else:
+                unsynced["notes"] = fields["notes"]
 
         if "due_date" in fields:
             if fields["due_date"] is None:
-                # Explicitly clearing due date
-                service_data["due_date"] = None
+                # Explicitly clearing due date — only push if provider can
+                # carry a due date at all; otherwise drop silently (it was
+                # never there).
+                if supports_due_date or supports_datetime:
+                    service_data["due_date"] = None
             elif fields.get("due_time") and supports_datetime:
                 service_data["due_datetime"] = f"{fields['due_date']} {fields['due_time']}:00"
             elif "due_time" in fields and fields["due_time"] is None and supports_datetime:
                 # Time explicitly cleared while date remains — set date at midnight
                 # to force CalDAV to downgrade from due_datetime to due_date.
                 service_data["due_datetime"] = f"{fields['due_date']} 00:00:00"
-            else:
+            elif supports_due_date:
                 service_data["due_date"] = fields["due_date"]
+                # due_time alone without datetime support → overlay
+                if fields.get("due_time"):
+                    unsynced["due_time"] = fields["due_time"]
+            else:
+                # Provider has no due-date concept — keep it all local
+                unsynced["due_date"] = fields["due_date"]
+                if "due_time" in fields:
+                    unsynced["due_time"] = fields["due_time"]
         elif "due_time" in fields:
             # due_time changed but due_date didn't – treat as unsynced
             unsynced["due_time"] = fields["due_time"]
 
         for key, value in fields.items():
-            if key not in _GENERIC_BASE_FIELDS:
+            if key not in _GENERIC_BASE_FIELDS and key not in unsynced:
                 unsynced[key] = value
 
         if len(service_data) > 1:  # more than just "item"
@@ -753,7 +864,7 @@ class TodoistAdapter(ProviderAdapter):
 
         return result
 
-    async def async_create_task(self, fields: dict) -> str | None:
+    async def async_create_task(self, fields: dict) -> tuple[str | None, dict]:
         api = await self._ensure_api()
         kwargs: dict[str, Any] = {
             "content": fields.get("title", "New task"),
@@ -784,7 +895,15 @@ class TodoistAdapter(ProviderAdapter):
             for offset in fields["reminders"]:
                 await api.add_reminder(task.id, reminder_type="relative", minute_offset=offset)
 
-        return task.id
+        # Todoist syncs nearly every field via the API; the caller still
+        # writes the remaining overlay-only fields (recurrence_end_type,
+        # recurrence_max_count, recurrence_remaining_count, assigned_person
+        # display, …) via its own logic keyed on the returned UID.
+        unsynced: dict[str, Any] = {}
+        for key, value in fields.items():
+            if key not in _TODOIST_PROVIDER_FIELDS:
+                unsynced[key] = value
+        return task.id, unsynced
 
     async def async_update_task(self, task_uid: str, fields: dict) -> dict:
         api = await self._ensure_api()

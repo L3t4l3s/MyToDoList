@@ -39,7 +39,7 @@ Display tasks from **any HA todo integration** alongside native Home Tasks lists
 
 - Link external todo entities via **Settings > Integrations > Home Tasks > Link external todo list**
 - Provider type is **auto-detected** (Todoist, CalDAV, Google Tasks, etc.) — no extra configuration needed
-- For **generic providers** (CalDAV, Google Tasks, etc.): base fields (title, status, due date/time, description) are synced bidirectionally via HA's standard todo entity interface. Extra fields (priority, tags, sub-tasks, etc.) are stored locally in an overlay.
+- For **generic providers** (CalDAV, Google Tasks, Shopping List, etc.): each field is bidirectionally synced only if the provider's todo entity advertises the matching capability (SET_DUE_DATE, SET_DESCRIPTION, …). Everything else — priority, tags, sub-tasks, reminders, recurrence, and base fields the provider can't hold — lives in a local overlay so every Home Tasks feature keeps working.
 - For **Todoist**: full bidirectional sync via direct API access — see [Todoist Deep Integration](#todoist-deep-integration) below
 - The card editor **auto-configures visibility** based on the provider's capabilities when you select an external list
 - You can manually enable overlay fields for external lists if you want them locally
@@ -53,6 +53,7 @@ Display tasks from **any HA todo integration** alongside native Home Tasks lists
 | **Todoist** | [Todoist](https://www.home-assistant.io/integrations/todoist/) (Core) | yes | yes | yes | yes | yes | yes | yes | yes | no | yes | yes | Full bidirectional sync via direct Todoist API |
 | **Local Todo** | [Local Todo](https://www.home-assistant.io/integrations/local_todo/) (Core) | yes | yes | no | yes | no | no | no | no | no | no | no | Simple file-based lists built into HA |
 | **Bring** | [Bring](https://www.home-assistant.io/integrations/bring/) (Core) | yes | no | no | yes | no | no | no | no | no | no | no | Shopping list — all extra fields available locally via overlay |
+| **Shopping List** | [Shopping List](https://www.home-assistant.io/integrations/shopping_list/) (Core) | yes | no | no | no | no | no | no | no | no | no | no | Minimal core shopping list — title+status only; all extra fields via overlay |
 
 **yes** = bidirectionally synced with the provider. **no** = not synced, but still available locally in Home Tasks via overlay.
 

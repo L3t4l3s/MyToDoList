@@ -36,7 +36,9 @@ OVERLAY_STORAGE_VERSION = 1
 # Fields that the overlay store manages (not provided by external providers).
 OVERLAY_FIELDS = (
     "priority",
+    "due_date",
     "due_time",
+    "notes",
     "assigned_person",
     "tags",
     "reminders",
@@ -64,7 +66,9 @@ def _empty_overlay() -> dict:
     """Return a fresh overlay with default values for all extra fields."""
     return {
         "priority": None,
+        "due_date": None,
         "due_time": None,
+        "notes": None,
         "assigned_person": None,
         "tags": [],
         "reminders": [],

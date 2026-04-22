@@ -134,22 +134,23 @@ async def test_create_with_due_date(
     assert pi.get("due") == "2027-12-10"
 
 
-async def test_due_time_is_dropped_for_google_without_pollution(
+async def test_due_time_lives_in_overlay_for_google_without_pollution(
     ws_client: HAWebSocketClient, google_entity: str
 ) -> None:
-    """Google Tasks has no time-of-day support — due_time is intentionally dropped.
+    """Google Tasks has no time-of-day support — due_time lives in our overlay.
 
     Google's Tasks API simply cannot store a time-of-day on a due date (open
     since 2013: https://issuetracker.google.com/issues/36759725).  Home Tasks'
-    capability table therefore lists "Due Time = no" for Google, and the
-    feature bit SET_DUE_DATETIME_ON_ITEM is not exposed by the entity
-    (supported_features=95 lacks bit 32).
+    design principle is that *every* home_tasks field stays available on every
+    external list — when the provider can't hold a field, we persist it in
+    our overlay and merge it back on read.  That way users can still use
+    due_time on Google-backed tasks without losing data.
 
     What the test fixes in stone:
-      - due_date still arrives at Google (date-only, as Google wants)
-      - due_time is silently dropped (None in our merged view)
-      - the time value must NEVER be smuggled into Google's summary or
-        description as a workaround — that would corrupt the task in the
+      - due_date arrives at Google (date-only, as Google wants)
+      - due_time round-trips through our overlay (NOT via Google)
+      - the time value must NEVER be smuggled into Google's summary,
+        description, or due field — that would corrupt the task in the
         Google Tasks app itself.
     """
     await ws_client.send_command(
@@ -164,11 +165,11 @@ async def test_due_time_is_dropped_for_google_without_pollution(
     tasks = await _refetch(ws_client, google_entity)
     task = next(t for t in tasks if t["title"] == "Google due time")
     uid = task["id"]
-    # Date survives; time is dropped (Google limitation, documented in README).
+    # Date syncs to Google; time survives locally via the overlay.
     assert task["due_date"] == "2027-12-10"
-    assert task["due_time"] in (None, ""), (
-        f"Home Tasks returned due_time={task['due_time']!r} for a Google task — "
-        "expected dropped (None) because Google has no time-of-day support."
+    assert task["due_time"] == "16:45", (
+        f"Home Tasks lost due_time={task['due_time']!r} for a Google task — "
+        "it should be preserved in the overlay."
     )
 
     # Provider side: summary unchanged, date-only due, no 16:45 smuggled

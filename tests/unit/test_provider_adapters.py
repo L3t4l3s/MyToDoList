@@ -478,8 +478,9 @@ class TestTodoistAdapterCreateTask:
         new_task.id = "new-1"
         api.add_task = AsyncMock(return_value=new_task)
 
-        uid = await adapter.async_create_task({"title": "Test create"})
+        uid, unsynced = await adapter.async_create_task({"title": "Test create"})
         assert uid == "new-1"
+        assert unsynced == {}
         api.add_task.assert_awaited_once()
         kwargs = api.add_task.await_args.kwargs
         assert kwargs["content"] == "Test create"
@@ -511,6 +512,79 @@ class TestTodoistAdapterCreateTask:
         await adapter.async_create_task({"title": "Reminder", "reminders": [15, 60]})
         # Each reminder triggers an add_reminder call
         assert api.add_reminder.await_count == 2
+
+    async def test_priority_and_tags_do_not_leak_to_overlay(self):
+        """Mirror of the GenericAdapter test: Todoist syncs these natively.
+
+        The generic adapter treats priority/tags as overlay-only because the
+        HA todo service schema can't carry them (see
+        ``TestGenericAdapterCreateBitGuards.test_non_base_fields_go_to_overlay
+        _for_generic_provider``).  Todoist's REST API *does* accept them, so
+        the TodoistAdapter must NOT echo them back into ``unsynced`` — that
+        would double-write the same value to both the provider and the
+        overlay and diverge on subsequent reads.
+        """
+        adapter, api = _make_todoist_adapter_with_mock_api()
+        new_task = MagicMock()
+        new_task.id = "new-4"
+        api.add_task = AsyncMock(return_value=new_task)
+
+        uid, unsynced = await adapter.async_create_task({
+            "title": "Native-synced",
+            "priority": 3,
+            "tags": ["a", "b"],
+        })
+
+        assert uid == "new-4"
+        # priority / tags are in _TODOIST_PROVIDER_FIELDS → not in unsynced
+        assert "priority" not in unsynced
+        assert "tags" not in unsynced
+        # And they DO reach the API.
+        kwargs = api.add_task.await_args.kwargs
+        assert kwargs["priority"] == 4
+        assert kwargs["labels"] == ["a", "b"]
+
+    async def test_sub_items_do_not_leak_to_overlay(self):
+        """sub_items are handled via separate add_sub_task calls, not overlay.
+
+        Even though the main create call doesn't pass sub_items to the API,
+        they must NOT appear in ``unsynced`` — otherwise the overlay would
+        hold stale duplicates of what Todoist already stores natively.
+        """
+        adapter, api = _make_todoist_adapter_with_mock_api()
+        new_task = MagicMock()
+        new_task.id = "new-5"
+        api.add_task = AsyncMock(return_value=new_task)
+
+        uid, unsynced = await adapter.async_create_task({
+            "title": "With subs",
+            "sub_items": [{"title": "s1"}, {"title": "s2"}],
+        })
+
+        assert "sub_items" not in unsynced
+
+    async def test_assigned_person_leaks_to_overlay_by_design(self):
+        """assigned_person is the one field that intentionally double-writes.
+
+        Todoist accepts ``assignee_id`` on write (visible in the Todoist app)
+        but never returns it on read — so we also store the HA ``person.*``
+        entity_id in the overlay to drive the card's display.  The test
+        pins this asymmetry so nobody "optimises" it away.
+        """
+        adapter, api = _make_todoist_adapter_with_mock_api()
+        new_task = MagicMock()
+        new_task.id = "new-6"
+        api.add_task = AsyncMock(return_value=new_task)
+
+        uid, unsynced = await adapter.async_create_task({
+            "title": "Assigned",
+            "assigned_person": "person.alice",
+        })
+
+        assert unsynced.get("assigned_person") == "person.alice", (
+            "assigned_person must be mirrored into the overlay because "
+            "Todoist's API doesn't return it on read."
+        )
 
 
 class TestTodoistAdapterUpdateTask:
@@ -685,18 +759,347 @@ class TestTodoistAdapterReminderSync:
 
 
 # ---------------------------------------------------------------------------
-# NOTE: GenericAdapter tests used to live here, built on a hand-rolled
-# ``hass = MagicMock()`` with ``hass.services.async_call = AsyncMock()``.
-# That style is exactly what hid the Google Tasks reorder bug for months:
-# a self-registered mock accepts any service name, so the tests green-light
-# code that in real HA throws ServiceNotFound.
+# NOTE: Full GenericAdapter behaviour (service-call acceptance, reorder via
+# entity.async_move_todo_item, etc.) is covered end-to-end by the live tests
+# in tests/live/test_provider_*.py — they drive the real ``todo.*`` services
+# against a running HA instance and verify the provider-side view via
+# todo.get_items.  That prevents MagicMock-style tests from green-lighting
+# service names HA would reject (this once hid the Google Tasks reorder bug).
 #
-# GenericAdapter functionality is now covered end-to-end by
-# tests/live/test_provider_google_tasks.py, which drives the real
-# ``todo.*`` services and Entity methods against a live HA instance and
-# verifies the provider-side view via todo.get_items.  If you find a
-# GenericAdapter code path that isn't exercised by the live tests, add
-# it there — not here.
+# The unit tests below are deliberately scoped: they verify the pure-Python
+# *decision logic* that routes fields between ``service_data`` and the
+# ``unsynced`` overlay dict based on the entity's ``supported_features``
+# bitmap.  They don't assert anything about how HA would interpret the
+# service call — only about what the adapter DECIDES to send vs. keep local.
+# If you're touching the service call signature, update the live tests.
+# ---------------------------------------------------------------------------
+
+
+# HA TodoListEntityFeature bits — kept inline so tests document the protocol
+# contract with HA core.  Cross-check with homeassistant/components/todo/const.py.
+_F_CREATE = 1
+_F_DELETE = 2
+_F_UPDATE = 4
+_F_MOVE = 8
+_F_SET_DUE_DATE = 16
+_F_SET_DUE_DATETIME = 32
+_F_SET_DESCRIPTION = 64
+
+# Provider profiles — what HA reports in state.attributes.supported_features.
+FEATURES_SHOPPING_LIST = _F_CREATE | _F_UPDATE | _F_DELETE | _F_MOVE  # 15
+FEATURES_GOOGLE_TASKS = FEATURES_SHOPPING_LIST | _F_SET_DUE_DATE | _F_SET_DESCRIPTION  # 95
+FEATURES_FULL = FEATURES_GOOGLE_TASKS | _F_SET_DUE_DATETIME  # 127
+
+
+def _make_generic_adapter(
+    supported_features: int,
+    entity_id: str = "todo.ut_generic",
+    existing_uids: list[str] | None = None,
+    new_uid: str | None = "new-uid-x",
+):
+    """Build a GenericAdapter whose hass reports the given feature bitmap.
+
+    The returned ``captured`` dict collects every ``hass.services.async_call``
+    invocation so tests can assert on payloads.  ``async_read_tasks`` is
+    patched to return a deterministic before/after snapshot so the before/
+    after-diff UID discovery is exercised without touching HA's todo
+    component state.
+    """
+    captured: dict = {"calls": []}
+
+    hass = MagicMock()
+    state = MagicMock()
+    state.attributes = {"supported_features": supported_features}
+    hass.states.get = MagicMock(return_value=state)
+
+    async def _record_call(domain, service, service_data=None, target=None, blocking=False):
+        captured["calls"].append({
+            "domain": domain,
+            "service": service,
+            "service_data": dict(service_data) if service_data else {},
+            "target": dict(target) if target else {},
+        })
+
+    hass.services.async_call = AsyncMock(side_effect=_record_call)
+
+    adapter = GenericAdapter(hass, entity_id, {})
+
+    # Patch async_read_tasks to return an explicit before/after snapshot.
+    # Before the create call: ``existing_uids``.  After: same plus ``new_uid``
+    # (when set) — the adapter's diff should pick ``new_uid`` out.
+    before = [{"uid": u, "summary": f"existing-{u}"} for u in (existing_uids or [])]
+    after = list(before)
+    if new_uid is not None:
+        after.append({"uid": new_uid, "summary": "new task"})
+    reads = iter([before, after])
+
+    async def _read_tasks():
+        try:
+            return next(reads)
+        except StopIteration:
+            return after
+
+    adapter.async_read_tasks = _read_tasks  # type: ignore[method-assign]
+    return adapter, captured
+
+
+# ---------------------------------------------------------------------------
+#  GenericAdapter — supported_features bit-guard decision logic
+# ---------------------------------------------------------------------------
+
+
+class TestGenericAdapterCreateBitGuards:
+    """async_create_task routes fields by supported_features bits."""
+
+    async def test_shopping_list_profile_routes_notes_and_due_to_overlay(self):
+        """No SET_DUE_DATE, no SET_DESCRIPTION → notes + due stay local."""
+        adapter, captured = _make_generic_adapter(FEATURES_SHOPPING_LIST)
+
+        uid, unsynced = await adapter.async_create_task({
+            "title": "Cheese",
+            "notes": "aged cheddar",
+            "due_date": "2027-09-15",
+            "due_time": "14:00",
+        })
+
+        # Only the title reaches HA — the provider can't carry anything else.
+        assert len(captured["calls"]) == 1
+        call = captured["calls"][0]
+        assert call["service"] == "add_item"
+        assert call["service_data"] == {"item": "Cheese"}
+
+        # Everything else must live in the overlay.
+        assert unsynced == {
+            "notes": "aged cheddar",
+            "due_date": "2027-09-15",
+            "due_time": "14:00",
+        }
+        # UID discovery must have run — we have overlay data to persist.
+        assert uid == "new-uid-x"
+
+    async def test_date_only_profile_sends_date_keeps_time_local(self):
+        """SET_DUE_DATE but no SET_DUE_DATETIME → date goes, time stays local."""
+        adapter, captured = _make_generic_adapter(FEATURES_GOOGLE_TASKS)
+
+        uid, unsynced = await adapter.async_create_task({
+            "title": "Google due time",
+            "due_date": "2027-12-10",
+            "due_time": "16:45",
+        })
+
+        call = captured["calls"][0]
+        assert call["service_data"] == {
+            "item": "Google due time",
+            "due_date": "2027-12-10",
+        }
+        assert "due_datetime" not in call["service_data"]
+        assert unsynced == {"due_time": "16:45"}
+        assert uid == "new-uid-x"
+
+    async def test_full_profile_sends_datetime_no_overlay_needed(self):
+        """CalDAV-shaped: due_datetime supported → nothing left for overlay."""
+        adapter, captured = _make_generic_adapter(FEATURES_FULL)
+
+        uid, unsynced = await adapter.async_create_task({
+            "title": "CalDAV task",
+            "notes": "body",
+            "due_date": "2027-12-10",
+            "due_time": "16:45",
+        })
+
+        call = captured["calls"][0]
+        assert call["service_data"] == {
+            "item": "CalDAV task",
+            "due_datetime": "2027-12-10 16:45:00",
+            "description": "body",
+        }
+        assert unsynced == {}
+
+    async def test_description_only_profile_keeps_due_local(self):
+        """SET_DESCRIPTION but no SET_DUE_DATE → notes go, due stays local."""
+        features = FEATURES_SHOPPING_LIST | _F_SET_DESCRIPTION
+        adapter, captured = _make_generic_adapter(features)
+
+        uid, unsynced = await adapter.async_create_task({
+            "title": "Mixed",
+            "notes": "n",
+            "due_date": "2027-12-10",
+        })
+
+        call = captured["calls"][0]
+        assert call["service_data"] == {
+            "item": "Mixed",
+            "description": "n",
+        }
+        assert "due_date" not in call["service_data"]
+        assert unsynced == {"due_date": "2027-12-10"}
+
+    async def test_non_base_fields_go_to_overlay_for_generic_provider(self):
+        """priority / tags / assigned_person are overlay-only for GenericAdapter.
+
+        This is NOT the same for TodoistAdapter — there priority and tags are
+        synced via the Todoist REST API (see ``_TODOIST_PROVIDER_FIELDS`` and
+        ``TestTodoistAdapterCreateTask``).  GenericAdapter only pushes what HA's
+        todo service schema accepts (title/status/notes/due_date/due_datetime);
+        everything else stays local.
+        """
+        adapter, captured = _make_generic_adapter(FEATURES_FULL)
+
+        uid, unsynced = await adapter.async_create_task({
+            "title": "Rich task",
+            "priority": 3,
+            "tags": ["a", "b"],
+            "assigned_person": "person.alice",
+        })
+
+        call = captured["calls"][0]
+        assert call["service_data"] == {"item": "Rich task"}
+        assert unsynced == {
+            "priority": 3,
+            "tags": ["a", "b"],
+            "assigned_person": "person.alice",
+        }
+
+    async def test_bare_title_skips_uid_discovery(self):
+        """No overlay data to persist → no before/after snapshot, uid=None.
+
+        The adapter only pays the cost of UID discovery when it actually
+        needs a UID to key overlay data.  A plain title-only create has
+        nothing to persist locally, so we skip the extra read.
+        """
+        captured: dict = {"calls": [], "reads": 0}
+
+        hass = MagicMock()
+        state = MagicMock()
+        state.attributes = {"supported_features": FEATURES_FULL}
+        hass.states.get = MagicMock(return_value=state)
+
+        async def _record_call(*args, **kwargs):
+            captured["calls"].append(args)
+
+        hass.services.async_call = AsyncMock(side_effect=_record_call)
+
+        adapter = GenericAdapter(hass, "todo.ut_generic", {})
+
+        async def _read_tasks():
+            captured["reads"] += 1
+            return []
+
+        adapter.async_read_tasks = _read_tasks  # type: ignore[method-assign]
+
+        uid, unsynced = await adapter.async_create_task({"title": "plain"})
+
+        assert uid is None
+        assert unsynced == {}
+        assert captured["reads"] == 0  # no snapshot, no re-read
+
+    async def test_uid_discovery_uses_before_after_diff(self):
+        """When overlay data exists, the new UID is the one absent from ``before``."""
+        adapter, captured = _make_generic_adapter(
+            FEATURES_SHOPPING_LIST,
+            existing_uids=["pre-1", "pre-2"],
+            new_uid="fresh-uid-42",
+        )
+
+        uid, unsynced = await adapter.async_create_task({
+            "title": "Milk",
+            "notes": "2 litres",  # forces UID discovery
+        })
+
+        assert uid == "fresh-uid-42"
+        assert unsynced == {"notes": "2 litres"}
+
+
+class TestGenericAdapterUpdateBitGuards:
+    """async_update_task routes fields by supported_features bits."""
+
+    async def test_shopping_list_profile_routes_notes_to_overlay(self):
+        """UPDATE with notes on a notes-less provider → unsynced, no service call."""
+        adapter, captured = _make_generic_adapter(FEATURES_SHOPPING_LIST)
+
+        unsynced = await adapter.async_update_task("uid-1", {"notes": "n"})
+
+        # service_data would only have "item" (the UID) → no update fires.
+        assert captured["calls"] == []
+        assert unsynced == {"notes": "n"}
+
+    async def test_date_only_profile_sends_date_keeps_time_local(self):
+        """due_date + due_time, provider lacks SET_DUE_DATETIME → time stays local."""
+        adapter, captured = _make_generic_adapter(FEATURES_GOOGLE_TASKS)
+
+        unsynced = await adapter.async_update_task("uid-1", {
+            "due_date": "2027-12-10",
+            "due_time": "16:45",
+        })
+
+        call = captured["calls"][0]
+        assert call["service"] == "update_item"
+        assert call["service_data"] == {
+            "item": "uid-1",
+            "due_date": "2027-12-10",
+        }
+        assert "due_datetime" not in call["service_data"]
+        assert unsynced == {"due_time": "16:45"}
+
+    async def test_full_profile_sends_datetime(self):
+        adapter, captured = _make_generic_adapter(FEATURES_FULL)
+
+        unsynced = await adapter.async_update_task("uid-1", {
+            "due_date": "2027-12-10",
+            "due_time": "16:45",
+        })
+
+        call = captured["calls"][0]
+        assert call["service_data"] == {
+            "item": "uid-1",
+            "due_datetime": "2027-12-10 16:45:00",
+        }
+        assert unsynced == {}
+
+    async def test_clear_due_date_on_dateless_provider_noops(self):
+        """due_date=None on a shopping-list-shaped provider must NOT call HA.
+
+        The provider never had a due_date — pushing ``due_date=None`` would
+        be rejected with ``Entity does not support setting field 'due_date'``.
+        The adapter must silently skip it.
+        """
+        adapter, captured = _make_generic_adapter(FEATURES_SHOPPING_LIST)
+
+        unsynced = await adapter.async_update_task("uid-1", {"due_date": None})
+
+        assert captured["calls"] == []
+        # Nothing to store locally either — due_date was already absent.
+        assert unsynced == {}
+
+    async def test_clear_due_date_on_date_capable_provider_sends_none(self):
+        """due_date=None on a Google-shaped provider MUST reach HA to unset."""
+        adapter, captured = _make_generic_adapter(FEATURES_GOOGLE_TASKS)
+
+        unsynced = await adapter.async_update_task("uid-1", {"due_date": None})
+
+        call = captured["calls"][0]
+        assert call["service_data"] == {"item": "uid-1", "due_date": None}
+        assert unsynced == {}
+
+    async def test_description_only_profile_sends_notes_keeps_due_local(self):
+        """SET_DESCRIPTION but no SET_DUE_DATE → notes go, due stays local."""
+        features = FEATURES_SHOPPING_LIST | _F_SET_DESCRIPTION
+        adapter, captured = _make_generic_adapter(features)
+
+        unsynced = await adapter.async_update_task("uid-1", {
+            "notes": "hello",
+            "due_date": "2027-12-10",
+            "priority": 3,
+        })
+
+        call = captured["calls"][0]
+        assert call["service_data"] == {
+            "item": "uid-1",
+            "description": "hello",
+        }
+        assert unsynced == {"due_date": "2027-12-10", "priority": 3}
+
+
 # ---------------------------------------------------------------------------
 
 
