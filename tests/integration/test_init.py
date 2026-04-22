@@ -864,11 +864,11 @@ async def test_schedule_recurrence_delay_independent_of_reminders(
 async def test_completion_advances_due_date_for_recurring_task(
     hass: HomeAssistant, mock_config_entry, store
 ) -> None:
-    """Completing a recurring task with a due_date advances due_date/due_time now.
+    """Completing a recurring task advances only the date, never the time.
 
-    This is the new behavior that replaces the pull-reopen-back-by-reminder
-    hack: the due fields point to the next occurrence *immediately*, so the
-    UI, the calendar, AND reminders all operate on the correct target.
+    recurrence_time schedules the reopen, it is not a replacement for the
+    task's user-set due_time.  The date rolls forward to the next
+    occurrence, the time stays exactly as the user entered it.
     """
     from datetime import date as _date
 
@@ -891,7 +891,44 @@ async def test_completion_advances_due_date_for_recurring_task(
     assert stored["completed"] is True
     # due_date must now be tomorrow (next daily occurrence)
     assert stored["due_date"] == (today + timedelta(days=1)).isoformat()
+    # due_time stays exactly as the user set it
     assert stored["due_time"] == "14:00"
+
+
+async def test_completion_never_overwrites_due_time_from_recurrence_time(
+    hass: HomeAssistant, mock_config_entry, store
+) -> None:
+    """recurrence_time must not leak into due_time on completion.
+
+    User had due_time=08:30 but a recurrence_time=12:00 (e.g. "the daily
+    repeat fires around noon, but my personal deadline for the task
+    stays at 08:30").  Pre-fix behaviour would have overwritten due_time
+    with 12:00 on complete.  Post-fix: due_time stays 08:30.
+    """
+    from datetime import date as _date
+
+    today = _date.today()
+    task = await store.async_add_task("Different times")
+    await store.async_update_task(
+        task["id"],
+        due_date=today.isoformat(),
+        due_time="08:30",
+        recurrence_enabled=True,
+        recurrence_type="interval",
+        recurrence_unit="days",
+        recurrence_value=1,
+        recurrence_time="12:00",  # differs from due_time!
+    )
+    await store.async_update_task(task["id"], completed=True)
+    await hass.async_block_till_done()
+
+    stored = store.get_task(task["id"])
+    assert stored["due_date"] == (today + timedelta(days=1)).isoformat()
+    assert stored["due_time"] == "08:30", (
+        "Completion overwrote due_time with recurrence_time — "
+        "recurrence_time is for the reopen timer, not for rewriting "
+        "the user's due_time."
+    )
 
 
 async def test_completion_preserves_due_time_without_recurrence_time(
@@ -960,9 +997,11 @@ async def test_completion_auto_advance_is_recorded_in_history(
     assert len(date_entries) == 1, f"expected 1 auto-advance date entry, got {date_entries}"
     assert date_entries[0]["from"] == today.isoformat()
     assert date_entries[0]["to"] == (today + timedelta(days=1)).isoformat()
-    assert len(time_entries) == 1
-    assert time_entries[0]["from"] == "14:00"
-    assert time_entries[0]["to"] == "11:55"
+    # due_time is never touched by the advance, so no due_time history entry
+    assert time_entries == [], (
+        f"Expected no due_time history entries (due_time is user-owned "
+        f"and never advanced), got {time_entries}"
+    )
 
 
 def test_record_auto_advance_history_skips_when_unchanged() -> None:

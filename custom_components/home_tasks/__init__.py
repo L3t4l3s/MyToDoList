@@ -177,16 +177,16 @@ def _on_task_completed(hass: HomeAssistant, entry_id: str, task: dict) -> None:
         if target is not None:
             local_target = target.astimezone(dt_util.DEFAULT_TIME_ZONE)
             old_due_date = task.get("due_date")
-            old_due_time = task.get("due_time")
             task["due_date"] = local_target.date().isoformat()
-            # Only overwrite due_time if recurrence_time is configured;
-            # otherwise the user's explicit due_time is preserved.
-            if task.get("recurrence_time"):
-                task["due_time"] = f"{local_target.hour:02d}:{local_target.minute:02d}"
+            # due_time belongs to the user.  We advance the DATE to the next
+            # occurrence; the time-of-day — if the user set one — is kept,
+            # and if the user didn't set one we don't invent one.  The
+            # recurrence_time field is only used by the scheduler to place
+            # the reopen timer, not to rewrite the task's due_time.
             _record_auto_advance_history(
                 task,
                 old_due_date, task["due_date"],
-                old_due_time, task.get("due_time"),
+                task.get("due_time"), task.get("due_time"),
             )
 
     _schedule_recurrence(hass, entry_id, task, completed_at=completed_at)
@@ -501,16 +501,18 @@ async def _async_reopen_task(hass: HomeAssistant, entry_id: str, task_id: str) -
         return
 
     new_due_date = None
-    new_due_time = _REOPEN_UNCHANGED
     if task.get("due_date"):
         target = _compute_next_reopen_target(task, _parse_completed_at(task))
         if target is not None:
             local_target = target.astimezone(dt_util.DEFAULT_TIME_ZONE)
             new_due_date = local_target.date().isoformat()
-            if task.get("recurrence_time"):
-                new_due_time = f"{local_target.hour:02d}:{local_target.minute:02d}"
 
-    await store.async_reopen_task(task_id, new_due_date=new_due_date, new_due_time=new_due_time)
+    # due_time is deliberately never touched — see _on_task_completed:
+    # recurrence_time schedules the reopen timer, it is not a replacement
+    # for the task's user-owned due_time.  Pass _REOPEN_UNCHANGED.
+    await store.async_reopen_task(
+        task_id, new_due_date=new_due_date, new_due_time=_REOPEN_UNCHANGED,
+    )
     _LOGGER.info("Recurring task '%s' reopened", task.get("title", task_id))
 
 
