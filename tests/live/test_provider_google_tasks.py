@@ -456,6 +456,183 @@ async def test_reorder_with_completed_task_in_list(
     assert uids["MixC"] in completed_uids
 
 
+async def test_sub_task_lifecycle_on_google(
+    ws_client: HAWebSocketClient, google_entity: str
+) -> None:
+    """Sub-tasks on Google Tasks: add, update, delete via home_tasks/*.
+
+    Google Tasks supports hierarchy natively (parent/child).  Our adapter
+    handles sub-tasks for Google through the overlay store because
+    GenericAdapter.capabilities.can_sync_sub_items defaults to False.
+    This test pins down the contract: sub-tasks appear in the merged
+    view (from overlay), complete/rename work, delete works.
+    """
+    parent = await ws_client.send_command(
+        "home_tasks/create_external_task",
+        entity_id=google_entity,
+        title="Sub parent G",
+    )
+    await asyncio.sleep(SETTLE)
+    tasks = await _refetch(ws_client, google_entity)
+    parent_task = next(t for t in tasks if t["title"] == "Sub parent G")
+    pid = parent_task["id"]
+
+    sub = await ws_client.send_command(
+        "home_tasks/add_external_sub_task",
+        entity_id=google_entity,
+        task_uid=pid,
+        title="First sub G",
+    )
+    sub_id = sub["id"]
+    await asyncio.sleep(SETTLE)
+
+    tasks = await _refetch(ws_client, google_entity)
+    parent_task = next(t for t in tasks if t["id"] == pid)
+    sub_items = parent_task.get("sub_items") or []
+    assert any(s["id"] == sub_id and s["title"] == "First sub G" for s in sub_items), (
+        f"Sub-task not visible in merged view: {sub_items!r}"
+    )
+
+    # Rename
+    await ws_client.send_command(
+        "home_tasks/update_external_sub_task",
+        entity_id=google_entity, task_uid=pid, sub_task_id=sub_id,
+        title="Renamed sub G",
+    )
+    await asyncio.sleep(SETTLE)
+    tasks = await _refetch(ws_client, google_entity)
+    parent_task = next(t for t in tasks if t["id"] == pid)
+    renamed = next(s for s in parent_task["sub_items"] if s["id"] == sub_id)
+    assert renamed["title"] == "Renamed sub G"
+
+    # Complete
+    await ws_client.send_command(
+        "home_tasks/update_external_sub_task",
+        entity_id=google_entity, task_uid=pid, sub_task_id=sub_id,
+        completed=True,
+    )
+    await asyncio.sleep(SETTLE)
+    tasks = await _refetch(ws_client, google_entity)
+    parent_task = next(t for t in tasks if t["id"] == pid)
+    done = next(s for s in parent_task["sub_items"] if s["id"] == sub_id)
+    assert done["completed"] is True
+
+    # Delete
+    await ws_client.send_command(
+        "home_tasks/delete_external_sub_task",
+        entity_id=google_entity, task_uid=pid, sub_task_id=sub_id,
+    )
+    await asyncio.sleep(SETTLE)
+    tasks = await _refetch(ws_client, google_entity)
+    parent_task = next(t for t in tasks if t["id"] == pid)
+    assert not any(s["id"] == sub_id for s in parent_task.get("sub_items") or []), (
+        "Sub-task still in merged view after delete"
+    )
+
+
+async def test_reopen_from_completed_restores_on_provider(
+    ws_client: HAWebSocketClient, google_entity: str
+) -> None:
+    """Marking a completed Google task as uncompleted must flip its status there."""
+    await ws_client.send_command(
+        "home_tasks/create_external_task",
+        entity_id=google_entity,
+        title="Reopen test",
+    )
+    await asyncio.sleep(SETTLE)
+    tasks = await _refetch(ws_client, google_entity)
+    task = next(t for t in tasks if t["title"] == "Reopen test")
+    uid = task["id"]
+
+    # Complete first
+    await ws_client.send_command(
+        "home_tasks/update_external_task",
+        entity_id=google_entity, task_uid=uid, completed=True,
+    )
+    await asyncio.sleep(SETTLE)
+
+    # Verify Google sees it as completed (not in open bucket)
+    open_items = await ws_client.get_provider_items(
+        google_entity, status="needs_action",
+    )
+    assert _find_provider_item(open_items, uid) is None
+
+    # Reopen
+    await ws_client.send_command(
+        "home_tasks/update_external_task",
+        entity_id=google_entity, task_uid=uid, completed=False,
+    )
+    await asyncio.sleep(SETTLE)
+
+    # Merged view: completed=False
+    tasks_after = await _refetch(ws_client, google_entity)
+    task_after = next((t for t in tasks_after if t["id"] == uid), None)
+    assert task_after is not None, "Task disappeared after reopen"
+    assert task_after["completed"] is False
+
+    # Provider-side: back in the open bucket, gone from completed
+    open_after = await ws_client.get_provider_items(
+        google_entity, status="needs_action",
+    )
+    completed_after = await ws_client.get_provider_items(
+        google_entity, status="completed",
+    )
+    assert _find_provider_item(open_after, uid) is not None, (
+        "Google did not move the task back to the open bucket on reopen"
+    )
+    assert _find_provider_item(completed_after, uid) is None, (
+        "Google still lists the task as completed after reopen"
+    )
+
+
+async def test_delete_removes_task_from_google(
+    ws_client: HAWebSocketClient, google_entity: str
+) -> None:
+    """Deleting a task must remove it from Google Tasks itself."""
+    await ws_client.send_command(
+        "home_tasks/create_external_task",
+        entity_id=google_entity,
+        title="Delete me",
+    )
+    await asyncio.sleep(SETTLE)
+
+    tasks = await _refetch(ws_client, google_entity)
+    task = next(t for t in tasks if t["title"] == "Delete me")
+    uid = task["id"]
+
+    # Provider-side sanity: really there
+    items = await ws_client.get_provider_items(google_entity)
+    assert _find_provider_item(items, uid) is not None
+
+    # Card's delete path
+    await ws_client.call_service(
+        "todo", "remove_item",
+        {"item": uid},
+        target={"entity_id": google_entity},
+    )
+    await ws_client.send_command(
+        "home_tasks/delete_external_overlay",
+        entity_id=google_entity, task_uid=uid,
+    )
+    await asyncio.sleep(SETTLE)
+
+    # Merged view
+    tasks_after = await _refetch(ws_client, google_entity)
+    assert not any(t["id"] == uid for t in tasks_after)
+
+    # Provider-side: not in open OR completed bucket (really gone)
+    open_items = await ws_client.get_provider_items(
+        google_entity, status="needs_action",
+    )
+    completed_items = await ws_client.get_provider_items(
+        google_entity, status="completed",
+    )
+    assert _find_provider_item(open_items, uid) is None
+    assert _find_provider_item(completed_items, uid) is None, (
+        "Google still has the task — delete only touched the open bucket"
+    )
+
+
 async def test_tags_persist_via_overlay_and_not_on_provider(
     ws_client: HAWebSocketClient, google_entity: str
 ) -> None:

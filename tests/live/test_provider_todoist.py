@@ -291,6 +291,65 @@ async def test_complete_via_update(
     # which also confirms it was closed.)
 
 
+async def test_delete_removes_task_from_todoist(
+    ws_client: HAWebSocketClient,
+    todoist_entity: str,
+    todoist_verifier,
+) -> None:
+    """Deleting a task must remove it at Todoist, not just from our overlay.
+
+    The card calls todo.remove_item (HA service) followed by
+    home_tasks/delete_external_overlay (overlay cleanup).  This test
+    mirrors that sequence and asserts the task is gone from Todoist
+    itself via the REST API — catches any silent drop-off where the
+    overlay is cleaned up but the upstream task survives.
+    """
+    create = await ws_client.send_command(
+        "home_tasks/create_external_task",
+        entity_id=todoist_entity,
+        title="Delete me",
+    )
+    uid = create["uid"]
+    assert uid
+    await asyncio.sleep(TODOIST_SETTLE)
+
+    # Provider-side sanity: task really exists before we delete
+    pre = await todoist_verifier.get_task(uid)
+    assert pre.content == "Delete me"
+
+    # HA's Todoist integration polls asynchronously, so a task created
+    # via our adapter (direct REST) may not yet be in HA's local cache
+    # when the card calls todo.remove_item — force a refresh first,
+    # just like the card's delete flow does implicitly via the entity
+    # update on user interaction.
+    await ws_client.refresh_entity(todoist_entity)
+    await asyncio.sleep(TODOIST_SETTLE)
+
+    # Card's delete path: todo.remove_item + overlay cleanup
+    await ws_client.call_service(
+        "todo", "remove_item",
+        {"item": uid},
+        target={"entity_id": todoist_entity},
+    )
+    await ws_client.send_command(
+        "home_tasks/delete_external_overlay",
+        entity_id=todoist_entity, task_uid=uid,
+    )
+    await asyncio.sleep(TODOIST_SETTLE)
+
+    # Our merged view: gone
+    tasks = await _refetch(ws_client, todoist_entity)
+    assert not any(t["id"] == uid for t in tasks), (
+        "Deleted task still appears in home_tasks/get_external_tasks"
+    )
+
+    # Provider-side: really gone
+    remote = await todoist_verifier.try_get_task(uid)
+    assert remote is None, (
+        f"Todoist still holds the task after delete: {remote!r}"
+    )
+
+
 async def test_complete_on_recurring_advances_instead_of_closing(
     ws_client: HAWebSocketClient,
     todoist_entity: str,

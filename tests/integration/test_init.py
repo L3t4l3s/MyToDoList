@@ -723,32 +723,41 @@ async def test_reminder_scheduled_for_completed_recurring_task(
     Covers the user-reported case: Mi/Fr 11:55 recurrence + "2 days before"
     reminder.  Completing on Wed advances due_date to Fri; the 2-day reminder
     should then be scheduled to fire on Wed, *while the task is still completed*.
+
+    Frozen to a Monday so advance lands on Wed and the 2-day reminder target
+    is Mon (= today, still in the future for the 11:55 slot).  Without the
+    freeze the test is flaky — completing on e.g. Tue advances to Wed, and
+    the 2-day reminder then targets Mon (yesterday) → silent-miss → only
+    one timer instead of two.
     """
+    from freezegun import freeze_time
     from custom_components.home_tasks import _schedule_reminders, DATA_REMINDER_TIMERS
-    from datetime import date as _date
 
-    # Put due_date in the future so reminders with large offsets still land
-    # ahead of "now".
-    far_future = (_date.today() + timedelta(days=5)).isoformat()
-    task = await store.async_add_task("Recurring with reminder")
-    await store.async_update_task(
-        task["id"],
-        due_date=far_future,
-        due_time="11:55",
-        reminders=[0, 2880],  # at due, 2 days before
-        recurrence_enabled=True,
-        recurrence_type="weekdays",
-        recurrence_weekdays=[2, 4],
-        recurrence_time="11:55",
-    )
-    await store.async_update_task(task["id"], completed=True)
-    await hass.async_block_till_done()
+    # Monday 09:00 local — well before an 11:55 slot on any relevant day.
+    with freeze_time("2026-04-20 09:00:00"):
+        task = await store.async_add_task("Recurring with reminder")
+        await store.async_update_task(
+            task["id"],
+            due_date="2026-04-25",  # Saturday, picked so advance still moves it
+            due_time="11:55",
+            reminders=[0, 2880],  # at due, 2 days before
+            recurrence_enabled=True,
+            recurrence_type="weekdays",
+            recurrence_weekdays=[2, 4],  # Wed, Fri
+            recurrence_time="11:55",
+        )
+        await store.async_update_task(task["id"], completed=True)
+        await hass.async_block_till_done()
 
-    timers = hass.data.get(DATA_REMINDER_TIMERS, {})
-    reminder_keys = [k for k in timers if k.startswith(f"{task['id']}_r")]
-    # Both reminder offsets should have a scheduled timer — the task is
-    # completed but recurring, and its due_date points to the next occurrence.
-    assert len(reminder_keys) == 2, f"expected 2 reminder timers, got {reminder_keys}"
+        timers = hass.data.get(DATA_REMINDER_TIMERS, {})
+        reminder_keys = [k for k in timers if k.startswith(f"{task['id']}_r")]
+        # Both reminder offsets should have a scheduled timer — the task is
+        # completed but recurring, and its due_date points to the next
+        # occurrence (Wed 2026-04-22).  2-day reminder target = Mon 2026-04-20
+        # 11:55 > frozen now 09:00 → schedulable.
+        assert len(reminder_keys) == 2, (
+            f"expected 2 reminder timers, got {reminder_keys}"
+        )
 
 
 async def test_reminder_skipped_without_due_date(

@@ -338,6 +338,155 @@ async def test_priority_persists_via_overlay_and_not_on_provider(
     )
 
 
+async def test_delete_removes_task_from_caldav(
+    ws_client: HAWebSocketClient, caldav_entity: str
+) -> None:
+    """Deleting a CalDAV task must remove it from Nextcloud itself."""
+    await ws_client.send_command(
+        "home_tasks/create_external_task",
+        entity_id=caldav_entity,
+        title="CalDAV delete me",
+    )
+    await asyncio.sleep(SETTLE)
+    tasks = await _refetch(ws_client, caldav_entity)
+    task = next(t for t in tasks if t["title"] == "CalDAV delete me")
+    uid = task["id"]
+
+    # Sanity: task exists on provider
+    pi = await _wait_for_provider_item(ws_client, caldav_entity, uid)
+    assert pi is not None
+
+    await ws_client.call_service(
+        "todo", "remove_item",
+        {"item": uid},
+        target={"entity_id": caldav_entity},
+    )
+    await ws_client.send_command(
+        "home_tasks/delete_external_overlay",
+        entity_id=caldav_entity, task_uid=uid,
+    )
+    await asyncio.sleep(SETTLE)
+
+    tasks_after = await _refetch(ws_client, caldav_entity)
+    assert not any(t["id"] == uid for t in tasks_after)
+
+    # Poll-and-wait: Nextcloud/SQLite may take a few seconds to
+    # reflect a delete on the server side.
+    for _ in range(10):
+        items = await ws_client.get_provider_items(caldav_entity)
+        if _find_provider_item(items, uid) is None:
+            break
+        await asyncio.sleep(1.0)
+    assert _find_provider_item(items, uid) is None, (
+        "Nextcloud still holds the VTODO after delete"
+    )
+
+
+async def test_reopen_from_completed_restores_on_caldav(
+    ws_client: HAWebSocketClient, caldav_entity: str
+) -> None:
+    """Uncompleting a CalDAV task flips its STATUS back to NEEDS-ACTION."""
+    await ws_client.send_command(
+        "home_tasks/create_external_task",
+        entity_id=caldav_entity,
+        title="CalDAV reopen test",
+    )
+    await asyncio.sleep(SETTLE)
+    tasks = await _refetch(ws_client, caldav_entity)
+    task = next(t for t in tasks if t["title"] == "CalDAV reopen test")
+    uid = task["id"]
+
+    # Complete
+    await ws_client.send_command(
+        "home_tasks/update_external_task",
+        entity_id=caldav_entity, task_uid=uid, completed=True,
+    )
+    await asyncio.sleep(SETTLE)
+
+    # Reopen
+    await ws_client.send_command(
+        "home_tasks/update_external_task",
+        entity_id=caldav_entity, task_uid=uid, completed=False,
+    )
+    await asyncio.sleep(SETTLE)
+
+    # Merged view: reopened
+    tasks_after = await _refetch(ws_client, caldav_entity)
+    task_after = next((t for t in tasks_after if t["id"] == uid), None)
+    assert task_after is not None and task_after["completed"] is False
+
+    # Provider-side: back in open bucket
+    pi = await _wait_for_provider_item(
+        ws_client, caldav_entity, uid,
+        predicate=lambda x: x.get("status") == "needs_action",
+        status="needs_action",
+    )
+    assert pi is not None, (
+        "Nextcloud did not restore the task to needs_action on reopen"
+    )
+
+
+async def test_reorder_external_tasks_overlay_only_on_caldav(
+    ws_client: HAWebSocketClient, caldav_entity: str
+) -> None:
+    """CalDAV has no MOVE feature — reorder must land in our overlay only.
+
+    Verifies:
+      - home_tasks/reorder_external_tasks returns provider_handled=False
+      - A subsequent get_external_tasks reflects the new order via overlay
+      - Nextcloud's VTODO bodies are UNCHANGED (no ORDER or priority shift
+        smuggled in as a workaround)
+    """
+    titles = ["CDA", "CDB", "CDC"]
+    for t in titles:
+        await ws_client.send_command(
+            "home_tasks/create_external_task",
+            entity_id=caldav_entity, title=t,
+        )
+    await asyncio.sleep(SETTLE)
+    tasks = await _refetch(ws_client, caldav_entity)
+    uid_by_title = {t["title"]: t["id"] for t in tasks if t["title"] in titles}
+    assert len(uid_by_title) == 3, f"Expected 3 tasks, found {list(uid_by_title)}"
+    uids = [uid_by_title[t] for t in titles]
+
+    # Snapshot the VTODO summaries + descriptions we just created
+    before_items = await ws_client.get_provider_items(caldav_entity)
+    before_by_uid = {
+        i["uid"]: {"summary": i.get("summary"), "description": i.get("description")}
+        for i in before_items if i.get("uid") in uids
+    }
+
+    # Reorder: C, A, B
+    new_order = [uids[2], uids[0], uids[1]]
+    result = await ws_client.send_command(
+        "home_tasks/reorder_external_tasks",
+        entity_id=caldav_entity,
+        task_uids=new_order,
+    )
+    assert result["provider_handled"] is False, (
+        "CalDAV doesn't support MOVE_TODO_ITEM, so provider_handled must "
+        "be False and the reorder falls back to overlay.  Got True."
+    )
+    await asyncio.sleep(SETTLE)
+
+    # Merged view reflects new order via overlay sort_order
+    tasks = await _refetch(ws_client, caldav_entity)
+    our = [t for t in tasks if t["id"] in uids]
+    ordered = sorted(our, key=lambda t: t["sort_order"])
+    assert [t["title"] for t in ordered] == ["CDC", "CDA", "CDB"]
+
+    # Provider side: VTODO bodies unchanged (no smuggling)
+    after_items = await ws_client.get_provider_items(caldav_entity)
+    after_by_uid = {
+        i["uid"]: {"summary": i.get("summary"), "description": i.get("description")}
+        for i in after_items if i.get("uid") in uids
+    }
+    assert after_by_uid == before_by_uid, (
+        "CalDAV VTODO summary/description changed during overlay-only "
+        f"reorder: before={before_by_uid}, after={after_by_uid}"
+    )
+
+
 async def test_tags_persist_via_overlay_and_not_on_provider(
     ws_client: HAWebSocketClient, caldav_entity: str
 ) -> None:

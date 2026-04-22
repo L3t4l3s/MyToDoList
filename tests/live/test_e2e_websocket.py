@@ -357,6 +357,189 @@ async def test_recurrence_settings_persist(
 
 
 # ---------------------------------------------------------------------------
+# Completion flow for recurring tasks — advances due_date, reschedules
+# reminders.  Gap #1 + #2 from the v1.10.1 gap analysis.
+# ---------------------------------------------------------------------------
+
+
+async def test_completing_recurring_native_task_advances_due_date(
+    ws_client: HAWebSocketClient, clean_native_list: str
+) -> None:
+    """Completing a recurring native task must advance its due_date.
+
+    Since v1.10.4 _on_task_completed rewrites due_date/due_time on the
+    task dict to the next occurrence at completion time.  This is the
+    live counterpart to the in-memory integration test — it verifies
+    that the mutation survives a round-trip through storage and the
+    WebSocket API, not just the in-process store.
+    """
+    from datetime import date, timedelta
+
+    list_id = clean_native_list
+    today = date.today().isoformat()
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+
+    # Create a daily-recurring task with today's due_date
+    add = await ws_client.send_command(
+        "home_tasks/add_task", list_id=list_id, title="Daily advance test"
+    )
+    tid = add["id"]
+    await ws_client.send_command(
+        "home_tasks/update_task",
+        list_id=list_id, task_id=tid,
+        due_date=today,
+        recurrence_enabled=True,
+        recurrence_type="interval",
+        recurrence_unit="days",
+        recurrence_value=1,
+    )
+
+    # Complete
+    await ws_client.send_command(
+        "home_tasks/update_task",
+        list_id=list_id, task_id=tid, completed=True,
+    )
+
+    # Re-read: due_date must have been advanced to tomorrow, task still completed
+    fetched = await ws_client.send_command(
+        "home_tasks/get_tasks", list_id=list_id,
+    )
+    task = next(t for t in fetched["tasks"] if t["id"] == tid)
+    assert task["completed"] is True, "Task should remain marked completed"
+    assert task["due_date"] == tomorrow, (
+        f"due_date expected to advance from {today} to {tomorrow}, "
+        f"got {task['due_date']}"
+    )
+
+    # History must contain the auto-advance trail (by='recurrence')
+    history = task.get("history", [])
+    auto_advance = [
+        h for h in history
+        if h.get("field") == "due_date"
+        and h.get("by") == "recurrence"
+        and h.get("from") == today
+        and h.get("to") == tomorrow
+    ]
+    assert auto_advance, (
+        f"Expected a history entry for automatic due_date advance "
+        f"({today} → {tomorrow}, by=recurrence); got {history!r}"
+    )
+
+
+async def test_task_reminder_event_fires_for_native_task(
+    ws_client: HAWebSocketClient, clean_native_list: str
+) -> None:
+    """home_tasks_task_reminder fires for a task with an imminent reminder.
+
+    Subscribes to the event bus via the WebSocket API, creates a task whose
+    due moment is 90 seconds out with a 1-minute reminder (target ~= 30 s
+    from now), and waits for the event to arrive.  Catches silent drop-offs
+    where the reminder scheduler would happily take the request but never
+    fire.  Uses offset=1 rather than 0 to avoid floating-point races on the
+    "delay <= 0" silent-miss guard.
+    """
+    import asyncio
+    from datetime import datetime, timedelta
+
+    DOMAIN = "home_tasks"
+    list_id = clean_native_list
+
+    # Ask HA for its configured timezone so due_time matches what the
+    # server uses, regardless of the test host's local zone.
+    states = await ws_client.get_states()
+    ha_tz_name = next(
+        (s["attributes"].get("time_zone") for s in states
+         if s.get("entity_id") == "zone.home" and s.get("attributes", {}).get("time_zone")),
+        None,
+    )
+    # Fallback to system local if we couldn't read it from HA
+    if ha_tz_name:
+        try:
+            from zoneinfo import ZoneInfo
+            ha_tz = ZoneInfo(ha_tz_name)
+        except Exception:
+            ha_tz = None
+    else:
+        ha_tz = None
+
+    now_in_ha = datetime.now(ha_tz) if ha_tz else datetime.now().astimezone()
+    # 180 s in the future + 2-min offset → reminder target ~60 s from
+    # scheduling.  Generous buffer so the test is robust even when run
+    # after a full live-suite has left HA with a busy event bus.
+    target = now_in_ha + timedelta(seconds=180)
+    due_date = target.date().isoformat()
+    due_time = target.strftime("%H:%M")
+
+    # Subscribe to the reminder event *before* triggering scheduling.
+    received: list[dict] = []
+    sub_id = ws_client._next_id
+    ws_client._next_id += 1
+    await ws_client._ws.send_json({
+        "id": sub_id, "type": "subscribe_events",
+        "event_type": f"{DOMAIN}_task_reminder",
+    })
+    while True:
+        msg = await asyncio.wait_for(ws_client._ws.receive_json(), timeout=5)
+        if msg.get("id") == sub_id and msg.get("type") == "result":
+            assert msg.get("success"), f"subscribe_events failed: {msg}"
+            break
+
+    try:
+        add = await ws_client.send_command(
+            "home_tasks/add_task", list_id=list_id, title="Reminder test",
+        )
+        tid = add["id"]
+        await ws_client.send_command(
+            "home_tasks/update_task",
+            list_id=list_id, task_id=tid,
+            due_date=due_date, due_time=due_time,
+            reminders=[2],  # 2 min before due → target ~60 s from now
+        )
+
+        # Sanity-check the task persisted correctly before we start waiting
+        fetched = await ws_client.send_command(
+            "home_tasks/get_tasks", list_id=list_id,
+        )
+        task = next(t for t in fetched["tasks"] if t["id"] == tid)
+        assert task.get("reminders") == [2], (
+            f"reminders weren't stored: {task.get('reminders')!r}"
+        )
+        assert task.get("due_date") == due_date and task.get("due_time") == due_time
+
+        # Wait up to 210 s for the event.  Target is ~60 s from update.
+        deadline = asyncio.get_event_loop().time() + 210
+        while asyncio.get_event_loop().time() < deadline:
+            timeout = max(0.1, deadline - asyncio.get_event_loop().time())
+            try:
+                msg = await asyncio.wait_for(
+                    ws_client._ws.receive_json(), timeout=timeout,
+                )
+            except asyncio.TimeoutError:
+                break
+            if msg.get("type") == "event" and msg.get("id") == sub_id:
+                ev = msg.get("event", {}).get("data", {})
+                if ev.get("task_id") == tid:
+                    received.append(ev)
+                    break
+
+        assert received, (
+            f"home_tasks_task_reminder never fired for task {tid} within "
+            f"210 s (HA-side due {due_date} {due_time} in tz {ha_tz_name!r}, "
+            f"offset=2 min → target ~60 s from scheduling).  Either the "
+            f"scheduler silently dropped it or the event bus didn't reach "
+            f"the subscriber."
+        )
+        assert received[0].get("reminder_offset_minutes") == 2
+    finally:
+        try:
+            await ws_client.send_command(
+                "unsubscribe_events", subscription=sub_id,
+            )
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
 # Error paths
 # ---------------------------------------------------------------------------
 

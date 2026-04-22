@@ -125,6 +125,99 @@ async def test_complete_via_update(
 # ---------------------------------------------------------------------------
 
 
+async def test_reopen_from_completed_restores_on_bring(
+    ws_client: HAWebSocketClient, bring_entity: str
+) -> None:
+    """Uncompleting a "bought" Bring item must restore it on the shopping list."""
+    await ws_client.send_command(
+        "home_tasks/create_external_task",
+        entity_id=bring_entity,
+        title="Salat",
+    )
+    await asyncio.sleep(SETTLE)
+    tasks = await _refetch(ws_client, bring_entity)
+    task = next(t for t in tasks if t["title"] == "Salat")
+    uid = task["id"]
+
+    # Complete (mark as bought)
+    await ws_client.send_command(
+        "home_tasks/update_external_task",
+        entity_id=bring_entity, task_uid=uid, completed=True,
+    )
+    await asyncio.sleep(SETTLE)
+
+    open_items = await ws_client.get_provider_items(
+        bring_entity, status="needs_action",
+    )
+    assert _find_provider_item(open_items, uid) is None, (
+        "Item still in Bring's open list after being marked completed"
+    )
+
+    # Reopen (put back on the shopping list)
+    await ws_client.send_command(
+        "home_tasks/update_external_task",
+        entity_id=bring_entity, task_uid=uid, completed=False,
+    )
+    await asyncio.sleep(SETTLE)
+
+    tasks_after = await _refetch(ws_client, bring_entity)
+    task_after = next((t for t in tasks_after if t["id"] == uid), None)
+    assert task_after is not None and task_after["completed"] is False
+
+    open_after = await ws_client.get_provider_items(
+        bring_entity, status="needs_action",
+    )
+    assert _find_provider_item(open_after, uid) is not None, (
+        "Bring did not put the item back on the shopping list after reopen"
+    )
+
+
+async def test_delete_removes_item_from_bring(
+    ws_client: HAWebSocketClient, bring_entity: str
+) -> None:
+    """Deleting a shopping item must remove it at Bring itself."""
+    await ws_client.send_command(
+        "home_tasks/create_external_task",
+        entity_id=bring_entity,
+        title="Joghurt",
+    )
+    await asyncio.sleep(SETTLE)
+
+    tasks = await _refetch(ws_client, bring_entity)
+    task = next(t for t in tasks if t["title"] == "Joghurt")
+    uid = task["id"]
+
+    items = await ws_client.get_provider_items(bring_entity)
+    assert _find_provider_item(items, uid) is not None
+
+    # Card's delete path
+    await ws_client.call_service(
+        "todo", "remove_item",
+        {"item": uid},
+        target={"entity_id": bring_entity},
+    )
+    await ws_client.send_command(
+        "home_tasks/delete_external_overlay",
+        entity_id=bring_entity, task_uid=uid,
+    )
+    await asyncio.sleep(SETTLE)
+
+    tasks_after = await _refetch(ws_client, bring_entity)
+    assert not any(t["id"] == uid for t in tasks_after)
+
+    # Provider-side: gone from both open and completed
+    open_items = await ws_client.get_provider_items(
+        bring_entity, status="needs_action",
+    )
+    completed_items = await ws_client.get_provider_items(
+        bring_entity, status="completed",
+    )
+    assert _find_provider_item(open_items, uid) is None
+    assert _find_provider_item(completed_items, uid) is None, (
+        "Bring still holds the item after deletion"
+    )
+
+
 async def test_priority_persists_via_overlay_and_not_on_provider(
     ws_client: HAWebSocketClient, bring_entity: str
 ) -> None:
