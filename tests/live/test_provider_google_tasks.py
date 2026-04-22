@@ -493,6 +493,21 @@ async def test_sub_task_lifecycle_on_google(
         f"Sub-task not visible in merged view: {sub_items!r}"
     )
 
+    # Overlay-only contract: the sub-task must NOT exist on Google as a
+    # standalone task.  GenericAdapter.capabilities.can_sync_sub_items is
+    # False for Google, so sub-tasks live only in our overlay store — a
+    # regression that starts pushing them to Google would silently create
+    # orphan tasks there.
+    all_items = await ws_client.get_provider_items(google_entity)
+    smuggled = [
+        i for i in all_items
+        if i.get("summary") == "First sub G" or i.get("uid") == sub_id
+    ]
+    assert not smuggled, (
+        f"Sub-task leaked into Google as a standalone task: {smuggled!r}. "
+        "Google's sub-items should stay in the home_tasks overlay."
+    )
+
     # Rename
     await ws_client.send_command(
         "home_tasks/update_external_sub_task",
