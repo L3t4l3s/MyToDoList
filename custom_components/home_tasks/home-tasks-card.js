@@ -60,6 +60,8 @@ const _TRANSLATIONS = {
     add_tag: "+ Add tag",
     tag_placeholder: "New tag...",
     remove_tag: "Remove",
+    tag_suggestions_label: "Existing tags",
+    tag_no_matches: "No matching tags",
     new_sub_item: "New sub-task",
     remove_reminder: "Remove reminder",
     sort_label: "Sort",
@@ -136,7 +138,7 @@ const _TRANSLATIONS = {
     ed_show_sub_items: "Subtaken", ed_show_person: "Persoon",
     ed_auto_delete: "Voltooide meteen verwijderen", ed_compact: "Compact", ed_show_tags: "Tags",
     ed_hint: "Nieuwe lijsten kunnen worden aangemaakt via Instellingen \u2192 Integraties \u2192 Home Tasks.",
-    tags: "Tags", add_tag: "+ Tag toevoegen", tag_placeholder: "Nieuwe tag...", remove_tag: "Verwijderen",
+    tags: "Tags", add_tag: "+ Tag toevoegen", tag_placeholder: "Nieuwe tag...", remove_tag: "Verwijderen", tag_suggestions_label: "Bestaande tags", tag_no_matches: "Geen overeenkomende tags",
     new_sub_item: "Nieuwe subtaak", remove_reminder: "Herinnering verwijderen",
     sort_label: "Sorteren", sort_manual: "Handmatig", sort_due: "Deadline",
     sort_priority: "Prioriteit", sort_title: "Titel (A\u2013Z)", sort_person: "Toegewezen",
@@ -191,7 +193,7 @@ const _TRANSLATIONS = {
     ed_show_sub_items: "Sotto-attivit\u00e0", ed_show_person: "Persona",
     ed_auto_delete: "Elimina completate immediatamente", ed_compact: "Compatto", ed_show_tags: "Tag",
     ed_hint: "Nuove liste possono essere create in Impostazioni \u2192 Integrazioni \u2192 Home Tasks.",
-    tags: "Tag", add_tag: "+ Aggiungi tag", tag_placeholder: "Nuovo tag...", remove_tag: "Rimuovi",
+    tags: "Tag", add_tag: "+ Aggiungi tag", tag_placeholder: "Nuovo tag...", remove_tag: "Rimuovi", tag_suggestions_label: "Tag esistenti", tag_no_matches: "Nessun tag corrispondente",
     new_sub_item: "Nuova sotto-attivit\u00e0", remove_reminder: "Rimuovi promemoria",
     sort_label: "Ordina", sort_manual: "Manuale", sort_due: "Scadenza",
     sort_priority: "Priorit\u00e0", sort_title: "Titolo (A\u2013Z)", sort_person: "Assegnato",
@@ -246,7 +248,7 @@ const _TRANSLATIONS = {
     ed_show_sub_items: "Podzadania", ed_show_person: "Osoba",
     ed_auto_delete: "Natychmiast usu\u0144 uko\u0144czone", ed_compact: "Kompaktowy", ed_show_tags: "Tagi",
     ed_hint: "Nowe listy mo\u017cna tworzy\u0107 w Ustawienia \u2192 Integracje \u2192 Home Tasks.",
-    tags: "Tagi", add_tag: "+ Dodaj tag", tag_placeholder: "Nowy tag...", remove_tag: "Usu\u0144",
+    tags: "Tagi", add_tag: "+ Dodaj tag", tag_placeholder: "Nowy tag...", remove_tag: "Usu\u0144", tag_suggestions_label: "Istniej\u0105ce tagi", tag_no_matches: "Brak pasuj\u0105cych tag\u00f3w",
     new_sub_item: "Nowe podzadanie", remove_reminder: "Usu\u0144 przypomnienie",
     sort_label: "Sortuj", sort_manual: "R\u0119cznie", sort_due: "Termin",
     sort_priority: "Priorytet", sort_title: "Tytu\u0142 (A\u2013Z)", sort_person: "Przypisany",
@@ -301,7 +303,7 @@ const _TRANSLATIONS = {
     ed_show_sub_items: "Deluppgifter", ed_show_person: "Person",
     ed_auto_delete: "Ta bort slutf\u00f6rda omedelbart", ed_compact: "Kompakt", ed_show_tags: "Taggar",
     ed_hint: "Nya listor kan skapas under Inst\u00e4llningar \u2192 Integrationer \u2192 Home Tasks.",
-    tags: "Taggar", add_tag: "+ L\u00e4gg till tagg", tag_placeholder: "Ny tagg...", remove_tag: "Ta bort",
+    tags: "Taggar", add_tag: "+ L\u00e4gg till tagg", tag_placeholder: "Ny tagg...", remove_tag: "Ta bort", tag_suggestions_label: "Befintliga taggar", tag_no_matches: "Inga matchande taggar",
     new_sub_item: "Ny deluppgift", remove_reminder: "Ta bort p\u00e5minnelse",
     sort_label: "Sortera", sort_manual: "Manuell", sort_due: "F\u00f6rfallodatum",
     sort_priority: "Prioritet", sort_title: "Titel (A\u2013\u00d6)", sort_person: "Tilldelad",
@@ -356,7 +358,7 @@ const _TRANSLATIONS = {
     ed_show_sub_items: "Sous-t\u00e2ches", ed_show_person: "Personne",
     ed_auto_delete: "Supprimer les termin\u00e9es imm\u00e9diatement", ed_compact: "Compact", ed_show_tags: "\u00c9tiquettes",
     ed_hint: "De nouvelles listes peuvent \u00eatre cr\u00e9\u00e9es dans Param\u00e8tres \u2192 Int\u00e9grations \u2192 Home Tasks.",
-    tags: "\u00c9tiquettes", add_tag: "+ Ajouter une \u00e9tiquette", tag_placeholder: "Nouvelle \u00e9tiquette...", remove_tag: "Supprimer",
+    tags: "\u00c9tiquettes", add_tag: "+ Ajouter une \u00e9tiquette", tag_placeholder: "Nouvelle \u00e9tiquette...", remove_tag: "Supprimer", tag_suggestions_label: "\u00c9tiquettes existantes", tag_no_matches: "Aucune \u00e9tiquette correspondante",
     new_sub_item: "Nouvelle sous-t\u00e2che", remove_reminder: "Supprimer le rappel",
     sort_label: "Trier", sort_manual: "Manuel", sort_due: "\u00c9ch\u00e9ance",
     sort_priority: "Priorit\u00e9", sort_title: "Titre (A\u2013Z)", sort_person: "Assign\u00e9",
@@ -411,7 +413,7 @@ const _TRANSLATIONS = {
     ed_show_sub_items: "Subtarefas", ed_show_person: "Pessoa",
     ed_auto_delete: "Excluir conclu\u00eddas imediatamente", ed_compact: "Compacto", ed_show_tags: "Etiquetas",
     ed_hint: "Novas listas podem ser criadas em Configura\u00e7\u00f5es \u2192 Integra\u00e7\u00f5es \u2192 Home Tasks.",
-    tags: "Etiquetas", add_tag: "+ Adicionar etiqueta", tag_placeholder: "Nova etiqueta...", remove_tag: "Remover",
+    tags: "Etiquetas", add_tag: "+ Adicionar etiqueta", tag_placeholder: "Nova etiqueta...", remove_tag: "Remover", tag_suggestions_label: "Etiquetas existentes", tag_no_matches: "Nenhuma etiqueta correspondente",
     new_sub_item: "Nova subtarefa", remove_reminder: "Remover lembrete",
     sort_label: "Ordenar", sort_manual: "Manual", sort_due: "Prazo",
     sort_priority: "Prioridade", sort_title: "T\u00edtulo (A\u2013Z)", sort_person: "Atribu\u00eddo",
@@ -466,7 +468,7 @@ const _TRANSLATIONS = {
     ed_show_sub_items: "Subtareas", ed_show_person: "Persona",
     ed_auto_delete: "Eliminar completadas inmediatamente", ed_compact: "Compacto", ed_show_tags: "Etiquetas",
     ed_hint: "Se pueden crear nuevas listas en Configuraci\u00f3n \u2192 Integraciones \u2192 Home Tasks.",
-    tags: "Etiquetas", add_tag: "+ A\u00f1adir etiqueta", tag_placeholder: "Nueva etiqueta...", remove_tag: "Eliminar",
+    tags: "Etiquetas", add_tag: "+ A\u00f1adir etiqueta", tag_placeholder: "Nueva etiqueta...", remove_tag: "Eliminar", tag_suggestions_label: "Etiquetas existentes", tag_no_matches: "No hay etiquetas coincidentes",
     new_sub_item: "Nueva subtarea", remove_reminder: "Eliminar recordatorio",
     sort_label: "Ordenar", sort_manual: "Manual", sort_due: "Vencimiento",
     sort_priority: "Prioridad", sort_title: "T\u00edtulo (A\u2013Z)", sort_person: "Asignado",
@@ -521,7 +523,7 @@ const _TRANSLATIONS = {
     ed_show_sub_items: "\u041f\u043e\u0434\u0437\u0430\u0434\u0430\u0447\u0438", ed_show_person: "\u041f\u0435\u0440\u0441\u043e\u043d\u0430",
     ed_auto_delete: "\u0421\u0440\u0430\u0437\u0443 \u0443\u0434\u0430\u043b\u044f\u0442\u044c \u0432\u044b\u043f\u043e\u043b\u043d\u0435\u043d\u043d\u044b\u0435", ed_compact: "\u041a\u043e\u043c\u043f\u0430\u043a\u0442\u043d\u044b\u0439", ed_show_tags: "\u0422\u0435\u0433\u0438",
     ed_hint: "\u041d\u043e\u0432\u044b\u0435 \u0441\u043f\u0438\u0441\u043a\u0438 \u043c\u043e\u0436\u043d\u043e \u0441\u043e\u0437\u0434\u0430\u0442\u044c \u0432 \u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 \u2192 \u0418\u043d\u0442\u0435\u0433\u0440\u0430\u0446\u0438\u0438 \u2192 Home Tasks.",
-    tags: "\u0422\u0435\u0433\u0438", add_tag: "+ \u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0442\u0435\u0433", tag_placeholder: "\u041d\u043e\u0432\u044b\u0439 \u0442\u0435\u0433...", remove_tag: "\u0423\u0434\u0430\u043b\u0438\u0442\u044c",
+    tags: "\u0422\u0435\u0433\u0438", add_tag: "+ \u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0442\u0435\u0433", tag_placeholder: "\u041d\u043e\u0432\u044b\u0439 \u0442\u0435\u0433...", remove_tag: "\u0423\u0434\u0430\u043b\u0438\u0442\u044c", tag_suggestions_label: "\u0421\u0443\u0449\u0435\u0441\u0442\u0432\u0443\u044e\u0449\u0438\u0435 \u0442\u0435\u0433\u0438", tag_no_matches: "\u041d\u0435\u0442 \u0441\u043e\u0432\u043f\u0430\u0434\u0430\u044e\u0449\u0438\u0445 \u0442\u0435\u0433\u043e\u0432",
     new_sub_item: "\u041d\u043e\u0432\u0430\u044f \u043f\u043e\u0434\u0437\u0430\u0434\u0430\u0447\u0430", remove_reminder: "\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u043d\u0430\u043f\u043e\u043c\u0438\u043d\u0430\u043d\u0438\u0435",
     sort_label: "\u0421\u043e\u0440\u0442\u0438\u0440\u043e\u0432\u043a\u0430", sort_manual: "\u0412\u0440\u0443\u0447\u043d\u0443\u044e", sort_due: "\u0421\u0440\u043e\u043a",
     sort_priority: "\u041f\u0440\u0438\u043e\u0440\u0438\u0442\u0435\u0442", sort_title: "\u0417\u0430\u0433\u043e\u043b\u043e\u0432\u043e\u043a (\u0410\u2013\u042f)", sort_person: "\u041d\u0430\u0437\u043d\u0430\u0447\u0435\u043d\u043e",
@@ -576,7 +578,7 @@ const _TRANSLATIONS = {
     ed_show_sub_items: "Pod\u00fakoly", ed_show_person: "Osoba",
     ed_auto_delete: "Okam\u017eit\u011b smazat dokon\u010den\u00e9", ed_compact: "Kompaktn\u00ed", ed_show_tags: "\u0160t\u00edtky",
     ed_hint: "Nov\u00e9 seznamy lze vytvo\u0159it v Nastaven\u00ed \u2192 Integrace \u2192 Home Tasks.",
-    tags: "\u0160t\u00edtky", add_tag: "+ P\u0159idat \u0161t\u00edtek", tag_placeholder: "Nov\u00fd \u0161t\u00edtek...", remove_tag: "Odebrat",
+    tags: "\u0160t\u00edtky", add_tag: "+ P\u0159idat \u0161t\u00edtek", tag_placeholder: "Nov\u00fd \u0161t\u00edtek...", remove_tag: "Odebrat", tag_suggestions_label: "Existuj\u00edc\u00ed \u0161t\u00edtky", tag_no_matches: "\u017d\u00e1dn\u00e9 odpov\u00eddaj\u00edc\u00ed \u0161t\u00edtky",
     new_sub_item: "Nov\u00fd pod\u00fakol", remove_reminder: "Odebrat p\u0159ipom\u00ednku",
     sort_label: "\u0158adit", sort_manual: "Ru\u010dn\u011b", sort_due: "Term\u00edn",
     sort_priority: "Priorita", sort_title: "N\u00e1zev (A\u2013Z)", sort_person: "P\u0159i\u0159azeno",
@@ -631,7 +633,7 @@ const _TRANSLATIONS = {
     ed_show_sub_items: "Delopgaver", ed_show_person: "Person",
     ed_auto_delete: "Slet f\u00e6rdige \u00f8jeblikkeligt", ed_compact: "Kompakt", ed_show_tags: "Tags",
     ed_hint: "Nye lister kan oprettes under Indstillinger \u2192 Integrationer \u2192 Home Tasks.",
-    tags: "Tags", add_tag: "+ Tilf\u00f8j tag", tag_placeholder: "Nyt tag...", remove_tag: "Fjern",
+    tags: "Tags", add_tag: "+ Tilf\u00f8j tag", tag_placeholder: "Nyt tag...", remove_tag: "Fjern", tag_suggestions_label: "Eksisterende tags", tag_no_matches: "Ingen matchende tags",
     new_sub_item: "Ny delopgave", remove_reminder: "Fjern p\u00e5mindelse",
     sort_label: "Sorter", sort_manual: "Manuel", sort_due: "Forfald",
     sort_priority: "Prioritet", sort_title: "Titel (A\u2013Z)", sort_person: "Tildelt",
@@ -686,7 +688,7 @@ const _TRANSLATIONS = {
     ed_show_sub_items: "Deloppgaver", ed_show_person: "Person",
     ed_auto_delete: "Slett ferdige umiddelbart", ed_compact: "Kompakt", ed_show_tags: "Tagger",
     ed_hint: "Nye lister kan opprettes under Innstillinger \u2192 Integrasjoner \u2192 Home Tasks.",
-    tags: "Tagger", add_tag: "+ Legg til tagg", tag_placeholder: "Ny tagg...", remove_tag: "Fjern",
+    tags: "Tagger", add_tag: "+ Legg til tagg", tag_placeholder: "Ny tagg...", remove_tag: "Fjern", tag_suggestions_label: "Eksisterende tagger", tag_no_matches: "Ingen samsvarende tagger",
     new_sub_item: "Ny deloppgave", remove_reminder: "Fjern p\u00e5minnelse",
     sort_label: "Sorter", sort_manual: "Manuell", sort_due: "Frist",
     sort_priority: "Prioritet", sort_title: "Tittel (A\u2013Z)", sort_person: "Tildelt",
@@ -741,7 +743,7 @@ const _TRANSLATIONS = {
     ed_show_sub_items: "Aliteht\u00e4v\u00e4t", ed_show_person: "Henkil\u00f6",
     ed_auto_delete: "Poista valmiit v\u00e4litt\u00f6m\u00e4sti", ed_compact: "Kompakti", ed_show_tags: "Tunnisteet",
     ed_hint: "Uusia listoja voi luoda kohdassa Asetukset \u2192 Integraatiot \u2192 Home Tasks.",
-    tags: "Tunnisteet", add_tag: "+ Lis\u00e4\u00e4 tunniste", tag_placeholder: "Uusi tunniste...", remove_tag: "Poista",
+    tags: "Tunnisteet", add_tag: "+ Lis\u00e4\u00e4 tunniste", tag_placeholder: "Uusi tunniste...", remove_tag: "Poista", tag_suggestions_label: "Olemassa olevat tunnisteet", tag_no_matches: "Ei vastaavia tunnisteita",
     new_sub_item: "Uusi aliteht\u00e4v\u00e4", remove_reminder: "Poista muistutus",
     sort_label: "Lajittele", sort_manual: "Manuaalinen", sort_due: "Er\u00e4p\u00e4iv\u00e4",
     sort_priority: "Prioriteetti", sort_title: "Otsikko (A\u2013\u00d6)", sort_person: "M\u00e4\u00e4ritetty",
@@ -796,7 +798,7 @@ const _TRANSLATIONS = {
     ed_show_sub_items: "Alfeladatok", ed_show_person: "Szem\u00e9ly",
     ed_auto_delete: "K\u00e9sz feladatok azonnali t\u00f6rl\u00e9se", ed_compact: "Kompakt", ed_show_tags: "C\u00edmk\u00e9k",
     ed_hint: "\u00daj list\u00e1k a Be\u00e1ll\u00edt\u00e1sok \u2192 Integr\u00e1ci\u00f3k \u2192 Home Tasks alatt hozhat\u00f3k l\u00e9tre.",
-    tags: "C\u00edmk\u00e9k", add_tag: "+ C\u00edmke hozz\u00e1ad\u00e1sa", tag_placeholder: "\u00daj c\u00edmke...", remove_tag: "Elt\u00e1vol\u00edt\u00e1s",
+    tags: "C\u00edmk\u00e9k", add_tag: "+ C\u00edmke hozz\u00e1ad\u00e1sa", tag_placeholder: "\u00daj c\u00edmke...", remove_tag: "Elt\u00e1vol\u00edt\u00e1s", tag_suggestions_label: "L\u00e9tez\u0151 c\u00edmk\u00e9k", tag_no_matches: "Nincs egyez\u0151 c\u00edmke",
     new_sub_item: "\u00daj alfeladat", remove_reminder: "Eml\u00e9keztet\u0151 elt\u00e1vol\u00edt\u00e1sa",
     sort_label: "Rendez\u00e9s", sort_manual: "Manu\u00e1lis", sort_due: "Hat\u00e1rid\u0151",
     sort_priority: "Priorit\u00e1s", sort_title: "C\u00edm (A\u2013Z)", sort_person: "Hozz\u00e1rendelve",
@@ -876,6 +878,8 @@ const _TRANSLATIONS = {
     add_tag: "+ Tag hinzuf\u00fcgen",
     tag_placeholder: "Neues Tag...",
     remove_tag: "Entfernen",
+    tag_suggestions_label: "Vorhandene Tags",
+    tag_no_matches: "Keine passenden Tags",
     new_sub_item: "Neue Unteraufgabe",
     remove_reminder: "Erinnerung entfernen",
     sort_label: "Sortierung",
@@ -3377,26 +3381,157 @@ class HomeTasksCard extends HTMLElement {
       type: "text",
       placeholder: this._t("tag_placeholder"),
       "data-focus-key": "tag_input",
-    });
-    tagInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        const val = tagInput.value.trim().toLowerCase();
-        if (val && !taskTags.includes(val)) {
-          const newTags = [...taskTags, val];
-          task.tags = newTags;
-          this._render();
-          this._updateTaskRouted(colIdx, task.id, { tags: newTags });
-        } else {
-          tagInput.value = "";
-        }
-      }
+      autocomplete: "off",
     });
     const tagInputWrap = this._el("div", { className: "field-wrap" }, [
       tagInput,
       this._el("span", { textContent: this._t("add_tag").replace("+ ", "") }),
     ]);
-    tagSectionChildren.push(tagInputWrap);
+    const dropdown = this._el("div", {
+      className: "tag-autocomplete-dropdown",
+      role: "listbox",
+      "aria-label": this._t("tag_suggestions_label"),
+    });
+    dropdown.hidden = true;
+
+    // Popover state lives on a closure shared by the handlers below.
+    // activeIndex = -1 means "user has not navigated into the list yet",
+    // so Enter commits the raw input value instead of the first match —
+    // this lets the user type e.g. "hau" and add it as a new tag even
+    // when "haus" is in the suggestion list.
+    const state = { activeIndex: -1, items: [] };
+
+    const applyHighlight = () => {
+      for (let i = 0; i < state.items.length; i++) {
+        state.items[i].classList.toggle("highlighted", i === state.activeIndex);
+      }
+    };
+
+    const refresh = () => {
+      const q = tagInput.value.trim().toLowerCase();
+      const known = this._collectAllKnownTags();
+      const taken = new Set(task.tags || []);
+      const suggestions = known.filter(t => !taken.has(t) && (q === "" || t.startsWith(q)));
+      dropdown.innerHTML = "";
+      state.items = [];
+      state.activeIndex = -1;
+      if (suggestions.length === 0) {
+        dropdown.appendChild(this._el("div", {
+          className: "tag-autocomplete-empty",
+          textContent: this._t("tag_no_matches"),
+        }));
+        return;
+      }
+      for (const tag of suggestions) {
+        const item = this._el("div", {
+          className: "tag-autocomplete-item",
+          role: "option",
+          "data-tag": tag,
+          textContent: "#" + tag,
+        });
+        // mousedown (not click) — click would fire after the input's blur,
+        // which closes the popover before the pick can register.
+        item.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          this._addTagFromSuggestion(task, colIdx, tagInput, tag);
+        });
+        dropdown.appendChild(item);
+        state.items.push(item);
+      }
+    };
+
+    tagInput.addEventListener("focus", () => {
+      dropdown.hidden = false;
+      refresh();
+    });
+    tagInput.addEventListener("input", () => {
+      dropdown.hidden = false;
+      refresh();
+    });
+    tagInput.addEventListener("blur", () => {
+      setTimeout(() => {
+        dropdown.hidden = true;
+        state.activeIndex = -1;
+      }, 120);
+    });
+    tagInput.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        if (!dropdown.hidden) {
+          e.preventDefault();
+          dropdown.hidden = true;
+          state.activeIndex = -1;
+        }
+        return;
+      }
+      const n = state.items.length;
+      const listOpen = !dropdown.hidden && n > 0;
+      const tabForward = e.key === "Tab" && !e.shiftKey;
+      const tabBackward = e.key === "Tab" && e.shiftKey;
+      if (listOpen && (e.key === "ArrowDown" || tabForward)) {
+        e.preventDefault();
+        state.activeIndex = state.activeIndex < 0 ? 0 : (state.activeIndex + 1) % n;
+        applyHighlight();
+        state.items[state.activeIndex].scrollIntoView({ block: "nearest" });
+        return;
+      }
+      if (listOpen && (e.key === "ArrowUp" || tabBackward)) {
+        e.preventDefault();
+        state.activeIndex = state.activeIndex < 0 ? n - 1 : (state.activeIndex - 1 + n) % n;
+        applyHighlight();
+        state.items[state.activeIndex].scrollIntoView({ block: "nearest" });
+        return;
+      }
+      if (e.key === "Enter") {
+        if (listOpen && state.activeIndex >= 0) {
+          e.preventDefault();
+          const pick = state.items[state.activeIndex].dataset.tag;
+          this._addTagFromSuggestion(task, colIdx, tagInput, pick);
+        } else {
+          this._commitNewTag(task, colIdx, tagInput);
+        }
+      }
+    });
+
+    const anchor = this._el("div", { className: "tag-autocomplete-anchor" }, [
+      tagInputWrap,
+      dropdown,
+    ]);
+    tagSectionChildren.push(anchor);
     return this._el("div", { className: "detail-section" }, tagSectionChildren);
+  }
+
+  _collectAllKnownTags() {
+    const all = new Set();
+    for (const cs of (this._columns || [])) {
+      for (const t of (cs?.tasks || [])) {
+        for (const tag of (t.tags || [])) all.add(tag);
+      }
+    }
+    return [...all].sort();
+  }
+
+  _commitNewTag(task, colIdx, tagInput) {
+    const val = tagInput.value.trim().toLowerCase();
+    const taskTags = task.tags || [];
+    if (val && !taskTags.includes(val)) {
+      const newTags = [...taskTags, val];
+      task.tags = newTags;
+      tagInput.value = "";
+      this._render();
+      this._updateTaskRouted(colIdx, task.id, { tags: newTags });
+    } else {
+      tagInput.value = "";
+    }
+  }
+
+  _addTagFromSuggestion(task, colIdx, tagInput, tag) {
+    const taskTags = task.tags || [];
+    tagInput.value = "";
+    if (taskTags.includes(tag)) return;
+    const newTags = [...taskTags, tag];
+    task.tags = newTags;
+    this._render();
+    this._updateTaskRouted(colIdx, task.id, { tags: newTags });
   }
 
   _buildRemindersSection(task, colIdx) {
@@ -4153,6 +4288,27 @@ class HomeTasksCard extends HTMLElement {
         cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1; opacity: 0.7;
       }
       .remove-tag-btn:hover { opacity: 1; }
+      .tag-autocomplete-anchor { position: relative; width: 100%; }
+      .tag-autocomplete-dropdown {
+        position: absolute; top: calc(100% + 2px); left: 0; right: 0; z-index: 20;
+        background: var(--card-background-color, var(--todo-bg));
+        border: 1px solid var(--outline-color, var(--divider-color, rgba(255,255,255,0.12)));
+        border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        max-height: 240px; overflow-y: auto; padding: 4px 0;
+      }
+      .tag-autocomplete-dropdown[hidden] { display: none; }
+      .tag-autocomplete-item {
+        padding: 8px 14px; cursor: pointer; font-size: 13px;
+        color: var(--todo-text); user-select: none;
+      }
+      .tag-autocomplete-item:hover,
+      .tag-autocomplete-item.highlighted {
+        background: rgba(76, 175, 80, 0.15); color: var(--success-color, #4caf50);
+      }
+      .tag-autocomplete-empty {
+        padding: 8px 14px; font-size: 12px; font-style: italic;
+        color: var(--todo-secondary-text);
+      }
       .recurrence-toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
       .recurrence-input-row { display: flex; align-items: flex-end; gap: 8px; }
       .rec-remaining { font-size: 12px; color: var(--secondary-text-color); align-self: center; flex-shrink: 0; }
