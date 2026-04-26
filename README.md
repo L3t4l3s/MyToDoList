@@ -25,9 +25,11 @@ Every task can carry up to 20 individual attributes:
 - **Tags** — multiple tags for categorization
 - **Sub-tasks** — nested checklist with progress bar
 - **Reminders** — up to 5 per task, fire as HA events at a configurable offset before due time
-- **Recurring** — fixed intervals: hours, days, weeks, months
-- **Recurring** — specific weekdays (Mon – Sun, any combination)
-- **Recurrence start date**
+- **Recurring** — fixed intervals: every N hours, days, weeks, months, years
+- **Recurring (weekly)** — every N weeks on selected weekdays (Mon – Sun, any combination)
+- **Recurring (monthly)** — every N months on a specific day (1–31 or "last") **or** an Nth weekday (1st – 4th + last × Mon – Sun) — e.g. "every 24th", "every last day", "every 2nd Saturday", "every last Wednesday every 2 months"
+- **Recurring (yearly)** — every N years on a specific TT.MM anniversary (e.g. "every 24.12.")
+- **Recurrence start date** ("Beginn")
 - **Recurrence end date**
 - **Maximum repetitions**
 - **Completion state** with timestamp
@@ -49,7 +51,7 @@ Display tasks from **any HA todo integration** alongside native Home Tasks lists
 | Provider | HA Integration | Title & Status | Due Date | Due Time | Description | Reorder | Priority | Labels | Sub-tasks | Assignee | Recurrence | Reminders | Notes |
 |----------|---------------|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|-------|
 | **CalDAV** (Nextcloud, etc.) | [CalDAV](https://www.home-assistant.io/integrations/caldav/) (Core) | yes | yes | yes | yes | no | no | no | no | no | no | no | |
-| **Google Tasks** | [Google Tasks](https://www.home-assistant.io/integrations/google_tasks/) (Core) | yes | yes | no | yes | yes | no | no | no | no | no | no | Google's API does not expose due times or recurrence ([open issue](https://issuetracker.google.com/issues/36759725)) |
+| **Google Tasks** | [Google Tasks](https://www.home-assistant.io/integrations/google_tasks/) (Core) | yes | yes | no | yes | yes | no | no | no | no | no | no | Google's REST API does not expose due times or recurrence ([open issue](https://issuetracker.google.com/issues/36759725)). The Google Tasks web UI shows recurrence dropdowns, but those are written client-side only and never appear in the API — Home Assistant therefore can't read or write them. Use Home Tasks' local recurrence (executed by the integration, not the provider). |
 | **Todoist** | [Todoist](https://www.home-assistant.io/integrations/todoist/) (Core) | yes | yes | yes | yes | yes | yes | yes | yes | no | yes | yes | Full bidirectional sync via direct Todoist API |
 | **Local Todo** | [Local Todo](https://www.home-assistant.io/integrations/local_todo/) (Core) | yes | yes | no | yes | no | no | no | no | no | no | no | Simple file-based lists built into HA |
 | **Bring** | [Bring](https://www.home-assistant.io/integrations/bring/) (Core) | yes | no | no | yes | no | no | no | no | no | no | no | Shopping list — all extra fields available locally via overlay |

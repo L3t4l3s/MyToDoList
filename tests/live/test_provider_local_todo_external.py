@@ -312,3 +312,173 @@ async def test_reopen_from_completed(
     )
     pi = _find_provider_item(open_items, uid)
     assert pi is not None, "Task wasn't restored to Local Todo's open list"
+
+
+# ---------------------------------------------------------------------------
+# New recurrence sub-patterns: persisted in the local overlay because Local
+# Todo (and HA Core's todo platform in general) has no RRULE feature flag.
+# The provider sees only title + due_date; the structured fields ride along
+# in the overlay and are returned by get_external_tasks.
+# ---------------------------------------------------------------------------
+
+
+async def _create_with_recurrence(
+    ws: HAWebSocketClient, entity_id: str, title: str, **fields,
+) -> str:
+    create = await ws.send_command(
+        "home_tasks/create_external_task",
+        entity_id=entity_id, title=title,
+        recurrence_enabled=True, recurrence_type="interval",
+        **fields,
+    )
+    return create["uid"]
+
+
+async def test_recurrence_monthly_dom_overlay_round_trip(
+    ws_client: HAWebSocketClient, local_todo_external: str,
+) -> None:
+    """day_of_month=24 survives a write-then-read against Local Todo (overlay)."""
+    uid = await _create_with_recurrence(
+        ws_client, local_todo_external, "DOM 24 LT",
+        recurrence_value=1, recurrence_unit="months",
+        recurrence_month_pattern="day_of_month",
+        recurrence_day_of_month=24,
+    )
+    await asyncio.sleep(SETTLE)
+
+    tasks = await _refetch(ws_client, local_todo_external)
+    task = next(t for t in tasks if t["id"] == uid)
+    assert task["recurrence_enabled"] is True
+    assert task["recurrence_unit"] == "months"
+    assert task["recurrence_month_pattern"] == "day_of_month"
+    assert task["recurrence_day_of_month"] == 24
+
+    # Provider must hold ONLY title (+ optional due/desc) — recurrence is overlay.
+    items = await ws_client.get_provider_items(local_todo_external)
+    pi = _find_provider_item(items, uid)
+    assert pi is not None
+    # Whatever shape Local Todo serialises items in, no recurrence field
+    # should appear there.  The keys vary by HA version, so check that none
+    # of the structured keys leaked.
+    for k in ("recurrence_month_pattern", "recurrence_day_of_month",
+              "recurrence_nth_week", "recurrence_anniversary"):
+        assert k not in pi, f"{k} leaked into provider item: {pi}"
+
+
+async def test_recurrence_monthly_last_day_overlay(
+    ws_client: HAWebSocketClient, local_todo_external: str,
+) -> None:
+    """day_of_month='last' survives the overlay round-trip."""
+    uid = await _create_with_recurrence(
+        ws_client, local_todo_external, "DOM last LT",
+        recurrence_value=1, recurrence_unit="months",
+        recurrence_month_pattern="day_of_month",
+        recurrence_day_of_month="last",
+    )
+    await asyncio.sleep(SETTLE)
+    task = next(t for t in await _refetch(ws_client, local_todo_external) if t["id"] == uid)
+    assert task["recurrence_month_pattern"] == "day_of_month"
+    assert task["recurrence_day_of_month"] == "last"
+
+
+async def test_recurrence_monthly_nth_overlay(
+    ws_client: HAWebSocketClient, local_todo_external: str,
+) -> None:
+    """nth_weekday=2nd Saturday survives the overlay round-trip."""
+    uid = await _create_with_recurrence(
+        ws_client, local_todo_external, "Nth 2nd sat LT",
+        recurrence_value=1, recurrence_unit="months",
+        recurrence_month_pattern="nth_weekday",
+        recurrence_nth_week=2, recurrence_weekdays=[5],
+    )
+    await asyncio.sleep(SETTLE)
+    task = next(t for t in await _refetch(ws_client, local_todo_external) if t["id"] == uid)
+    assert task["recurrence_month_pattern"] == "nth_weekday"
+    assert task["recurrence_nth_week"] == 2
+    assert task["recurrence_weekdays"] == [5]
+
+
+async def test_recurrence_monthly_nth_last_every_2_months_overlay(
+    ws_client: HAWebSocketClient, local_todo_external: str,
+) -> None:
+    """User's exact spec: 'every last Saturday every 2 months' over Local Todo."""
+    uid = await _create_with_recurrence(
+        ws_client, local_todo_external, "Nth last sat 2mo LT",
+        recurrence_value=2, recurrence_unit="months",
+        recurrence_month_pattern="nth_weekday",
+        recurrence_nth_week="last", recurrence_weekdays=[5],
+    )
+    await asyncio.sleep(SETTLE)
+    task = next(t for t in await _refetch(ws_client, local_todo_external) if t["id"] == uid)
+    assert task["recurrence_value"] == 2
+    assert task["recurrence_month_pattern"] == "nth_weekday"
+    assert task["recurrence_nth_week"] == "last"
+    assert task["recurrence_weekdays"] == [5]
+
+
+async def test_recurrence_yearly_anniversary_overlay(
+    ws_client: HAWebSocketClient, local_todo_external: str,
+) -> None:
+    """yearly anniversary 24.12. survives the overlay round-trip."""
+    uid = await _create_with_recurrence(
+        ws_client, local_todo_external, "Annual 24.12 LT",
+        recurrence_value=1, recurrence_unit="years",
+        recurrence_anniversary="12-24",
+    )
+    await asyncio.sleep(SETTLE)
+    task = next(t for t in await _refetch(ws_client, local_todo_external) if t["id"] == uid)
+    assert task["recurrence_unit"] == "years"
+    assert task["recurrence_anniversary"] == "12-24"
+
+
+async def test_recurrence_weekly_with_filter_overlay(
+    ws_client: HAWebSocketClient, local_todo_external: str,
+) -> None:
+    """'every 2 weeks on Wed' over Local Todo — overlay holds the structured fields."""
+    uid = await _create_with_recurrence(
+        ws_client, local_todo_external, "Every 2 weeks Wed LT",
+        recurrence_value=2, recurrence_unit="weeks",
+        recurrence_weekdays=[2],
+    )
+    await asyncio.sleep(SETTLE)
+    task = next(t for t in await _refetch(ws_client, local_todo_external) if t["id"] == uid)
+    assert task["recurrence_unit"] == "weeks"
+    assert task["recurrence_value"] == 2
+    assert task["recurrence_weekdays"] == [2]
+
+
+async def test_recurrence_unit_change_clears_stale_sub_pattern_overlay(
+    ws_client: HAWebSocketClient, local_todo_external: str,
+) -> None:
+    """Switching from monthly → days clears the stale month_pattern fields.
+
+    The card sends explicit None for unused sub-pattern fields when the unit
+    changes; the overlay must respect those None writes (regression guard for
+    a forgotten field).
+    """
+    uid = await _create_with_recurrence(
+        ws_client, local_todo_external, "Mode swap LT",
+        recurrence_value=1, recurrence_unit="months",
+        recurrence_month_pattern="day_of_month", recurrence_day_of_month=24,
+    )
+    await asyncio.sleep(SETTLE)
+
+    # Switch to days, with explicit Nones for everything monthly/yearly.
+    await ws_client.send_command(
+        "home_tasks/update_external_task",
+        entity_id=local_todo_external, task_uid=uid,
+        recurrence_unit="days", recurrence_value=3,
+        recurrence_month_pattern=None,
+        recurrence_day_of_month=None,
+        recurrence_nth_week=None,
+        recurrence_anniversary=None,
+    )
+    await asyncio.sleep(SETTLE)
+
+    task = next(t for t in await _refetch(ws_client, local_todo_external) if t["id"] == uid)
+    assert task["recurrence_unit"] == "days"
+    assert task["recurrence_value"] == 3
+    assert task["recurrence_month_pattern"] is None
+    assert task["recurrence_day_of_month"] is None
+    assert task["recurrence_nth_week"] is None
+    assert task["recurrence_anniversary"] is None

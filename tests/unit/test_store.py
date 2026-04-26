@@ -762,3 +762,115 @@ async def test_update_sub_task_completed_not_bool(hass: HomeAssistant, store) ->
     sub = await store.async_add_sub_task(task["id"], "Child")
     with pytest.raises(ValueError, match="boolean"):
         await store.async_update_sub_task(task["id"], sub["id"], completed="yes")
+
+
+# ---------------------------------------------------------------------------
+# New recurrence sub-pattern fields: validators
+# ---------------------------------------------------------------------------
+
+
+async def test_recurrence_month_pattern_accepts_valid(hass: HomeAssistant, store) -> None:
+    """recurrence_month_pattern accepts the documented values + None."""
+    task = await store.async_add_task("Pattern task")
+    for v in ("day_of_month", "nth_weekday", None):
+        await store.async_update_task(task["id"], recurrence_month_pattern=v)
+
+
+async def test_recurrence_month_pattern_rejects_unknown(hass: HomeAssistant, store) -> None:
+    """An unknown recurrence_month_pattern raises ValueError."""
+    task = await store.async_add_task("Bad pattern")
+    with pytest.raises(ValueError, match="recurrence_month_pattern"):
+        await store.async_update_task(task["id"], recurrence_month_pattern="weird")
+
+
+async def test_recurrence_day_of_month_accepts_int_and_last(hass: HomeAssistant, store) -> None:
+    """recurrence_day_of_month accepts 1–31 and 'last'."""
+    task = await store.async_add_task("Dom task")
+    await store.async_update_task(task["id"], recurrence_day_of_month=1)
+    await store.async_update_task(task["id"], recurrence_day_of_month=31)
+    await store.async_update_task(task["id"], recurrence_day_of_month="last")
+    await store.async_update_task(task["id"], recurrence_day_of_month=None)
+
+
+async def test_recurrence_day_of_month_rejects_out_of_range(hass: HomeAssistant, store) -> None:
+    """recurrence_day_of_month rejects 0 and 32."""
+    task = await store.async_add_task("Dom bad")
+    with pytest.raises(ValueError):
+        await store.async_update_task(task["id"], recurrence_day_of_month=0)
+    with pytest.raises(ValueError):
+        await store.async_update_task(task["id"], recurrence_day_of_month=32)
+    with pytest.raises(ValueError):
+        await store.async_update_task(task["id"], recurrence_day_of_month="first")
+
+
+async def test_recurrence_nth_week_accepts_valid(hass: HomeAssistant, store) -> None:
+    """recurrence_nth_week accepts 1–4 and 'last'."""
+    task = await store.async_add_task("Nth task")
+    for v in (1, 2, 3, 4, "last", None):
+        await store.async_update_task(task["id"], recurrence_nth_week=v)
+
+
+async def test_recurrence_nth_week_rejects_5(hass: HomeAssistant, store) -> None:
+    """recurrence_nth_week rejects 5 (we only allow 1–4 + last)."""
+    task = await store.async_add_task("Nth bad")
+    with pytest.raises(ValueError):
+        await store.async_update_task(task["id"], recurrence_nth_week=5)
+
+
+async def test_recurrence_anniversary_accepts_valid(hass: HomeAssistant, store) -> None:
+    """recurrence_anniversary accepts 'MM-DD' and None."""
+    task = await store.async_add_task("Ann task")
+    await store.async_update_task(task["id"], recurrence_anniversary="12-24")
+    await store.async_update_task(task["id"], recurrence_anniversary="02-29")  # leap-day allowed
+    await store.async_update_task(task["id"], recurrence_anniversary=None)
+
+
+async def test_recurrence_anniversary_rejects_invalid(hass: HomeAssistant, store) -> None:
+    """recurrence_anniversary rejects malformed and impossible dates."""
+    task = await store.async_add_task("Ann bad")
+    for bad in ("13-01", "00-15", "02-30", "04-31", "1-1", "12/24"):
+        with pytest.raises(ValueError):
+            await store.async_update_task(task["id"], recurrence_anniversary=bad)
+
+
+async def test_new_task_has_new_recurrence_fields(hass: HomeAssistant, store) -> None:
+    """A freshly created task has the four new sub-pattern fields defaulted to None."""
+    task = await store.async_add_task("New defaults")
+    assert task["recurrence_month_pattern"] is None
+    assert task["recurrence_day_of_month"] is None
+    assert task["recurrence_nth_week"] is None
+    assert task["recurrence_anniversary"] is None
+
+
+async def test_legacy_weekdays_mode_normalised_on_load(hass: HomeAssistant, tmp_path) -> None:
+    """A v1 task with recurrence_type='weekdays' is migrated to interval+weeks."""
+    from custom_components.home_tasks.store import HomeTasksStore
+
+    s = HomeTasksStore(hass, "test_legacy_entry")
+    s._data = {
+        "tasks": [
+            {
+                "id": "t1",
+                "title": "Old weekdays task",
+                "completed": False,
+                "sort_order": 0,
+                "sub_items": [],
+                "recurrence_enabled": True,
+                "recurrence_type": "weekdays",
+                "recurrence_weekdays": [0, 2, 4],
+                "external_id": None,
+                "sync_source": None,
+            }
+        ]
+    }
+    s._backfill_recurrence_fields()
+    s._migrate_v1_to_v2()
+    t = s._data["tasks"][0]
+    assert t["recurrence_type"] == "interval"
+    assert t["recurrence_unit"] == "weeks"
+    assert t["recurrence_value"] == 1
+    assert t["recurrence_weekdays"] == [0, 2, 4]
+    assert t["recurrence_month_pattern"] is None
+    assert t["recurrence_day_of_month"] is None
+    assert t["recurrence_nth_week"] is None
+    assert t["recurrence_anniversary"] is None

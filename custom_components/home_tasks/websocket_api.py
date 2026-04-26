@@ -19,6 +19,13 @@ _val_entity_id = vol.All(str, vol.Length(min=1, max=255))
 _val_task_uid = vol.All(str, vol.Length(min=1, max=255))
 _val_date = vol.Any(vol.All(str, vol.Match(r"^\d{4}-\d{2}-\d{2}$")), None)
 _val_time = vol.Any(vol.All(str, vol.Match(r"^\d{2}:\d{2}$")), None)
+# Anniversary is "MM-DD" — month 01–12, day 01–31.  The deeper calendar
+# check (e.g. rejecting 02-30) lives in store.py's validate_recurrence_anniversary;
+# this regex just keeps obvious garbage out of the WS layer.
+_val_anniversary = vol.Any(
+    vol.All(str, vol.Match(r"^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$")),
+    None,
+)
 
 
 @callback
@@ -166,6 +173,10 @@ async def ws_add_task(hass, connection, msg):
         vol.Optional("recurrence_end_date"): _val_date,
         vol.Optional("recurrence_max_count"): vol.Any(vol.All(int, vol.Range(min=1)), None),
         vol.Optional("recurrence_remaining_count"): vol.Any(vol.All(int, vol.Range(min=0)), None),
+        vol.Optional("recurrence_month_pattern"): vol.Any(vol.In(["day_of_month", "nth_weekday"]), None),
+        vol.Optional("recurrence_day_of_month"): vol.Any(vol.All(int, vol.Range(min=1, max=31)), "last", None),
+        vol.Optional("recurrence_nth_week"): vol.Any(vol.All(int, vol.Range(min=1, max=4)), "last", None),
+        vol.Optional("recurrence_anniversary"): _val_anniversary,
         vol.Optional("assigned_person"): vol.Any(str, None),
         vol.Optional("tags"): vol.All(list, vol.Length(max=MAX_TAGS_PER_TASK)),
     }
@@ -177,7 +188,15 @@ async def ws_update_task(hass, connection, msg):
         store = _get_store(hass, msg["list_id"])
         actor = connection.user.name if connection.user else None
         kwargs = {}
-        for key in ("title", "completed", "notes", "due_date", "due_time", "reminders", "priority", "recurrence_value", "recurrence_unit", "recurrence_enabled", "recurrence_type", "recurrence_weekdays", "recurrence_start_date", "recurrence_time", "recurrence_end_type", "recurrence_end_date", "recurrence_max_count", "recurrence_remaining_count", "assigned_person", "tags"):
+        for key in (
+            "title", "completed", "notes", "due_date", "due_time", "reminders", "priority",
+            "recurrence_value", "recurrence_unit", "recurrence_enabled", "recurrence_type",
+            "recurrence_weekdays", "recurrence_start_date", "recurrence_time",
+            "recurrence_end_type", "recurrence_end_date", "recurrence_max_count",
+            "recurrence_remaining_count", "recurrence_month_pattern",
+            "recurrence_day_of_month", "recurrence_nth_week", "recurrence_anniversary",
+            "assigned_person", "tags",
+        ):
             if key in msg:
                 kwargs[key] = msg[key]
         task = await store.async_update_task(msg["task_id"], actor=actor, **kwargs)
@@ -416,6 +435,10 @@ async def ws_move_task_cross(hass, connection, msg):
                     "recurrence_end_date": item.get("recurrence_end_date"),
                     "recurrence_max_count": item.get("recurrence_max_count"),
                     "recurrence_remaining_count": item.get("recurrence_remaining_count"),
+                    "recurrence_month_pattern": item.get("recurrence_month_pattern"),
+                    "recurrence_day_of_month": item.get("recurrence_day_of_month"),
+                    "recurrence_nth_week": item.get("recurrence_nth_week"),
+                    "recurrence_anniversary": item.get("recurrence_anniversary"),
                     "completed_at": item.get("completed_at"),
                     "history": item.get("history", []),
                 }
@@ -447,6 +470,10 @@ async def ws_move_task_cross(hass, connection, msg):
                     "recurrence_end_date": overlay.get("recurrence_end_date"),
                     "recurrence_max_count": overlay.get("recurrence_max_count"),
                     "recurrence_remaining_count": overlay.get("recurrence_remaining_count"),
+                    "recurrence_month_pattern": overlay.get("recurrence_month_pattern"),
+                    "recurrence_day_of_month": overlay.get("recurrence_day_of_month"),
+                    "recurrence_nth_week": overlay.get("recurrence_nth_week"),
+                    "recurrence_anniversary": overlay.get("recurrence_anniversary"),
                     "completed_at": overlay.get("completed_at"),
                     "history": overlay.get("history", []),
                 }
@@ -478,6 +505,10 @@ async def ws_move_task_cross(hass, connection, msg):
                 "recurrence_end_date": task_data.get("recurrence_end_date"),
                 "recurrence_max_count": task_data.get("recurrence_max_count"),
                 "recurrence_remaining_count": task_data.get("recurrence_remaining_count"),
+                "recurrence_month_pattern": task_data.get("recurrence_month_pattern"),
+                "recurrence_day_of_month": task_data.get("recurrence_day_of_month"),
+                "recurrence_nth_week": task_data.get("recurrence_nth_week"),
+                "recurrence_anniversary": task_data.get("recurrence_anniversary"),
                 "completed_at": task_data.get("completed_at"),
                 "assigned_person": task_data.get("assigned_person"),
                 "tags": task_data.get("tags", []),
@@ -508,8 +539,12 @@ async def ws_move_task_cross(hass, connection, msg):
             }
             if task_data.get("recurrence_enabled"):
                 create_fields["recurrence_enabled"] = True
-                for k in ("recurrence_type", "recurrence_value", "recurrence_unit",
-                           "recurrence_weekdays", "recurrence_start_date", "recurrence_time"):
+                for k in (
+                    "recurrence_type", "recurrence_value", "recurrence_unit",
+                    "recurrence_weekdays", "recurrence_start_date", "recurrence_time",
+                    "recurrence_month_pattern", "recurrence_day_of_month",
+                    "recurrence_nth_week", "recurrence_anniversary",
+                ):
                     if task_data.get(k) is not None:
                         create_fields[k] = task_data[k]
 
@@ -654,6 +689,10 @@ def _merge_tasks_with_overlays(
             "recurrence_end_date": overlay.get("recurrence_end_date"),
             "recurrence_max_count": overlay.get("recurrence_max_count"),
             "recurrence_remaining_count": overlay.get("recurrence_remaining_count"),
+            "recurrence_month_pattern": overlay.get("recurrence_month_pattern"),
+            "recurrence_day_of_month": overlay.get("recurrence_day_of_month"),
+            "recurrence_nth_week": overlay.get("recurrence_nth_week"),
+            "recurrence_anniversary": overlay.get("recurrence_anniversary"),
             "completed_at": overlay.get("completed_at"),
             "assigned_person": overlay.get("assigned_person"),
             "tags": overlay.get("tags", []),
@@ -692,6 +731,19 @@ def _merge_tasks_with_adapter_data(
         else:
             sort_order = raw["sort_order"] if "sort_order" in raw else item.get("order", idx)
 
+        # When overlay holds a structured monthly/yearly pattern, the value
+        # parsed back from Todoist's simplified phrase is unreliable —
+        # prefer overlay's value in that case so user-set "every 2 months"
+        # survives the round-trip even when Todoist only stores "every month".
+        overlay_owns_recurrence_shape = (
+            overlay.get("recurrence_month_pattern") is not None
+            or overlay.get("recurrence_anniversary") is not None
+        )
+        recurrence_value = (
+            overlay.get("recurrence_value", 1) if overlay_owns_recurrence_shape
+            else item.get("recurrence_value", overlay.get("recurrence_value", 1))
+        )
+
         task = {
             "id": uid,
             "title": item.get("summary") or "",
@@ -709,7 +761,7 @@ def _merge_tasks_with_adapter_data(
             # Recurrence (from adapter if synced, else overlay)
             "recurrence_enabled": item.get("recurrence_enabled", overlay.get("recurrence_enabled", False)),
             "recurrence_type": item.get("recurrence_type", overlay.get("recurrence_type", "interval")),
-            "recurrence_value": item.get("recurrence_value", overlay.get("recurrence_value", 1)),
+            "recurrence_value": recurrence_value,
             "recurrence_unit": item.get("recurrence_unit", overlay.get("recurrence_unit")),
             "recurrence_weekdays": item.get("recurrence_weekdays", overlay.get("recurrence_weekdays", [])),
             "recurrence_start_date": item.get("recurrence_start_date", overlay.get("recurrence_start_date")),
@@ -719,6 +771,10 @@ def _merge_tasks_with_adapter_data(
             "recurrence_end_date": item.get("recurrence_end_date", overlay.get("recurrence_end_date")),
             "recurrence_max_count": overlay.get("recurrence_max_count"),
             "recurrence_remaining_count": overlay.get("recurrence_remaining_count"),
+            "recurrence_month_pattern": item.get("recurrence_month_pattern", overlay.get("recurrence_month_pattern")),
+            "recurrence_day_of_month": item.get("recurrence_day_of_month", overlay.get("recurrence_day_of_month")),
+            "recurrence_nth_week": item.get("recurrence_nth_week", overlay.get("recurrence_nth_week")),
+            "recurrence_anniversary": item.get("recurrence_anniversary", overlay.get("recurrence_anniversary")),
             # Reminders — adapter reads them, overlay as fallback
             "reminders": item.get("reminders", overlay.get("reminders", [])),
             # History & completed_at always from overlay
@@ -844,6 +900,10 @@ async def ws_get_external_tasks(hass, connection, msg):
         vol.Optional("recurrence_end_date"): _val_date,
         vol.Optional("recurrence_max_count"): vol.Any(vol.All(int, vol.Range(min=1)), None),
         vol.Optional("recurrence_remaining_count"): vol.Any(vol.All(int, vol.Range(min=0)), None),
+        vol.Optional("recurrence_month_pattern"): vol.Any(vol.In(["day_of_month", "nth_weekday"]), None),
+        vol.Optional("recurrence_day_of_month"): vol.Any(vol.All(int, vol.Range(min=1, max=31)), "last", None),
+        vol.Optional("recurrence_nth_week"): vol.Any(vol.All(int, vol.Range(min=1, max=4)), "last", None),
+        vol.Optional("recurrence_anniversary"): _val_anniversary,
     }
 )
 @websocket_api.async_response
@@ -1002,6 +1062,10 @@ async def ws_reorder_external_sub_tasks(hass, connection, msg):
         vol.Optional("recurrence_start_date"): _val_date,
         vol.Optional("recurrence_time"): _val_time,
         vol.Optional("recurrence_end_date"): _val_date,
+        vol.Optional("recurrence_month_pattern"): vol.Any(vol.In(["day_of_month", "nth_weekday"]), None),
+        vol.Optional("recurrence_day_of_month"): vol.Any(vol.All(int, vol.Range(min=1, max=31)), "last", None),
+        vol.Optional("recurrence_nth_week"): vol.Any(vol.All(int, vol.Range(min=1, max=4)), "last", None),
+        vol.Optional("recurrence_anniversary"): _val_anniversary,
     }
 )
 @websocket_api.async_response
@@ -1077,6 +1141,10 @@ async def ws_create_external_task(hass, connection, msg):
         vol.Optional("recurrence_end_date"): _val_date,
         vol.Optional("recurrence_max_count"): vol.Any(vol.All(int, vol.Range(min=1)), None),
         vol.Optional("recurrence_remaining_count"): vol.Any(vol.All(int, vol.Range(min=0)), None),
+        vol.Optional("recurrence_month_pattern"): vol.Any(vol.In(["day_of_month", "nth_weekday"]), None),
+        vol.Optional("recurrence_day_of_month"): vol.Any(vol.All(int, vol.Range(min=1, max=31)), "last", None),
+        vol.Optional("recurrence_nth_week"): vol.Any(vol.All(int, vol.Range(min=1, max=4)), "last", None),
+        vol.Optional("recurrence_anniversary"): _val_anniversary,
     }
 )
 @websocket_api.async_response

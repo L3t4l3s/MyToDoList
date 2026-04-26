@@ -24,6 +24,8 @@ from .const import (
     MAX_TASKS_PER_LIST,
     MAX_TITLE_LENGTH,
     STORAGE_VERSION,
+    VALID_MONTH_PATTERNS,
+    VALID_NTH_WEEK,
     VALID_RECURRENCE_UNITS,
 )
 
@@ -31,6 +33,7 @@ _LOGGER = logging.getLogger(__name__)
 
 _DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _TIME_PATTERN = re.compile(r"^\d{2}:\d{2}$")
+_MMDD_PATTERN = re.compile(r"^\d{2}-\d{2}$")
 
 _MAX_HISTORY = 50  # max history entries per task
 _HISTORY_FIELDS = ("title", "due_date", "due_time", "priority", "assigned_person", "tags", "notes", "recurrence_enabled")
@@ -135,8 +138,64 @@ def validate_recurrence_enabled(value):
 
 
 def validate_recurrence_type(value):
+    # "weekdays" is accepted for backward compatibility with old stored tasks;
+    # new tasks always use "interval" — the legacy mode is normalised on load.
     if value not in ("interval", "weekdays"):
         raise ValueError("recurrence_type must be 'interval' or 'weekdays'")
+    return value
+
+
+def validate_recurrence_month_pattern(value):
+    if value is not None and value not in VALID_MONTH_PATTERNS:
+        raise ValueError(
+            f"recurrence_month_pattern must be one of {VALID_MONTH_PATTERNS} or null"
+        )
+    return value
+
+
+def validate_recurrence_day_of_month(value):
+    if value is None:
+        return None
+    if value == "last":
+        return value
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError("recurrence_day_of_month must be an integer 1–31, 'last' or null")
+    if not (1 <= value <= 31):
+        raise ValueError("recurrence_day_of_month must be between 1 and 31")
+    return value
+
+
+def validate_recurrence_nth_week(value):
+    if value is None:
+        return None
+    if value == "last":
+        return value
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError("recurrence_nth_week must be 1–4, 'last' or null")
+    if value not in VALID_NTH_WEEK:
+        raise ValueError(f"recurrence_nth_week must be one of {VALID_NTH_WEEK} or null")
+    return value
+
+
+def validate_recurrence_anniversary(value):
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("recurrence_anniversary must be a 'MM-DD' string or null")
+    value = value.strip()
+    if not value:
+        return None
+    if not _MMDD_PATTERN.match(value):
+        raise ValueError("recurrence_anniversary must be in MM-DD format")
+    month, day = int(value[:2]), int(value[3:5])
+    if not (1 <= month <= 12 and 1 <= day <= 31):
+        raise ValueError("recurrence_anniversary contains invalid month or day")
+    # Reject impossible (month, day) combinations like 02-30 or 04-31, but
+    # explicitly allow 02-29 (handled by leap-year clamping at compute time).
+    import calendar as _cal
+    max_day = _cal.monthrange(2024, month)[1]  # 2024 is a leap year → handles 02-29
+    if day > max_day:
+        raise ValueError(f"recurrence_anniversary {value} is not a valid calendar date")
     return value
 
 
@@ -213,6 +272,10 @@ _FIELD_VALIDATORS = {
     "recurrence_enabled": validate_recurrence_enabled,
     "recurrence_type": validate_recurrence_type,
     "recurrence_weekdays": validate_recurrence_weekdays,
+    "recurrence_month_pattern": validate_recurrence_month_pattern,
+    "recurrence_day_of_month": validate_recurrence_day_of_month,
+    "recurrence_nth_week": validate_recurrence_nth_week,
+    "recurrence_anniversary": validate_recurrence_anniversary,
     "recurrence_end_type": validate_recurrence_end_type,
     "recurrence_max_count": validate_recurrence_max_count,
     "recurrence_remaining_count": validate_recurrence_remaining_count,
@@ -295,6 +358,13 @@ class HomeTasksStore:
                 val, unit = _MIGRATE[old]
                 task["recurrence_value"] = val
                 task["recurrence_unit"] = unit
+            # Normalise legacy "weekdays" mode to interval+weeks (UI no longer
+            # distinguishes the two; reopen logic now drives the weekday filter
+            # off recurrence_weekdays alone).
+            if task.get("recurrence_type") == "weekdays":
+                task["recurrence_type"] = "interval"
+                task["recurrence_unit"] = "weeks"
+                task.setdefault("recurrence_value", 1)
             task.setdefault("priority", None)
             task.setdefault("due_time", None)
             task.setdefault("reminders", [])
@@ -309,6 +379,10 @@ class HomeTasksStore:
             task.setdefault("recurrence_end_date", None)
             task.setdefault("recurrence_max_count", None)
             task.setdefault("recurrence_remaining_count", None)
+            task.setdefault("recurrence_month_pattern", None)
+            task.setdefault("recurrence_day_of_month", None)
+            task.setdefault("recurrence_nth_week", None)
+            task.setdefault("recurrence_anniversary", None)
             task.setdefault("completed_at", None)
             task.setdefault("assigned_person", None)
             task.setdefault("tags", [])
@@ -356,6 +430,10 @@ class HomeTasksStore:
             "recurrence_end_date": None,
             "recurrence_max_count": None,
             "recurrence_remaining_count": None,
+            "recurrence_month_pattern": None,
+            "recurrence_day_of_month": None,
+            "recurrence_nth_week": None,
+            "recurrence_anniversary": None,
             "completed_at": None,
             "assigned_person": None,
             "tags": [],
@@ -382,6 +460,8 @@ class HomeTasksStore:
         "recurrence_type", "recurrence_weekdays", "recurrence_start_date",
         "recurrence_time", "recurrence_end_type", "recurrence_end_date",
         "recurrence_max_count", "recurrence_remaining_count",
+        "recurrence_month_pattern", "recurrence_day_of_month",
+        "recurrence_nth_week", "recurrence_anniversary",
         "assigned_person", "tags",
     )
 

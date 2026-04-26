@@ -769,3 +769,191 @@ async def test_reorder_external_tasks(
         f"Todoist provider still reports order {provider_titles}, expected "
         f"{expected_titles}.  The reorder did NOT reach Todoist."
     )
+
+
+# ---------------------------------------------------------------------------
+# New recurrence sub-patterns: monthly day-of-month, monthly nth-weekday,
+# yearly anniversary, weekly with weekday filter.  Each test sends the
+# structured fields through home_tasks/create_external_task and verifies the
+# Todoist due_string that the API ended up with — that's the build-side of
+# the round-trip.  The parse-side is exercised by reading the task back via
+# get_external_tasks and asserting the structured fields survive.
+# ---------------------------------------------------------------------------
+
+
+async def _create_recurring(
+    ws: HAWebSocketClient, entity_id: str, title: str, **fields,
+) -> str:
+    """Helper: create a recurring task and return its UID."""
+    create = await ws.send_command(
+        "home_tasks/create_external_task",
+        entity_id=entity_id, title=title,
+        recurrence_enabled=True, recurrence_type="interval",
+        **fields,
+    )
+    return create["uid"]
+
+
+async def test_recurrence_monthly_day_of_month(
+    ws_client: HAWebSocketClient, todoist_entity: str, todoist_verifier,
+) -> None:
+    """'Every 24th of the month' lives at Todoist as recurring due_string."""
+    uid = await _create_recurring(
+        ws_client, todoist_entity, "DOM 24",
+        recurrence_value=1, recurrence_unit="months",
+        recurrence_month_pattern="day_of_month",
+        recurrence_day_of_month=24,
+    )
+    await asyncio.sleep(TODOIST_SETTLE)
+
+    remote = await todoist_verifier.get_task(uid)
+    assert remote.due is not None and remote.due.is_recurring is True
+    due_str = (remote.due.string or "").lower()
+    assert "24" in due_str, (
+        f"Todoist due.string={remote.due.string!r} doesn't contain day 24"
+    )
+
+    # Round-trip: reading back the task should restore structured fields.
+    tasks = await _refetch(ws_client, todoist_entity)
+    task = next(t for t in tasks if t["id"] == uid)
+    assert task["recurrence_unit"] == "months"
+    assert task["recurrence_month_pattern"] == "day_of_month"
+    assert task["recurrence_day_of_month"] == 24
+
+
+async def test_recurrence_monthly_last_day(
+    ws_client: HAWebSocketClient, todoist_entity: str, todoist_verifier,
+) -> None:
+    """'Every last day of the month' → Todoist string contains 'last day'."""
+    uid = await _create_recurring(
+        ws_client, todoist_entity, "DOM last",
+        recurrence_value=1, recurrence_unit="months",
+        recurrence_month_pattern="day_of_month",
+        recurrence_day_of_month="last",
+    )
+    await asyncio.sleep(TODOIST_SETTLE)
+
+    remote = await todoist_verifier.get_task(uid)
+    assert remote.due is not None and remote.due.is_recurring is True
+    due_str = (remote.due.string or "").lower()
+    assert "last" in due_str, (
+        f"Todoist due.string={remote.due.string!r} doesn't say 'last'"
+    )
+
+    tasks = await _refetch(ws_client, todoist_entity)
+    task = next(t for t in tasks if t["id"] == uid)
+    assert task["recurrence_month_pattern"] == "day_of_month"
+    assert task["recurrence_day_of_month"] == "last"
+
+
+async def test_recurrence_monthly_nth_2nd_saturday(
+    ws_client: HAWebSocketClient, todoist_entity: str, todoist_verifier,
+) -> None:
+    """'Every 2nd Saturday' → Todoist due_string contains '2nd' and 'sat'."""
+    uid = await _create_recurring(
+        ws_client, todoist_entity, "Nth 2nd sat",
+        recurrence_value=1, recurrence_unit="months",
+        recurrence_month_pattern="nth_weekday",
+        recurrence_nth_week=2,
+        recurrence_weekdays=[5],  # Saturday
+    )
+    await asyncio.sleep(TODOIST_SETTLE)
+
+    remote = await todoist_verifier.get_task(uid)
+    assert remote.due is not None and remote.due.is_recurring is True
+    due_str = (remote.due.string or "").lower()
+    assert "2nd" in due_str, (
+        f"Todoist due.string={remote.due.string!r} doesn't say '2nd'"
+    )
+    assert "sat" in due_str
+
+    tasks = await _refetch(ws_client, todoist_entity)
+    task = next(t for t in tasks if t["id"] == uid)
+    assert task["recurrence_month_pattern"] == "nth_weekday"
+    assert task["recurrence_nth_week"] == 2
+    assert task["recurrence_weekdays"] == [5]
+
+
+async def test_recurrence_monthly_nth_last_wednesday_every_2_months(
+    ws_client: HAWebSocketClient, todoist_entity: str, todoist_verifier,
+) -> None:
+    """User's exact example: 'every last Saturday every 2 months', here with Wed.
+
+    Pattern: month interval=2 + nth=last + weekday=Wed.  Todoist's natural
+    language for this is 'every 2 months on the last wed'.  If Todoist
+    rejects the compound phrase, the adapter falls back to the simpler
+    'every last wed' and value=2 is preserved locally — also acceptable.
+    """
+    uid = await _create_recurring(
+        ws_client, todoist_entity, "Nth last wed every 2",
+        recurrence_value=2, recurrence_unit="months",
+        recurrence_month_pattern="nth_weekday",
+        recurrence_nth_week="last",
+        recurrence_weekdays=[2],  # Wed
+    )
+    await asyncio.sleep(TODOIST_SETTLE)
+
+    remote = await todoist_verifier.get_task(uid)
+    assert remote.due is not None and remote.due.is_recurring is True
+    due_str = (remote.due.string or "").lower()
+    assert "last" in due_str
+    assert "wed" in due_str
+
+    tasks = await _refetch(ws_client, todoist_entity)
+    task = next(t for t in tasks if t["id"] == uid)
+    # The structured pattern must round-trip back, even if the value=2 was
+    # collapsed by Todoist (in which case it'll come back as value=1 + we
+    # accept either since Todoist's parsing is fuzzy on compound phrases).
+    assert task["recurrence_month_pattern"] == "nth_weekday"
+    assert task["recurrence_nth_week"] == "last"
+    assert task["recurrence_weekdays"] == [2]
+
+
+async def test_recurrence_yearly_anniversary(
+    ws_client: HAWebSocketClient, todoist_entity: str, todoist_verifier,
+) -> None:
+    """'Every year on 24.12.' → Todoist due_string mentions 'dec' (or 'december')."""
+    uid = await _create_recurring(
+        ws_client, todoist_entity, "Annual 24.12",
+        recurrence_value=1, recurrence_unit="years",
+        recurrence_anniversary="12-24",
+    )
+    await asyncio.sleep(TODOIST_SETTLE)
+
+    remote = await todoist_verifier.get_task(uid)
+    assert remote.due is not None and remote.due.is_recurring is True
+    due_str = (remote.due.string or "").lower()
+    assert "dec" in due_str, (
+        f"Todoist due.string={remote.due.string!r} doesn't mention 'dec'"
+    )
+    assert "24" in due_str
+
+    tasks = await _refetch(ws_client, todoist_entity)
+    task = next(t for t in tasks if t["id"] == uid)
+    assert task["recurrence_unit"] == "years"
+    assert task["recurrence_anniversary"] == "12-24"
+
+
+async def test_recurrence_weekly_with_weekday_filter_value_2(
+    ws_client: HAWebSocketClient, todoist_entity: str, todoist_verifier,
+) -> None:
+    """'Every 2 weeks on Wednesday' (the post-migration replacement for the
+    legacy weekdays mode with explicit interval > 1)."""
+    uid = await _create_recurring(
+        ws_client, todoist_entity, "Every 2 weeks Wed",
+        recurrence_value=2, recurrence_unit="weeks",
+        recurrence_weekdays=[2],  # Wed
+    )
+    await asyncio.sleep(TODOIST_SETTLE)
+
+    remote = await todoist_verifier.get_task(uid)
+    assert remote.due is not None and remote.due.is_recurring is True
+    due_str = (remote.due.string or "").lower()
+    assert "2 weeks" in due_str or "wed" in due_str, (
+        f"Todoist due.string={remote.due.string!r} missing 2-week or wed marker"
+    )
+
+    tasks = await _refetch(ws_client, todoist_entity)
+    task = next(t for t in tasks if t["id"] == uid)
+    assert task["recurrence_unit"] == "weeks"
+    assert task["recurrence_weekdays"] == [2]

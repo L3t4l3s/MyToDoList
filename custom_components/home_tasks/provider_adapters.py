@@ -31,6 +31,7 @@ _LOGGER = logging.getLogger(__name__)
 
 # Weekday names used when converting our recurrence weekdays to Todoist strings.
 _WEEKDAY_NAMES = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+_WEEKDAY_LONG = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 _VALID_RECURRENCE_UNITS = frozenset({"hours", "days", "weeks", "months", "years"})
 
 # Base fields that the GenericAdapter syncs via HA's todo.update_item service.
@@ -47,7 +48,134 @@ _TODOIST_PROVIDER_FIELDS = frozenset({
     "recurrence_enabled", "recurrence_type", "recurrence_value",
     "recurrence_unit", "recurrence_weekdays", "recurrence_start_date",
     "recurrence_time", "recurrence_end_date",
+    "recurrence_month_pattern", "recurrence_day_of_month",
+    "recurrence_nth_week", "recurrence_anniversary",
 })
+
+# Month name lookup for Todoist's natural-language due_string parsing.
+_MONTH_NAMES = ("jan", "feb", "mar", "apr", "may", "jun",
+                "jul", "aug", "sep", "oct", "nov", "dec")
+_NTH_WORDS = {"1st": 1, "first": 1, "2nd": 2, "second": 2,
+              "3rd": 3, "third": 3, "4th": 4, "fourth": 4}
+
+
+def _ordinal(n: int) -> str:
+    """Return e.g. '1st', '2nd', '3rd', '24th' for an integer day/index."""
+    if 10 <= (n % 100) <= 20:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
+
+
+def _month_index(name: str) -> int | None:
+    """Return 1–12 for an English month abbreviation/name, or None."""
+    name = name.lower()[:3]
+    try:
+        return _MONTH_NAMES.index(name) + 1
+    except ValueError:
+        return None
+
+
+def _parse_ordinal_token(token: str) -> int | None:
+    """Convert '24th', '2nd', 'second', 'last' etc. into an int day or None."""
+    if token == "last":
+        return None
+    if token in _NTH_WORDS:
+        return _NTH_WORDS[token]
+    m = re.match(r"^(\d+)(?:st|nd|rd|th)?$", token)
+    if m:
+        return int(m.group(1))
+    return None
+
+
+def _parse_monthly_token(token: str, second: str | None, value: int) -> dict:
+    """Parse the head of a monthly Todoist phrase into structured fields.
+
+    Returns a dict with recurrence fields set, or with recurrence_unit absent
+    if the token can't be interpreted as a monthly pattern.
+    """
+    out: dict = {}
+    # "last day" — special "last" day-of-month
+    if token == "last" and second == "day":
+        out.update({
+            "recurrence_value": value,
+            "recurrence_unit": "months",
+            "recurrence_type": "interval",
+            "recurrence_month_pattern": "day_of_month",
+            "recurrence_day_of_month": "last",
+        })
+        return out
+    # "last <weekday>" — nth-weekday with nth=last
+    if token == "last" and second:
+        try:
+            wd_idx = _WEEKDAY_NAMES.index(second[:3])
+        except ValueError:
+            return out
+        out.update({
+            "recurrence_value": value,
+            "recurrence_unit": "months",
+            "recurrence_type": "interval",
+            "recurrence_month_pattern": "nth_weekday",
+            "recurrence_nth_week": "last",
+            "recurrence_weekdays": [wd_idx],
+        })
+        return out
+    # "Nth <weekday>" — nth-weekday with explicit n
+    if second and second != "day":
+        try:
+            wd_idx = _WEEKDAY_NAMES.index(second[:3])
+        except ValueError:
+            return out
+        n = _parse_ordinal_token(token)
+        if n is None or not (1 <= n <= 4):
+            return out
+        out.update({
+            "recurrence_value": value,
+            "recurrence_unit": "months",
+            "recurrence_type": "interval",
+            "recurrence_month_pattern": "nth_weekday",
+            "recurrence_nth_week": n,
+            "recurrence_weekdays": [wd_idx],
+        })
+        return out
+    # "<Nth>" alone — day_of_month with the literal day
+    n = _parse_ordinal_token(token)
+    if n is not None and 1 <= n <= 31:
+        out.update({
+            "recurrence_value": value,
+            "recurrence_unit": "months",
+            "recurrence_type": "interval",
+            "recurrence_month_pattern": "day_of_month",
+            "recurrence_day_of_month": n,
+        })
+    return out
+
+
+def _extract_aux(lower: str, result: dict) -> None:
+    """Extract 'at HH:MM', 'starting YYYY-MM-DD', 'ending YYYY-MM-DD' tokens."""
+    time_match = re.search(r"at\s+(\d{1,2}):?(\d{2})?\s*(am|pm)?", lower)
+    if time_match:
+        hour = int(time_match.group(1))
+        minute = int(time_match.group(2) or 0)
+        ampm = time_match.group(3)
+        if ampm == "pm" and hour < 12:
+            hour += 12
+        elif ampm == "am" and hour == 12:
+            hour = 0
+        result["recurrence_time"] = f"{hour:02d}:{minute:02d}"
+    start_match = re.search(r"starting\s+(\d{4}-\d{2}-\d{2})", lower)
+    if start_match:
+        result["recurrence_start_date"] = start_match.group(1)
+    end_match = re.search(r"ending\s+(\d{4}-\d{2}-\d{2})", lower)
+    if end_match:
+        result["recurrence_end_date"] = end_match.group(1)
+        result["recurrence_end_type"] = "date"
+
+
+def _store_original(due_string: str, result: dict) -> None:
+    """Store the original Todoist string for read-only display fallback."""
+    result["_todoist_recurrence_string"] = due_string
 
 # ---------------------------------------------------------------------------
 #  Capabilities
@@ -539,13 +667,56 @@ class TodoistAdapter(ProviderAdapter):
     # -- Recurrence mapping -------------------------------------------------
 
     @staticmethod
+    def _build_monthly_phrase(pattern: str, dom, nth, weekdays, value: int) -> str | None:
+        """Build the Todoist phrase for a monthly sub-pattern, or None if invalid."""
+        if pattern == "day_of_month":
+            if dom is None:
+                return None
+            day_token = "last day" if dom == "last" else _ordinal(int(dom))
+            if value == 1:
+                return f"every {day_token}"
+            return f"every {value} months on the {day_token}"
+        if pattern == "nth_weekday":
+            if nth is None or not weekdays:
+                return None
+            wd_idx = weekdays[0]
+            if not (0 <= wd_idx <= 6):
+                return None
+            nth_token = "last" if nth == "last" else _ordinal(int(nth))
+            # Todoist's NL parser rejects compound nth-weekday + month-interval
+            # phrases ("every 2 months on the last wednesday" → 400 Invalid
+            # date format), so we always emit the simple form.  The custom
+            # value > 1 stays in the overlay; the local compute honours it.
+            return f"every {nth_token} {_WEEKDAY_NAMES[wd_idx]}"
+        return None
+
+    @staticmethod
+    def _build_yearly_phrase(anniversary: str, value: int) -> str | None:
+        """Build the Todoist phrase for a yearly anniversary anchor."""
+        if not anniversary or len(anniversary) != 5 or anniversary[2] != "-":
+            return None
+        try:
+            month = int(anniversary[:2])
+            day = int(anniversary[3:5])
+        except ValueError:
+            return None
+        if not (1 <= month <= 12 and 1 <= day <= 31):
+            return None
+        month_name = _MONTH_NAMES[month - 1]
+        if value == 1:
+            return f"every {day} {month_name}"
+        return f"every {value} years on {day} {month_name}"
+
+    @staticmethod
     def _build_recurrence_string(fields: dict) -> str | None:
         """Convert structured recurrence fields to a Todoist due_string."""
         # Recurrence is active if explicitly enabled OR if recurrence detail
         # fields are present (partial update from the card editor).
         _REC_DETAIL_KEYS = {"recurrence_value", "recurrence_unit", "recurrence_weekdays",
                             "recurrence_type", "recurrence_time", "recurrence_start_date",
-                            "recurrence_end_date"}
+                            "recurrence_end_date", "recurrence_month_pattern",
+                            "recurrence_day_of_month", "recurrence_nth_week",
+                            "recurrence_anniversary"}
         has_details = any(k in fields for k in _REC_DETAIL_KEYS)
         # Explicit disable always wins, even if detail fields are present
         # (the recurrence toggle sends all fields alongside enabled=false).
@@ -561,19 +732,50 @@ class TodoistAdapter(ProviderAdapter):
         rtime = fields.get("recurrence_time")
         start = fields.get("recurrence_start_date")
         end = fields.get("recurrence_end_date")
+        month_pattern = fields.get("recurrence_month_pattern")
+        dom = fields.get("recurrence_day_of_month")
+        nth = fields.get("recurrence_nth_week")
+        anniversary = fields.get("recurrence_anniversary")
 
         parts: list[str] = []
 
-        if rtype == "weekdays":
+        # ---- Monthly sub-patterns -----------------------------------------
+        if rtype != "weekdays" and unit == "months" and month_pattern:
+            head = TodoistAdapter._build_monthly_phrase(
+                month_pattern, dom, nth, weekdays, value,
+            )
+            if head:
+                parts.append(head)
+            else:
+                # Fall back to plain "every N months" if the pattern is broken.
+                parts.append("every month" if value == 1 else f"every {value} months")
+        # ---- Yearly anchor (anniversary) ----------------------------------
+        elif rtype != "weekdays" and unit == "years" and anniversary:
+            head = TodoistAdapter._build_yearly_phrase(anniversary, value)
+            if head:
+                parts.append(head)
+            else:
+                parts.append("every year" if value == 1 else f"every {value} years")
+        elif rtype == "weekdays":
             if not weekdays:
                 weekdays = [0, 1, 2, 3, 4]  # Default: Mon-Fri
             day_names = [_WEEKDAY_NAMES[d] for d in sorted(weekdays) if 0 <= d <= 6]
             parts.append(f"every {', '.join(day_names)}")
+        elif unit == "weeks" and weekdays:
+            # New: weekly with weekday filter (replaces legacy "weekdays" mode).
+            day_names = [_WEEKDAY_NAMES[d] for d in sorted(weekdays) if 0 <= d <= 6]
+            if value == 1:
+                parts.append(f"every {', '.join(day_names)}")
+            elif len(day_names) == 1:
+                parts.append(f"every {value} weeks on {day_names[0]}")
+            else:
+                # Todoist doesn't natively express "every 2 weeks on mon, fri".
+                # Fall back to a simpler phrase + retain structured fields locally.
+                parts.append(f"every {value} weeks")
         else:
-            # Interval
+            # Interval (hours/days/weeks/months/years without sub-pattern)
             unit_str = unit if unit in _VALID_RECURRENCE_UNITS else "days"
             if value == 1:
-                # "every day" instead of "every 1 days"
                 singular = {"hours": "hour", "days": "day", "weeks": "week", "months": "month", "years": "year"}
                 parts.append(f"every {singular.get(unit_str, unit_str)}")
             else:
@@ -624,6 +826,10 @@ class TodoistAdapter(ProviderAdapter):
             "recurrence_weekdays": [],
             "recurrence_start_date": None,
             "recurrence_time": None,
+            "recurrence_month_pattern": None,
+            "recurrence_day_of_month": None,
+            "recurrence_nth_week": None,
+            "recurrence_anniversary": None,
         }
         if due_obj is None or not getattr(due_obj, "is_recurring", False):
             return result
@@ -632,16 +838,101 @@ class TodoistAdapter(ProviderAdapter):
         due_string = getattr(due_obj, "string", "") or ""
         lower = due_string.lower().strip()
 
-        # Try to parse "every N unit(s)" pattern
-        interval_match = re.match(
-            r"every\s+(\d+)\s+(hour|day|week|month|year)s?", lower
+        # ---- Monthly: "every 2 months on the 24th" / "...on the last sat" --
+        m_compound = re.match(
+            r"every\s+(\d+)\s+months?\s+on\s+the\s+([\w-]+)(?:\s+(mon|tue|wed|thu|fri|sat|sun))?",
+            lower,
         )
+        if m_compound:
+            value = int(m_compound.group(1))
+            token = m_compound.group(2)
+            wd = m_compound.group(3)
+            parsed = _parse_monthly_token(token, wd, value)
+            if parsed.get("recurrence_unit") == "months":
+                result.update(parsed)
+                _extract_aux(lower, result)
+                _store_original(due_string, result)
+                return result
+
+        # ---- Yearly anniversary: "every 24 dec" / "every 2 years on 24 dec" --
+        # Runs BEFORE monthly_simple so "every 24 dec" isn't misread as a
+        # day-of-month pattern.
+        y_compound = re.match(
+            r"every\s+(\d+)\s+years?\s+on\s+(\d{1,2})\s+([a-z]{3,9})", lower
+        )
+        if y_compound:
+            value = int(y_compound.group(1))
+            day = int(y_compound.group(2))
+            month_idx = _month_index(y_compound.group(3))
+            if month_idx is not None:
+                result["recurrence_value"] = value
+                result["recurrence_unit"] = "years"
+                result["recurrence_anniversary"] = f"{month_idx:02d}-{day:02d}"
+                _extract_aux(lower, result)
+                _store_original(due_string, result)
+                return result
+
+        y_simple = re.match(r"every\s+(\d{1,2})\s+([a-z]{3,9})\b", lower)
+        if y_simple and not re.match(r"every\s+\d+\s+(hour|day|week|month|year)", lower):
+            day = int(y_simple.group(1))
+            month_idx = _month_index(y_simple.group(2))
+            if month_idx is not None:
+                result["recurrence_value"] = 1
+                result["recurrence_unit"] = "years"
+                result["recurrence_anniversary"] = f"{month_idx:02d}-{day:02d}"
+                _extract_aux(lower, result)
+                _store_original(due_string, result)
+                return result
+
+        # ---- "every N unit(s)" generic interval -----------------------------
+        # Runs BEFORE monthly_simple so "every 2 days" isn't read as a
+        # day-of-month=2 pattern.
+        interval_match = re.match(
+            r"every\s+(\d+)\s+(hour|day|week|month|year)s?\b", lower
+        )
+        plain_unit_match = re.match(r"every\s+(hour|day|week|month|year)\b", lower)
+
+        if interval_match or plain_unit_match:
+            pass  # handled below
+        else:
+            # ---- Monthly: "every 24th" / "every last day" / "every 2nd saturday" /
+            # ---- "every last wednesday" --------------------------------------
+            m_simple = re.match(
+                r"every\s+([\w-]+)(?:\s+(mon|tue|wed|thu|fri|sat|sun|monday|tuesday|wednesday|thursday|friday|saturday|sunday|day))?",
+                lower,
+            )
+            if m_simple:
+                token = m_simple.group(1)
+                second = m_simple.group(2)
+                parsed = _parse_monthly_token(token, second, 1)
+                if parsed.get("recurrence_unit") == "months":
+                    result.update(parsed)
+                    _extract_aux(lower, result)
+                    _store_original(due_string, result)
+                    return result
+
         if interval_match:
             result["recurrence_value"] = int(interval_match.group(1))
             result["recurrence_unit"] = interval_match.group(2) + "s"
             result["recurrence_type"] = "interval"
-        elif re.match(r"every\s+(hour|day|week|month|year)", lower):
-            # "every day", "every week", "every year" etc.
+            # "every 2 weeks on <weekday>" — preserve the weekday filter so
+            # the structured fields round-trip back to the card unchanged.
+            if interval_match.group(2) == "week":
+                wd_after = re.search(
+                    r"on\s+((?:mon|tue|wed|thu|fri|sat|sun)(?:\s*,\s*(?:mon|tue|wed|thu|fri|sat|sun))*)",
+                    lower,
+                )
+                if wd_after:
+                    days = [d.strip() for d in wd_after.group(1).split(",")]
+                    indices = []
+                    for d in days:
+                        try:
+                            indices.append(_WEEKDAY_NAMES.index(d))
+                        except ValueError:
+                            pass
+                    if indices:
+                        result["recurrence_weekdays"] = sorted(indices)
+        elif plain_unit_match:
             unit_match = re.match(r"every\s+(hour|day|week|month|year)", lower)
             if unit_match:
                 result["recurrence_value"] = 1
@@ -660,7 +951,10 @@ class TodoistAdapter(ProviderAdapter):
                     except ValueError:
                         pass
                 if indices:
-                    result["recurrence_type"] = "weekdays"
+                    # Treat as weekly with weekday filter (interval+weeks).
+                    result["recurrence_type"] = "interval"
+                    result["recurrence_unit"] = "weeks"
+                    result["recurrence_value"] = 1
                     result["recurrence_weekdays"] = sorted(indices)
 
         # Extract "at HH:MM"
@@ -903,6 +1197,13 @@ class TodoistAdapter(ProviderAdapter):
         for key, value in fields.items():
             if key not in _TODOIST_PROVIDER_FIELDS:
                 unsynced[key] = value
+        # Monthly/yearly sub-patterns are emitted as a simplified Todoist
+        # phrase (Todoist's NL parser rejects compound month-interval +
+        # nth-weekday phrases), so the value must also live in overlay to
+        # round-trip correctly.
+        if (fields.get("recurrence_month_pattern") or fields.get("recurrence_anniversary")) \
+                and "recurrence_value" in fields:
+            unsynced["recurrence_value"] = fields["recurrence_value"]
         return task.id, unsynced
 
     async def async_update_task(self, task_uid: str, fields: dict) -> dict:
@@ -959,6 +1260,11 @@ class TodoistAdapter(ProviderAdapter):
         for key, value in fields.items():
             if key not in _TODOIST_PROVIDER_FIELDS and key not in unsynced:
                 unsynced[key] = value
+        # See async_create_task: monthly/yearly sub-pattern uses a simplified
+        # Todoist phrase, so recurrence_value must live in overlay too.
+        if (fields.get("recurrence_month_pattern") or fields.get("recurrence_anniversary")) \
+                and "recurrence_value" in fields:
+            unsynced["recurrence_value"] = fields["recurrence_value"]
 
         # Step 2: Send API updates.
         # When due changes, Todoist deletes all reminders.  Snapshot them

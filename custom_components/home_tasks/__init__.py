@@ -339,6 +339,34 @@ def _parse_rec_time(task: dict) -> tuple[int, int]:
     return 0, 0
 
 
+def _set_local_time(local_dt: datetime, hour: int, minute: int) -> datetime:
+    """Replace hour/minute on a TZ-aware local datetime, robust against DST.
+
+    - **Spring-forward gap** (e.g. 02:30 on a day where 02:00→03:00):
+      the requested wall-clock time doesn't exist.  We advance to the
+      first valid moment after the gap (i.e. 03:00 or later).
+    - **Fall-back fold** (e.g. 02:30 on a day where 03:00→02:00 makes
+      the 02:00–03:00 hour repeat): the time is ambiguous.  We pick
+      ``fold=0`` (the first occurrence, pre-transition offset) for
+      deterministic behaviour.
+
+    Without this helper a naive ``replace(hour=h, minute=m)`` produces
+    an "imaginary" datetime in the gap, and ``astimezone(UTC)`` lands at
+    a surprising moment that differs from the user's wall-clock intent.
+    """
+    candidate = local_dt.replace(hour=hour, minute=minute, second=0, microsecond=0, fold=0)
+    # Round-trip through UTC to detect a DST gap.  In a gap, the
+    # round-tripped wall-clock time differs from the requested one
+    # (zoneinfo resolves the imaginary time using the post-transition
+    # offset, so 02:30 maps back to 03:30).
+    tz = candidate.tzinfo
+    roundtrip = candidate.astimezone(timezone.utc).astimezone(tz)
+    if roundtrip.hour != hour or roundtrip.minute != minute:
+        # Spring-forward: use the first valid moment after the gap.
+        return roundtrip
+    return candidate
+
+
 def _check_end_date(task: dict, target: datetime) -> bool:
     """Return True if target exceeds the recurrence end date (meaning: stop).
 
@@ -369,35 +397,73 @@ def _apply_start_date(task: dict, target: datetime) -> datetime:
         local_target = target.astimezone(dt_util.DEFAULT_TIME_ZONE)
         if local_target.date() < start_date:
             t_h, t_m = _parse_rec_time(task)
-            return local_target.replace(
+            shifted = local_target.replace(
                 year=start_date.year, month=start_date.month, day=start_date.day,
-                hour=t_h, minute=t_m, second=0, microsecond=0,
             )
+            return _set_local_time(shifted, t_h, t_m)
     except ValueError:
         pass
     return target
+
+
+def _resolve_dom(year: int, month: int, dom) -> int:
+    """Resolve recurrence_day_of_month into a concrete day for (year, month).
+
+    Accepts an int 1–31 (clamped to the month's last day) or the literal "last".
+    """
+    last = calendar.monthrange(year, month)[1]
+    if dom == "last":
+        return last
+    return min(int(dom), last)
+
+
+def _resolve_nth_weekday(year: int, month: int, nth, weekday: int) -> date | None:
+    """Return the date of the nth (1–4) or last *weekday* in (year, month)."""
+    matching_days = [
+        day for day in range(1, calendar.monthrange(year, month)[1] + 1)
+        if date(year, month, day).weekday() == weekday
+    ]
+    if not matching_days:
+        return None
+    if nth == "last":
+        return date(year, month, matching_days[-1])
+    idx = int(nth) - 1
+    if 0 <= idx < len(matching_days):
+        return date(year, month, matching_days[idx])
+    return None
+
+
+def _add_months(year: int, month: int, months: int) -> tuple[int, int]:
+    """Advance (year, month) by *months* months."""
+    m = month - 1 + months
+    return year + m // 12, m % 12 + 1
 
 
 def _compute_next_reopen_target(task: dict, completed_at: datetime) -> datetime | None:
     """Compute the target datetime (UTC-aware) when the task should reopen.
 
     - hours: exact elapsed-based interval (e.g. every 3 h → reopen 3 h after completion)
-    - days / weeks / months / weekdays: recurrence_time (or midnight) of the target day
+    - days / weeks / months / years: recurrence_time (or midnight) of the target day
+      with optional sub-patterns:
+        * weeks  + recurrence_weekdays      → next matching weekday in N-week window
+        * months + recurrence_month_pattern → day-of-month or nth-weekday-of-month
+        * years  + recurrence_anniversary   → fixed MM-DD anchor
     Returns None if recurrence is not configured or end conditions are met.
     """
     rec_type = task.get("recurrence_type", "interval")
     t_h, t_m = _parse_rec_time(task)
 
+    # Legacy "weekdays" mode (pre-migration tasks): treat as weekly with weekdays
+    # filter, value=1.  The migration in store.py normalises new data to
+    # interval+weeks; this branch is a safety net for unmigrated stores.
     if rec_type == "weekdays":
         weekdays = task.get("recurrence_weekdays", [])
         if not weekdays:
             return None
         local_completed = completed_at.astimezone(dt_util.DEFAULT_TIME_ZONE)
-        completed_weekday = local_completed.weekday()  # local weekday, not UTC
+        completed_weekday = local_completed.weekday()
         min_days = min((w - completed_weekday) % 7 or 7 for w in weekdays)
-        target = (local_completed + timedelta(days=min_days)).replace(
-            hour=t_h, minute=t_m, second=0, microsecond=0
-        )
+        target = _set_local_time(local_completed + timedelta(days=min_days), t_h, t_m)
         if _check_end_date(task, target):
             return None
         return _apply_start_date(task, target)
@@ -413,27 +479,115 @@ def _compute_next_reopen_target(task: dict, completed_at: datetime) -> datetime 
             return None
         return _apply_start_date(task, reopen_at)
 
-    # days / weeks / months / years → recurrence_time (or midnight) of target day in local timezone
     local_completed = completed_at.astimezone(dt_util.DEFAULT_TIME_ZONE)
+
     if unit == "days":
         target_local = local_completed + timedelta(days=value)
     elif unit == "weeks":
-        target_local = local_completed + timedelta(weeks=value)
-    elif unit == "years":
-        year = local_completed.year + value
-        day = min(local_completed.day, calendar.monthrange(year, local_completed.month)[1])
-        target_local = local_completed.replace(year=year, day=day)
-    else:  # months
-        m = local_completed.month - 1 + value
-        year = local_completed.year + m // 12
-        month = m % 12 + 1
-        day = min(local_completed.day, calendar.monthrange(year, month)[1])
-        target_local = local_completed.replace(year=year, month=month, day=day)
+        weekdays = task.get("recurrence_weekdays") or []
+        if weekdays:
+            # Each iteration = value calendar weeks (Mon–Sun blocks).  Within
+            # the current iteration, pick the next selected weekday strictly
+            # after the completion weekday.  If none remain in this iteration,
+            # jump to the first selected weekday of iteration N+value.
+            weekdays_sorted = sorted(set(weekdays))
+            completed_wd = local_completed.weekday()
+            in_this_week = [w for w in weekdays_sorted if w > completed_wd]
+            if in_this_week:
+                delta_days = in_this_week[0] - completed_wd
+            else:
+                delta_days = max(1, value) * 7 - completed_wd + weekdays_sorted[0]
+            target_local = local_completed + timedelta(days=delta_days)
+        else:
+            target_local = local_completed + timedelta(weeks=value)
+    elif unit == "months":
+        target_local = _next_monthly_target(task, local_completed, value)
+        if target_local is None:
+            return None
+    else:  # years
+        target_local = _next_yearly_target(task, local_completed, value)
+        if target_local is None:
+            return None
 
-    target_time = target_local.replace(hour=t_h, minute=t_m, second=0, microsecond=0)
+    target_time = _set_local_time(target_local, t_h, t_m)
     if _check_end_date(task, target_time):
         return None
     return _apply_start_date(task, target_time)
+
+
+def _next_monthly_target(task: dict, local_completed: datetime, value: int) -> datetime | None:
+    """Compute the next monthly recurrence date (no time component)."""
+    pattern = task.get("recurrence_month_pattern")
+
+    if pattern == "day_of_month":
+        dom = task.get("recurrence_day_of_month")
+        if dom is None:
+            # Misconfigured — fall back to "same day next interval".
+            year, month = _add_months(local_completed.year, local_completed.month, value)
+            return local_completed.replace(
+                year=year, month=month,
+                day=min(local_completed.day, calendar.monthrange(year, month)[1]),
+            )
+        # First candidate: same month if the resolved day is still ahead.
+        candidate_year, candidate_month = local_completed.year, local_completed.month
+        candidate_day = _resolve_dom(candidate_year, candidate_month, dom)
+        candidate = local_completed.replace(year=candidate_year, month=candidate_month, day=candidate_day)
+        if candidate.date() <= local_completed.date():
+            candidate_year, candidate_month = _add_months(candidate_year, candidate_month, value)
+            candidate_day = _resolve_dom(candidate_year, candidate_month, dom)
+            candidate = local_completed.replace(year=candidate_year, month=candidate_month, day=candidate_day)
+        return candidate
+
+    if pattern == "nth_weekday":
+        nth = task.get("recurrence_nth_week")
+        weekdays = task.get("recurrence_weekdays") or []
+        if nth is None or not weekdays:
+            year, month = _add_months(local_completed.year, local_completed.month, value)
+            return local_completed.replace(
+                year=year, month=month,
+                day=min(local_completed.day, calendar.monthrange(year, month)[1]),
+            )
+        weekday = weekdays[0]
+        # Try the same month first; if that hit is not strictly after completion,
+        # advance by *value* months.
+        target_date = _resolve_nth_weekday(local_completed.year, local_completed.month, nth, weekday)
+        if target_date is None or target_date <= local_completed.date():
+            year, month = _add_months(local_completed.year, local_completed.month, value)
+            target_date = _resolve_nth_weekday(year, month, nth, weekday)
+        if target_date is None:
+            return None
+        return local_completed.replace(year=target_date.year, month=target_date.month, day=target_date.day)
+
+    # No pattern → simple "every N months from completion" behaviour.
+    year, month = _add_months(local_completed.year, local_completed.month, value)
+    day = min(local_completed.day, calendar.monthrange(year, month)[1])
+    return local_completed.replace(year=year, month=month, day=day)
+
+
+def _next_yearly_target(task: dict, local_completed: datetime, value: int) -> datetime | None:
+    """Compute the next yearly recurrence date (no time component)."""
+    anniversary = task.get("recurrence_anniversary")
+    if anniversary and len(anniversary) == 5 and anniversary[2] == "-":
+        try:
+            month = int(anniversary[:2])
+            anchor_day = int(anniversary[3:5])
+        except ValueError:
+            anchor_day = local_completed.day
+            month = local_completed.month
+        # Try the current year's anniversary; if it's already past, jump *value* years.
+        candidate_year = local_completed.year
+        day = min(anchor_day, calendar.monthrange(candidate_year, month)[1])
+        candidate = local_completed.replace(year=candidate_year, month=month, day=day)
+        if candidate.date() <= local_completed.date():
+            candidate_year += value
+            day = min(anchor_day, calendar.monthrange(candidate_year, month)[1])
+            candidate = local_completed.replace(year=candidate_year, month=month, day=day)
+        return candidate
+
+    # No anchor → "every N years from completion" with leap-year clamping.
+    year = local_completed.year + value
+    day = min(local_completed.day, calendar.monthrange(year, local_completed.month)[1])
+    return local_completed.replace(year=year, day=day)
 
 
 def _compute_reopen_delay(task: dict, completed_at: datetime) -> float | None:

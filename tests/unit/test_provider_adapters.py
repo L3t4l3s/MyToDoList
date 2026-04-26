@@ -354,11 +354,16 @@ class TestRecurrenceMapping:
         assert result["recurrence_unit"] == "weeks"
 
     def test_parse_weekdays(self):
+        # The legacy "weekdays" mode has been folded into interval+weeks+filter.
+        # The parser now returns the unified shape so the rest of the stack
+        # treats Todoist tasks the same as native ones.
         due = MagicMock()
         due.is_recurring = True
         due.string = "every mon, wed, fri"
         result = TodoistAdapter._parse_recurrence_from_due(due)
-        assert result["recurrence_type"] == "weekdays"
+        assert result["recurrence_type"] == "interval"
+        assert result["recurrence_unit"] == "weeks"
+        assert result["recurrence_value"] == 1
         assert result["recurrence_weekdays"] == [0, 2, 4]
 
     def test_parse_with_time(self):
@@ -377,6 +382,193 @@ class TestRecurrenceMapping:
     def test_parse_none(self):
         result = TodoistAdapter._parse_recurrence_from_due(None)
         assert result["recurrence_enabled"] is False
+
+    # -- New monthly sub-pattern build/parse round-trips --------------------
+
+    def test_build_monthly_dom_24(self):
+        fields = {
+            "recurrence_enabled": True,
+            "recurrence_type": "interval",
+            "recurrence_value": 1,
+            "recurrence_unit": "months",
+            "recurrence_month_pattern": "day_of_month",
+            "recurrence_day_of_month": 24,
+        }
+        assert TodoistAdapter._build_recurrence_string(fields) == "every 24th"
+
+    def test_build_monthly_dom_last(self):
+        fields = {
+            "recurrence_enabled": True,
+            "recurrence_type": "interval",
+            "recurrence_value": 1,
+            "recurrence_unit": "months",
+            "recurrence_month_pattern": "day_of_month",
+            "recurrence_day_of_month": "last",
+        }
+        assert TodoistAdapter._build_recurrence_string(fields) == "every last day"
+
+    def test_build_monthly_dom_every_2_months(self):
+        fields = {
+            "recurrence_enabled": True,
+            "recurrence_type": "interval",
+            "recurrence_value": 2,
+            "recurrence_unit": "months",
+            "recurrence_month_pattern": "day_of_month",
+            "recurrence_day_of_month": 24,
+        }
+        assert TodoistAdapter._build_recurrence_string(fields) == "every 2 months on the 24th"
+
+    def test_build_monthly_nth_2nd_saturday(self):
+        fields = {
+            "recurrence_enabled": True,
+            "recurrence_type": "interval",
+            "recurrence_value": 1,
+            "recurrence_unit": "months",
+            "recurrence_month_pattern": "nth_weekday",
+            "recurrence_nth_week": 2,
+            "recurrence_weekdays": [5],
+        }
+        assert TodoistAdapter._build_recurrence_string(fields) == "every 2nd sat"
+
+    def test_build_monthly_nth_last_wed(self):
+        fields = {
+            "recurrence_enabled": True,
+            "recurrence_type": "interval",
+            "recurrence_value": 1,
+            "recurrence_unit": "months",
+            "recurrence_month_pattern": "nth_weekday",
+            "recurrence_nth_week": "last",
+            "recurrence_weekdays": [2],
+        }
+        assert TodoistAdapter._build_recurrence_string(fields) == "every last wed"
+
+    def test_build_monthly_nth_last_wed_every_2_months_uses_simple_form(self):
+        # Todoist's NL parser rejects "every 2 months on the last wednesday"
+        # (and the abbreviated form too) with HTTP 400.  The adapter falls
+        # back to the simple "every last wed" form and parks the value=2 in
+        # the overlay so the round-trip via _merge_tasks_with_adapter_data
+        # restores the original recurrence_value.
+        fields = {
+            "recurrence_enabled": True,
+            "recurrence_type": "interval",
+            "recurrence_value": 2,
+            "recurrence_unit": "months",
+            "recurrence_month_pattern": "nth_weekday",
+            "recurrence_nth_week": "last",
+            "recurrence_weekdays": [2],
+        }
+        assert TodoistAdapter._build_recurrence_string(fields) == "every last wed"
+
+    def test_build_yearly_anniversary(self):
+        fields = {
+            "recurrence_enabled": True,
+            "recurrence_type": "interval",
+            "recurrence_value": 1,
+            "recurrence_unit": "years",
+            "recurrence_anniversary": "12-24",
+        }
+        assert TodoistAdapter._build_recurrence_string(fields) == "every 24 dec"
+
+    def test_build_weekly_with_weekdays_value_2(self):
+        fields = {
+            "recurrence_enabled": True,
+            "recurrence_type": "interval",
+            "recurrence_value": 2,
+            "recurrence_unit": "weeks",
+            "recurrence_weekdays": [2],
+        }
+        assert TodoistAdapter._build_recurrence_string(fields) == "every 2 weeks on wed"
+
+    def test_parse_monthly_dom_24(self):
+        due = MagicMock()
+        due.is_recurring = True
+        due.string = "every 24th"
+        result = TodoistAdapter._parse_recurrence_from_due(due)
+        assert result["recurrence_unit"] == "months"
+        assert result["recurrence_value"] == 1
+        assert result["recurrence_month_pattern"] == "day_of_month"
+        assert result["recurrence_day_of_month"] == 24
+
+    def test_parse_monthly_last_day(self):
+        due = MagicMock()
+        due.is_recurring = True
+        due.string = "every last day"
+        result = TodoistAdapter._parse_recurrence_from_due(due)
+        assert result["recurrence_unit"] == "months"
+        assert result["recurrence_month_pattern"] == "day_of_month"
+        assert result["recurrence_day_of_month"] == "last"
+
+    def test_parse_monthly_2nd_saturday(self):
+        due = MagicMock()
+        due.is_recurring = True
+        due.string = "every 2nd sat"
+        result = TodoistAdapter._parse_recurrence_from_due(due)
+        assert result["recurrence_unit"] == "months"
+        assert result["recurrence_month_pattern"] == "nth_weekday"
+        assert result["recurrence_nth_week"] == 2
+        assert result["recurrence_weekdays"] == [5]
+
+    def test_parse_monthly_last_wed(self):
+        due = MagicMock()
+        due.is_recurring = True
+        due.string = "every last wednesday"
+        result = TodoistAdapter._parse_recurrence_from_due(due)
+        assert result["recurrence_unit"] == "months"
+        assert result["recurrence_month_pattern"] == "nth_weekday"
+        assert result["recurrence_nth_week"] == "last"
+        assert result["recurrence_weekdays"] == [2]
+
+    def test_parse_monthly_compound_24th_every_2_months(self):
+        due = MagicMock()
+        due.is_recurring = True
+        due.string = "every 2 months on the 24th"
+        result = TodoistAdapter._parse_recurrence_from_due(due)
+        assert result["recurrence_unit"] == "months"
+        assert result["recurrence_value"] == 2
+        assert result["recurrence_month_pattern"] == "day_of_month"
+        assert result["recurrence_day_of_month"] == 24
+
+    def test_parse_yearly_anniversary(self):
+        due = MagicMock()
+        due.is_recurring = True
+        due.string = "every 24 dec"
+        result = TodoistAdapter._parse_recurrence_from_due(due)
+        assert result["recurrence_unit"] == "years"
+        assert result["recurrence_value"] == 1
+        assert result["recurrence_anniversary"] == "12-24"
+
+    def test_parse_yearly_compound(self):
+        due = MagicMock()
+        due.is_recurring = True
+        due.string = "every 2 years on 24 dec"
+        result = TodoistAdapter._parse_recurrence_from_due(due)
+        assert result["recurrence_unit"] == "years"
+        assert result["recurrence_value"] == 2
+        assert result["recurrence_anniversary"] == "12-24"
+
+    def test_parse_every_2_weeks_on_wed_preserves_weekday(self):
+        # Round-trip regression: build emits "every 2 weeks on wed", and the
+        # parser must reattach the weekday filter so the structured fields
+        # don't degrade to "every 2 weeks" without a weekday.
+        due = MagicMock()
+        due.is_recurring = True
+        due.string = "every 2 weeks on wed"
+        result = TodoistAdapter._parse_recurrence_from_due(due)
+        assert result["recurrence_unit"] == "weeks"
+        assert result["recurrence_value"] == 2
+        assert result["recurrence_weekdays"] == [2]
+
+    def test_parse_every_2_days_not_misread_as_dom(self):
+        # Regression: "every 2 days" used to match the monthly_simple branch
+        # and produce day_of_month=2 — make sure interval still wins.
+        due = MagicMock()
+        due.is_recurring = True
+        due.string = "every 2 days"
+        result = TodoistAdapter._parse_recurrence_from_due(due)
+        assert result["recurrence_unit"] == "days"
+        assert result["recurrence_value"] == 2
+        assert result["recurrence_month_pattern"] is None
+        assert result["recurrence_day_of_month"] is None
 
 
 # ---------------------------------------------------------------------------

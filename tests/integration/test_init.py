@@ -1571,3 +1571,565 @@ async def test_service_reopen_task_no_args_raises(
             {"list_name": "Test List"},
             blocking=True,
         )
+
+
+# ---------------------------------------------------------------------------
+# New recurrence patterns: weekly with weekday filter, monthly DOM/nth-weekday,
+# yearly anniversary.  All test the local-clock target produced by
+# _compute_next_reopen_target — using local-naive datetimes via the HA timezone
+# helper to keep the assertions independent of the test machine's TZ.
+# ---------------------------------------------------------------------------
+
+
+def _local_dt(year: int, month: int, day: int, hour: int = 12) -> datetime:
+    """Build a UTC datetime that, in HA's default timezone, lands on (Y, M, D)."""
+    from datetime import timezone as _tz
+    return datetime(year, month, day, hour, 0, 0, tzinfo=_tz.utc)
+
+
+def _local_target(task: dict, completed_at: datetime):
+    """Run _compute_next_reopen_target and convert the result to local Y/M/D."""
+    from custom_components.home_tasks.__init__ import _compute_next_reopen_target
+    target = _compute_next_reopen_target(task, completed_at)
+    if target is None:
+        return None
+    local = target.astimezone(dt_util.DEFAULT_TIME_ZONE)
+    return (local.year, local.month, local.day)
+
+
+def test_weeks_with_weekdays_value_1() -> None:
+    """weekly + weekday filter, every 1 week: pick next matching weekday."""
+    # 2026-01-05 is Monday (weekday 0); next Mon/Wed → Wed 2026-01-07.
+    completed = _local_dt(2026, 1, 5)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "weeks",
+        "recurrence_value": 1,
+        "recurrence_weekdays": [0, 2],  # Mon, Wed
+    }
+    assert _local_target(task, completed) == (2026, 1, 7)
+
+
+def test_weeks_with_weekdays_value_2() -> None:
+    """alle 2 Wochen Mittwochs: from Wednesday 2026-01-07 → next is +2w (2026-01-21)."""
+    completed = _local_dt(2026, 1, 7)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "weeks",
+        "recurrence_value": 2,
+        "recurrence_weekdays": [2],  # Wed
+    }
+    assert _local_target(task, completed) == (2026, 1, 21)
+
+
+def test_weeks_no_weekdays_value_2() -> None:
+    """alle 2 Wochen ohne Wochentage: +14 Tage."""
+    completed = _local_dt(2026, 1, 5)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "weeks",
+        "recurrence_value": 2,
+    }
+    assert _local_target(task, completed) == (2026, 1, 19)
+
+
+def test_months_dom_24() -> None:
+    """alle 1 Monat am 24."""
+    completed = _local_dt(2026, 1, 5)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "months",
+        "recurrence_value": 1,
+        "recurrence_month_pattern": "day_of_month",
+        "recurrence_day_of_month": 24,
+    }
+    # Same month if 24 is still in the future.
+    assert _local_target(task, completed) == (2026, 1, 24)
+
+
+def test_months_dom_24_already_past() -> None:
+    """alle 1 Monat am 24, completed on 25 → next month."""
+    completed = _local_dt(2026, 1, 25)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "months",
+        "recurrence_value": 1,
+        "recurrence_month_pattern": "day_of_month",
+        "recurrence_day_of_month": 24,
+    }
+    assert _local_target(task, completed) == (2026, 2, 24)
+
+
+def test_months_dom_last_in_february_non_leap() -> None:
+    """Letzter Tag im Februar = 28 in einem Nicht-Schaltjahr."""
+    # 2026 is not a leap year. Completed Feb 1 → last day = Feb 28.
+    completed = _local_dt(2026, 2, 1)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "months",
+        "recurrence_value": 1,
+        "recurrence_month_pattern": "day_of_month",
+        "recurrence_day_of_month": "last",
+    }
+    assert _local_target(task, completed) == (2026, 2, 28)
+
+
+def test_months_dom_last_in_february_leap() -> None:
+    """Letzter Tag im Februar = 29 in einem Schaltjahr."""
+    completed = _local_dt(2024, 2, 1)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "months",
+        "recurrence_value": 1,
+        "recurrence_month_pattern": "day_of_month",
+        "recurrence_day_of_month": "last",
+    }
+    assert _local_target(task, completed) == (2024, 2, 29)
+
+
+def test_months_dom_31_in_short_month() -> None:
+    """Tag 31 in einem 30-Tage-Monat klemmt auf 30."""
+    # April has 30 days. Completed April 1 → clamp to April 30.
+    completed = _local_dt(2026, 4, 1)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "months",
+        "recurrence_value": 1,
+        "recurrence_month_pattern": "day_of_month",
+        "recurrence_day_of_month": 31,
+    }
+    assert _local_target(task, completed) == (2026, 4, 30)
+
+
+def test_months_dom_every_2_months() -> None:
+    """alle 2 Monate Tag 24."""
+    # Completed 2026-01-25 (24th already past). Next is March 24.
+    completed = _local_dt(2026, 1, 25)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "months",
+        "recurrence_value": 2,
+        "recurrence_month_pattern": "day_of_month",
+        "recurrence_day_of_month": 24,
+    }
+    assert _local_target(task, completed) == (2026, 3, 24)
+
+
+def test_months_nth_2nd_saturday() -> None:
+    """Jeden 2. Samstag im Monat."""
+    # In January 2026: Saturdays are 3, 10, 17, 24, 31 → 2nd = 10.
+    completed = _local_dt(2026, 1, 1)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "months",
+        "recurrence_value": 1,
+        "recurrence_month_pattern": "nth_weekday",
+        "recurrence_nth_week": 2,
+        "recurrence_weekdays": [5],  # Sat
+    }
+    assert _local_target(task, completed) == (2026, 1, 10)
+
+
+def test_months_nth_last_wednesday() -> None:
+    """Jeden letzten Mittwoch im Monat."""
+    # April 2026 Wednesdays: 1, 8, 15, 22, 29 → last = 29.
+    completed = _local_dt(2026, 4, 1)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "months",
+        "recurrence_value": 1,
+        "recurrence_month_pattern": "nth_weekday",
+        "recurrence_nth_week": "last",
+        "recurrence_weekdays": [2],  # Wed
+    }
+    assert _local_target(task, completed) == (2026, 4, 29)
+
+
+def test_months_nth_last_saturday_every_2_months() -> None:
+    """User-Beispiel: jeden letzten Samstag alle 2 Monate."""
+    # Completed 2026-01-31 (last Sat in Jan = 31, same day, ≤ → advance 2 months).
+    # March 2026 Saturdays: 7, 14, 21, 28 → last = 28.
+    completed = _local_dt(2026, 1, 31)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "months",
+        "recurrence_value": 2,
+        "recurrence_month_pattern": "nth_weekday",
+        "recurrence_nth_week": "last",
+        "recurrence_weekdays": [5],  # Sat
+    }
+    assert _local_target(task, completed) == (2026, 3, 28)
+
+
+def test_years_anniversary_24_12() -> None:
+    """Jedes Jahr am 24.12."""
+    # Completed Jun 1 → same year's Dec 24.
+    completed = _local_dt(2026, 6, 1)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "years",
+        "recurrence_value": 1,
+        "recurrence_anniversary": "12-24",
+    }
+    assert _local_target(task, completed) == (2026, 12, 24)
+
+
+def test_years_anniversary_24_12_after_anchor() -> None:
+    """Anniversary already passed this year → jump to next year."""
+    completed = _local_dt(2026, 12, 25)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "years",
+        "recurrence_value": 1,
+        "recurrence_anniversary": "12-24",
+    }
+    assert _local_target(task, completed) == (2027, 12, 24)
+
+
+def test_years_anniversary_29_02_non_leap() -> None:
+    """29.02 anniversary in non-leap year → klemmt auf 28.02."""
+    completed = _local_dt(2025, 1, 1)  # 2025 is not a leap year
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "years",
+        "recurrence_value": 1,
+        "recurrence_anniversary": "02-29",
+    }
+    assert _local_target(task, completed) == (2025, 2, 28)
+
+
+def test_months_no_pattern_falls_back() -> None:
+    """alle 2 Monate ohne Muster: Verhalten wie heute (gleicher Tag, +N Monate)."""
+    completed = _local_dt(2026, 1, 5)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "months",
+        "recurrence_value": 2,
+    }
+    assert _local_target(task, completed) == (2026, 3, 5)
+
+
+def test_years_no_anchor_falls_back() -> None:
+    """alle 1 Jahr ohne Anker: gleicher Tag im nächsten Jahr."""
+    completed = _local_dt(2026, 6, 1)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "years",
+        "recurrence_value": 1,
+    }
+    assert _local_target(task, completed) == (2027, 6, 1)
+
+
+def test_months_dom_end_date_blocks() -> None:
+    """End-Date in der Vergangenheit blockt das Reopen auch für DOM-Muster."""
+    from custom_components.home_tasks.__init__ import _compute_next_reopen_target
+    completed = _local_dt(2026, 1, 5)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "months",
+        "recurrence_value": 1,
+        "recurrence_month_pattern": "day_of_month",
+        "recurrence_day_of_month": 24,
+        "recurrence_end_type": "date",
+        "recurrence_end_date": "2025-12-31",
+    }
+    assert _compute_next_reopen_target(task, completed) is None
+
+
+def test_months_nth_start_date_clamps() -> None:
+    """Future start_date verschiebt das Reopen-Ziel nach vorn."""
+    completed = _local_dt(2026, 1, 1)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "months",
+        "recurrence_value": 1,
+        "recurrence_month_pattern": "nth_weekday",
+        "recurrence_nth_week": 1,
+        "recurrence_weekdays": [0],  # Mon
+        "recurrence_start_date": "2026-06-01",
+    }
+    # Naive next: 1st Mon Jan 2026 = Jan 5. Start clamps to 2026-06-01.
+    target = _local_target(task, completed)
+    assert target == (2026, 6, 1)
+
+
+# ---------------------------------------------------------------------------
+# Backwards-compat: legacy "weekdays" mode still computes a target until the
+# migration runs (via store.async_load).
+# ---------------------------------------------------------------------------
+
+
+def test_legacy_weekdays_mode_still_works() -> None:
+    """Tasks stored with recurrence_type='weekdays' still compute a reopen target."""
+    from custom_components.home_tasks.__init__ import _compute_reopen_delay
+    completed = _local_dt(2026, 1, 5)
+    task = {
+        "recurrence_type": "weekdays",
+        "recurrence_weekdays": [0, 2, 4],  # Mon, Wed, Fri
+    }
+    delay = _compute_reopen_delay(task, completed)
+    assert delay is not None
+    assert isinstance(delay, float)
+
+
+# ---------------------------------------------------------------------------
+# Edge cases discovered during code review — value > 1 with day clamping,
+# leap-day completion, partial pattern fields, and start-date interaction
+# with monthly patterns.
+# ---------------------------------------------------------------------------
+
+
+def test_months_dom_31_value_2_short_months() -> None:
+    """alle 2 Monate Tag 31: kurzer Monat klemmt, danach geht's korrekt weiter."""
+    # Complete on Feb 28 2025 (clamp of dom=31 in Feb).  Next iteration is
+    # +2 months → Apr 30 (April has only 30 days, clamped from 31).
+    completed = _local_dt(2025, 2, 28)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "months",
+        "recurrence_value": 2,
+        "recurrence_month_pattern": "day_of_month",
+        "recurrence_day_of_month": 31,
+    }
+    assert _local_target(task, completed) == (2025, 4, 30)
+
+
+def test_months_dom_31_value_2_continues_to_long_month() -> None:
+    """Vom geklemmten kurzen Monat zum nächsten 31er-Monat alle 2 Monate."""
+    # Apr 30 → +2 → Jun 30 (clamped) → +2 → Aug 31 (Aug has 31 days)
+    completed_a = _local_dt(2025, 4, 30)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "months",
+        "recurrence_value": 2,
+        "recurrence_month_pattern": "day_of_month",
+        "recurrence_day_of_month": 31,
+    }
+    assert _local_target(task, completed_a) == (2025, 6, 30)
+    completed_b = _local_dt(2025, 6, 30)
+    assert _local_target(task, completed_b) == (2025, 8, 31)
+
+
+def test_years_anniversary_29_02_complete_on_leap_day() -> None:
+    """29.02 anniversary, Completion exakt am 29.2. im Schaltjahr.
+
+    Verhalten: same-day → advance to next year, dort klemmt's auf 28.02.
+    Die nächste Schaltjahr-Wiederholung erst über 4 Jahre später.
+    """
+    completed = _local_dt(2024, 2, 29)  # leap day itself
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "years",
+        "recurrence_value": 1,
+        "recurrence_anniversary": "02-29",
+    }
+    # Completion same as anchor → advance to 2025, clamp to Feb 28.
+    assert _local_target(task, completed) == (2025, 2, 28)
+
+
+def test_years_anniversary_29_02_value_4_hits_next_leap() -> None:
+    """29.02 anniversary alle 4 Jahre — landet bei jedem Schaltjahr exakt."""
+    completed = _local_dt(2024, 2, 29)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "years",
+        "recurrence_value": 4,
+        "recurrence_anniversary": "02-29",
+    }
+    # +4 years = 2028, also a leap year → Feb 29 not clamped.
+    assert _local_target(task, completed) == (2028, 2, 29)
+
+
+def test_months_partial_pattern_dom_none_falls_back() -> None:
+    """recurrence_month_pattern=day_of_month aber dom=None → Fallback."""
+    # Defensive case: server-side accepted incoherent state (pattern set
+    # but dom is None).  Compute should not crash; falls back to "same
+    # day next interval".
+    completed = _local_dt(2026, 1, 15)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "months",
+        "recurrence_value": 1,
+        "recurrence_month_pattern": "day_of_month",
+        "recurrence_day_of_month": None,
+    }
+    # Fallback: Jan 15 + 1 month → Feb 15
+    assert _local_target(task, completed) == (2026, 2, 15)
+
+
+def test_months_partial_pattern_nth_no_weekdays_falls_back() -> None:
+    """recurrence_month_pattern=nth_weekday aber weekdays leer → Fallback."""
+    completed = _local_dt(2026, 1, 15)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "months",
+        "recurrence_value": 1,
+        "recurrence_month_pattern": "nth_weekday",
+        "recurrence_nth_week": 2,
+        "recurrence_weekdays": [],  # incoherent: nth set but no weekday
+    }
+    # Fallback: Jan 15 + 1 month → Feb 15
+    assert _local_target(task, completed) == (2026, 2, 15)
+
+
+def test_months_dom_with_start_date_in_future_advances_to_start() -> None:
+    """Start-Date in der Zukunft + day_of_month → Reopen am Start-Date.
+
+    Documented limitation: start_date is treated as a hard "not before"
+    clamp, NOT as a pattern-aware adjustment.  When the clamped result
+    doesn't match the day-of-month pattern, the user gets one off-pattern
+    occurrence and the pattern resumes on the next iteration.
+    """
+    completed = _local_dt(2026, 1, 1)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "months",
+        "recurrence_value": 1,
+        "recurrence_month_pattern": "day_of_month",
+        "recurrence_day_of_month": 15,
+        "recurrence_start_date": "2026-06-20",
+    }
+    # Naive next would be Jan 15.  Start-date clamps forward to Jun 20.
+    assert _local_target(task, completed) == (2026, 6, 20)
+    # Next iteration from Jun 20 — correctly back on the 15th pattern.
+    assert _local_target(task, _local_dt(2026, 6, 20)) == (2026, 7, 15)
+
+
+# ---------------------------------------------------------------------------
+# DST robustness: _set_local_time must handle the spring-forward gap
+# (non-existent wall-clock time) and the fall-back fold (ambiguous time)
+# without producing surprising reopen targets.
+# ---------------------------------------------------------------------------
+
+
+from datetime import date as _date
+
+
+def test_dst_spring_forward_time_in_gap_advances() -> None:
+    """recurrence_time=02:30 on a Berlin spring-forward day skips the gap.
+
+    Berlin DST: 2026-03-29, 02:00 local → 03:00 local (the 02:00–03:00
+    hour does NOT exist).  A naive replace(hour=2, minute=30) produces
+    an "imaginary" wall-clock time; _set_local_time rounds-trip through
+    UTC and lands at the first valid moment after the gap.
+    """
+    from custom_components.home_tasks.__init__ import _compute_next_reopen_target
+    import zoneinfo
+    from unittest.mock import patch
+    berlin = zoneinfo.ZoneInfo("Europe/Berlin")
+    # Completion 2026-03-28 12:00 local Berlin (CET, +01:00).
+    completed = datetime(2026, 3, 28, 11, 0, 0, tzinfo=timezone.utc)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "days",
+        "recurrence_value": 1,
+        "recurrence_time": "02:30",
+    }
+    with patch("custom_components.home_tasks.dt_util.DEFAULT_TIME_ZONE", berlin):
+        target = _compute_next_reopen_target(task, completed)
+    assert target is not None
+    local = target.astimezone(berlin)
+    assert local.date() == _date(2026, 3, 29)
+    # 02:30 didn't exist; the helper advances to the post-gap moment.
+    # Different zoneinfo implementations may pick 03:30 (post-gap offset
+    # interpretation of the imaginary time) — accept anything >= 03:00.
+    assert (local.hour, local.minute) >= (3, 0), (
+        f"Expected post-gap time on spring-forward day, got {local}"
+    )
+
+
+def test_dst_fall_back_time_in_fold_uses_first_occurrence() -> None:
+    """recurrence_time=02:30 on a Berlin fall-back day → first occurrence.
+
+    Berlin DST: 2026-10-25, 03:00 local → 02:00 local (02:00–03:00
+    occurs twice).  We pick fold=0 → the first 02:30 (CEST, +02:00),
+    not the second (CET, +01:00) — deterministic and matches the
+    "earlier" intuition.
+    """
+    from custom_components.home_tasks.__init__ import _compute_next_reopen_target
+    import zoneinfo
+    from unittest.mock import patch
+    berlin = zoneinfo.ZoneInfo("Europe/Berlin")
+    # Completion 2026-10-24 12:00 local Berlin.
+    completed = datetime(2026, 10, 24, 10, 0, 0, tzinfo=timezone.utc)
+    task = {
+        "recurrence_type": "interval",
+        "recurrence_unit": "days",
+        "recurrence_value": 1,
+        "recurrence_time": "02:30",
+    }
+    with patch("custom_components.home_tasks.dt_util.DEFAULT_TIME_ZONE", berlin):
+        target = _compute_next_reopen_target(task, completed)
+    assert target is not None
+    local = target.astimezone(berlin)
+    assert local.date() == _date(2026, 10, 25)
+    assert (local.hour, local.minute) == (2, 30)
+    # First occurrence: still in CEST (+02:00) — UTC 00:30.
+    utc = target.astimezone(timezone.utc)
+    assert (utc.hour, utc.minute) == (0, 30), (
+        f"Expected pre-fold (CEST, UTC 00:30) for ambiguous time, got UTC {utc}"
+    )
+
+
+def test_dst_no_transition_day_is_pass_through() -> None:
+    """Outside DST transitions, _set_local_time matches the wall-clock exactly."""
+    from custom_components.home_tasks.__init__ import _set_local_time
+    import zoneinfo
+    berlin = zoneinfo.ZoneInfo("Europe/Berlin")
+    base = datetime(2026, 6, 15, 8, 0, 0, tzinfo=berlin)
+    out = _set_local_time(base, 14, 30)
+    assert (out.hour, out.minute) == (14, 30)
+    assert out.tzinfo is berlin
+
+
+def test_dst_helper_works_in_zones_without_dst() -> None:
+    """In a timezone that doesn't observe DST, _set_local_time is a no-op
+    even on dates that WOULD be DST-transition days in northern Europe.
+
+    We test on multiple days of the year with fixed-offset zones (UTC,
+    Asia/Tokyo, US/Arizona) to make sure the round-trip detection
+    doesn't false-positive on stable wall-clocks.
+    """
+    from custom_components.home_tasks.__init__ import _set_local_time
+    import zoneinfo
+    for zone_name in ("UTC", "Asia/Tokyo", "America/Phoenix"):  # all stable, no DST
+        tz = zoneinfo.ZoneInfo(zone_name)
+        # Try the dates that ARE DST transitions in Berlin/UK — should
+        # be unremarkable in these zones.
+        for d in (datetime(2026, 3, 29, 8, 0, tzinfo=tz),
+                  datetime(2026, 10, 25, 8, 0, tzinfo=tz),
+                  datetime(2026, 6, 15, 8, 0, tzinfo=tz)):
+            out = _set_local_time(d, 2, 30)
+            assert (out.hour, out.minute) == (2, 30), (
+                f"Non-DST zone {zone_name} on {d.date()}: "
+                f"expected 02:30, got {out.hour:02d}:{out.minute:02d}"
+            )
+            assert out.tzinfo is tz
+
+
+def test_dst_helper_southern_hemisphere() -> None:
+    """Southern-hemisphere zones flip DST in October/April (opposite of
+    Europe/US).  Verify the helper handles them correctly too."""
+    from custom_components.home_tasks.__init__ import _set_local_time
+    import zoneinfo
+    sydney = zoneinfo.ZoneInfo("Australia/Sydney")
+    # Sydney 2026-10-04: 02:00 AEST → 03:00 AEDT (spring-forward, OPPOSITE
+    # phase from Europe).  02:30 doesn't exist on that day.
+    base = datetime(2026, 10, 4, 1, 0, 0, tzinfo=sydney)
+    out = _set_local_time(base, 2, 30)
+    # Helper should advance past the gap, just like Berlin's case.
+    assert (out.hour, out.minute) >= (3, 0), (
+        f"Sydney spring-forward should advance past gap, got {out}"
+    )
+    # Sydney 2026-04-05: 03:00 AEDT → 02:00 AEST (fall-back).  02:30 exists twice.
+    base_fb = datetime(2026, 4, 5, 1, 0, 0, tzinfo=sydney)
+    out_fb = _set_local_time(base_fb, 2, 30)
+    assert (out_fb.hour, out_fb.minute) == (2, 30)
+    # First occurrence: AEDT (+11:00) → UTC 15:30 the previous day.
+    utc = out_fb.astimezone(timezone.utc)
+    # Sanity: verify pre-fold offset selected.
+    expected_utc_offset_hours = 11  # AEDT
+    actual_offset = sydney.utcoffset(out_fb).total_seconds() / 3600
+    assert actual_offset == expected_utc_offset_hours, (
+        f"Expected pre-fold AEDT (+11h), got {actual_offset:+}h"
+    )

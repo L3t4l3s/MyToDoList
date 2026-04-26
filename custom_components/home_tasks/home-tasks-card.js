@@ -100,8 +100,17 @@ const _TRANSLATIONS = {
     due_time_lbl: "Time",
     due_date_lbl: "Date",
     rec_mode_lbl: "Mode",
-    rec_time: "Time", rec_end: "End", rec_end_never: "Never", rec_end_date: "On date", rec_end_count: "After N times",
-    rec_end_date_lbl: "End date", rec_max_count_lbl: "max", rec_remaining: "{0} left", rec_start_date_lbl: "Start date",
+    rec_time: "Time", rec_end: "End", rec_end_never: "Never", rec_end_date: "Until", rec_end_count: "X times",
+    rec_end_date_lbl: "Until", rec_max_count_lbl: "Count", rec_remaining: "{0} left", rec_start_date_lbl: "From",
+    rec_pattern_dom: "Day of month", rec_pattern_nth: "Nth weekday", rec_pattern_none: "From completion",
+    rec_dom_lbl: "Day", rec_dom_last: "Last day",
+    rec_nth_lbl: "On the", rec_nth_1: "1st", rec_nth_2: "2nd", rec_nth_3: "3rd", rec_nth_4: "4th", rec_nth_last: "Last",
+    rec_anniversary_lbl: "On",
+    rec_dd: "Day", rec_mm: "Month",
+    rec_dom_short: "th", rec_last_short: "last",
+    rec_value_lbl: "Every", rec_unit_lbl: "Unit", rec_wd_lbl: "Weekday",
+    rec_at_lbl: "At",
+    rec_todoist_pattern_unsupported: "Sub-patterns aren't supported when the interval is greater than 1.",
     history: "History", history_created: "Created", history_completed: "Completed", history_reopened: "Reopened",
     history_reset: "Auto-reset (recurrence)", history_changed: "changed", history_empty: "No history yet", hist_title: "Title", history_disabled: "Disabled",
     ed_show_history: "Show history", hist_by_user: "User",
@@ -155,8 +164,15 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "Titel boven kolommen",
     ed_sec_view: "Weergave", ed_sec_display: "Configuratie",
     due_time_lbl: "Tijd", due_date_lbl: "Datum", rec_mode_lbl: "Modus",
-    rec_time: "Tijdstip", rec_end: "Einde", rec_end_never: "Nooit", rec_end_date: "Op datum", rec_end_count: "Na N keer",
-    rec_end_date_lbl: "Einddatum", rec_max_count_lbl: "max", rec_remaining: "nog {0}", rec_start_date_lbl: "Startdatum",
+    rec_time: "Tijdstip", rec_end: "Einde", rec_end_never: "Nooit", rec_end_date: "Tot", rec_end_count: "X keer",
+    rec_end_date_lbl: "Tot", rec_max_count_lbl: "Aantal", rec_remaining: "nog {0}", rec_start_date_lbl: "Vanaf",
+    rec_pattern_dom: "Dag van de maand", rec_pattern_nth: "Nde weekdag", rec_pattern_none: "Vanaf voltooiing",
+    rec_dom_lbl: "Dag", rec_dom_last: "Laatste dag",
+    rec_nth_lbl: "Op", rec_nth_1: "1e", rec_nth_2: "2e", rec_nth_3: "3e", rec_nth_4: "4e", rec_nth_last: "Laatste",
+    rec_anniversary_lbl: "Op", rec_dd: "Dag", rec_mm: "Maand",
+    rec_dom_short: "e", rec_last_short: "laatste",
+    rec_value_lbl: "Elke", rec_unit_lbl: "Eenheid", rec_wd_lbl: "Weekdag", rec_at_lbl: "Om",
+    rec_todoist_pattern_unsupported: "Subpatronen werken niet als het interval groter is dan 1.",
     history: "Geschiedenis", history_created: "Aangemaakt", history_completed: "Voltooid", history_reopened: "Heropend",
     history_reset: "Automatisch teruggezet", history_changed: "gewijzigd", history_empty: "Geen geschiedenis", hist_title: "Titel", history_disabled: "Uitgeschakeld",
     ed_show_history: "Geschiedenis tonen", hist_by_user: "Gebruiker",
@@ -210,8 +226,15 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "Titolo sopra le colonne",
     ed_sec_view: "Visualizzazione", ed_sec_display: "Configurazione",
     due_time_lbl: "Ora", due_date_lbl: "Data", rec_mode_lbl: "Modalit\u00e0",
-    rec_time: "Orario", rec_end: "Fine", rec_end_never: "Mai", rec_end_date: "Alla data", rec_end_count: "Dopo N volte",
-    rec_end_date_lbl: "Data di fine", rec_max_count_lbl: "max", rec_remaining: "ancora {0}", rec_start_date_lbl: "Data di inizio",
+    rec_time: "Orario", rec_end: "Fine", rec_end_never: "Mai", rec_end_date: "Fino al", rec_end_count: "X volte",
+    rec_end_date_lbl: "Fino al", rec_max_count_lbl: "Numero", rec_remaining: "ancora {0}", rec_start_date_lbl: "Dal",
+    rec_pattern_dom: "Giorno del mese", rec_pattern_nth: "N\u00ba giorno", rec_pattern_none: "Dal completamento",
+    rec_dom_lbl: "Giorno", rec_dom_last: "Ultimo giorno",
+    rec_nth_lbl: "Il", rec_nth_1: "1\u00ba", rec_nth_2: "2\u00ba", rec_nth_3: "3\u00ba", rec_nth_4: "4\u00ba", rec_nth_last: "Ultimo",
+    rec_anniversary_lbl: "Il", rec_dd: "Giorno", rec_mm: "Mese",
+    rec_dom_short: "\u00ba", rec_last_short: "ultimo",
+    rec_value_lbl: "Ogni", rec_unit_lbl: "Unit\u00e0", rec_wd_lbl: "Giorno", rec_at_lbl: "Alle",
+    rec_todoist_pattern_unsupported: "I sottoschemi non sono supportati con intervallo maggiore di 1.",
     history: "Cronologia", history_created: "Creato", history_completed: "Completato", history_reopened: "Riaperto",
     history_reset: "Ripristino automatico", history_changed: "modificato", history_empty: "Nessuna cronologia", hist_title: "Titolo", history_disabled: "Disabilitato",
     ed_show_history: "Mostra cronologia", hist_by_user: "Utente",
@@ -265,8 +288,15 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "Tytu\u0142 nad kolumnami",
     ed_sec_view: "Wy\u015bwietlanie", ed_sec_display: "Konfiguracja",
     due_time_lbl: "Czas", due_date_lbl: "Data", rec_mode_lbl: "Tryb",
-    rec_time: "Godzina", rec_end: "Koniec", rec_end_never: "Nigdy", rec_end_date: "W dniu", rec_end_count: "Po N razach",
-    rec_end_date_lbl: "Data ko\u0144cowa", rec_max_count_lbl: "max", rec_remaining: "jeszcze {0}", rec_start_date_lbl: "Data pocz\u0105tku",
+    rec_time: "Godzina", rec_end: "Koniec", rec_end_never: "Nigdy", rec_end_date: "Do", rec_end_count: "X razy",
+    rec_end_date_lbl: "Do", rec_max_count_lbl: "Liczba", rec_remaining: "jeszcze {0}", rec_start_date_lbl: "Od",
+    rec_pattern_dom: "Dzie\u0144 miesi\u0105ca", rec_pattern_nth: "N-ty dzie\u0144", rec_pattern_none: "Od wykonania",
+    rec_dom_lbl: "Dzie\u0144", rec_dom_last: "Ostatni dzie\u0144",
+    rec_nth_lbl: "W", rec_nth_1: "1.", rec_nth_2: "2.", rec_nth_3: "3.", rec_nth_4: "4.", rec_nth_last: "Ostatni",
+    rec_anniversary_lbl: "W", rec_dd: "Dzie\u0144", rec_mm: "Miesi\u0105c",
+    rec_dom_short: ".", rec_last_short: "ostatni",
+    rec_value_lbl: "Co", rec_unit_lbl: "Jednostka", rec_wd_lbl: "Dzie\u0144 tygodnia", rec_at_lbl: "O",
+    rec_todoist_pattern_unsupported: "Podwzorce nie s\u0105 obs\u0142ugiwane, gdy interwa\u0142 jest wi\u0119kszy ni\u017c 1.",
     history: "Historia", history_created: "Utworzono", history_completed: "Uko\u0144czono", history_reopened: "Ponownie otwarto",
     history_reset: "Auto-reset", history_changed: "zmieniono", history_empty: "Brak historii", hist_title: "Tytu\u0142", history_disabled: "Wy\u0142\u0105czono",
     ed_show_history: "Poka\u017c histori\u0119", hist_by_user: "U\u017cytkownik",
@@ -320,8 +350,15 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "Titel ovanf\u00f6r kolumner",
     ed_sec_view: "Visning", ed_sec_display: "Konfiguration",
     due_time_lbl: "Tid", due_date_lbl: "Datum", rec_mode_lbl: "L\u00e4ge",
-    rec_time: "Tid", rec_end: "Slut", rec_end_never: "Aldrig", rec_end_date: "P\u00e5 datum", rec_end_count: "Efter N g\u00e5nger",
-    rec_end_date_lbl: "Slutdatum", rec_max_count_lbl: "max", rec_remaining: "{0} kvar", rec_start_date_lbl: "Startdatum",
+    rec_time: "Tid", rec_end: "Slut", rec_end_never: "Aldrig", rec_end_date: "Till", rec_end_count: "X g\u00e5nger",
+    rec_end_date_lbl: "Till", rec_max_count_lbl: "Antal", rec_remaining: "{0} kvar", rec_start_date_lbl: "Fr\u00e5n",
+    rec_pattern_dom: "Dag i m\u00e5naden", rec_pattern_nth: "Nte veckodag", rec_pattern_none: "Fr\u00e5n slutf\u00f6rande",
+    rec_dom_lbl: "Dag", rec_dom_last: "Sista dagen",
+    rec_nth_lbl: "P\u00e5", rec_nth_1: "1:a", rec_nth_2: "2:a", rec_nth_3: "3:e", rec_nth_4: "4:e", rec_nth_last: "Sista",
+    rec_anniversary_lbl: "Den", rec_dd: "Dag", rec_mm: "M\u00e5nad",
+    rec_dom_short: ":a", rec_last_short: "sista",
+    rec_value_lbl: "Var", rec_unit_lbl: "Enhet", rec_wd_lbl: "Veckodag", rec_at_lbl: "Kl.",
+    rec_todoist_pattern_unsupported: "Underm\u00f6nster st\u00f6ds inte n\u00e4r intervallet \u00e4r st\u00f6rre \u00e4n 1.",
     history: "Historik", history_created: "Skapad", history_completed: "Avklarad", history_reopened: "\u00d6ppnad igen",
     history_reset: "Auto-\u00e5terst\u00e4lld", history_changed: "\u00e4ndrad", history_empty: "Ingen historik", hist_title: "Titel", history_disabled: "Inaktiverad",
     ed_show_history: "Visa historik", hist_by_user: "Anv\u00e4ndare",
@@ -375,8 +412,15 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "Titre au-dessus des colonnes",
     ed_sec_view: "Affichage", ed_sec_display: "Configuration",
     due_time_lbl: "Heure", due_date_lbl: "Date", rec_mode_lbl: "Mode",
-    rec_time: "Heure", rec_end: "Fin", rec_end_never: "Jamais", rec_end_date: "\u00c0 la date", rec_end_count: "Apr\u00e8s N fois",
-    rec_end_date_lbl: "Date de fin", rec_max_count_lbl: "max", rec_remaining: "encore {0}", rec_start_date_lbl: "Date de d\u00e9but",
+    rec_time: "Heure", rec_end: "Fin", rec_end_never: "Jamais", rec_end_date: "Jusqu'au", rec_end_count: "X fois",
+    rec_end_date_lbl: "Jusqu'au", rec_max_count_lbl: "Nombre", rec_remaining: "encore {0}", rec_start_date_lbl: "\u00c0 partir du",
+    rec_pattern_dom: "Jour du mois", rec_pattern_nth: "Ni\u00e8me jour", rec_pattern_none: "Depuis l'ach\u00e8vement",
+    rec_dom_lbl: "Jour", rec_dom_last: "Dernier jour",
+    rec_nth_lbl: "Le", rec_nth_1: "1er", rec_nth_2: "2e", rec_nth_3: "3e", rec_nth_4: "4e", rec_nth_last: "Dernier",
+    rec_anniversary_lbl: "Le", rec_dd: "Jour", rec_mm: "Mois",
+    rec_dom_short: "e", rec_last_short: "dernier",
+    rec_value_lbl: "Tous les", rec_unit_lbl: "Unit\u00e9", rec_wd_lbl: "Jour", rec_at_lbl: "\u00c0",
+    rec_todoist_pattern_unsupported: "Les sous-mod\u00e8les ne sont pas pris en charge si l'intervalle est sup\u00e9rieur \u00e0 1.",
     history: "Historique", history_created: "Cr\u00e9\u00e9", history_completed: "Termin\u00e9", history_reopened: "R\u00e9ouvert",
     history_reset: "R\u00e9initialisation auto.", history_changed: "modifi\u00e9", history_empty: "Aucun historique", hist_title: "Titre", history_disabled: "D\u00e9sactiv\u00e9",
     ed_show_history: "Afficher l'historique", hist_by_user: "Utilisateur",
@@ -430,8 +474,15 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "T\u00edtulo acima das colunas",
     ed_sec_view: "Exibi\u00e7\u00e3o", ed_sec_display: "Configura\u00e7\u00e3o",
     due_time_lbl: "Hora", due_date_lbl: "Data", rec_mode_lbl: "Modo",
-    rec_time: "Hora", rec_end: "Fim", rec_end_never: "Nunca", rec_end_date: "Em data", rec_end_count: "Ap\u00f3s N vezes",
-    rec_end_date_lbl: "Data de fim", rec_max_count_lbl: "max", rec_remaining: "ainda {0}", rec_start_date_lbl: "Data de in\u00edcio",
+    rec_time: "Hora", rec_end: "Fim", rec_end_never: "Nunca", rec_end_date: "At\u00e9", rec_end_count: "X vezes",
+    rec_end_date_lbl: "At\u00e9", rec_max_count_lbl: "Quantidade", rec_remaining: "ainda {0}", rec_start_date_lbl: "De",
+    rec_pattern_dom: "Dia do m\u00eas", rec_pattern_nth: "N\u00ba dia", rec_pattern_none: "Desde a conclus\u00e3o",
+    rec_dom_lbl: "Dia", rec_dom_last: "\u00daltimo dia",
+    rec_nth_lbl: "No", rec_nth_1: "1\u00ba", rec_nth_2: "2\u00ba", rec_nth_3: "3\u00ba", rec_nth_4: "4\u00ba", rec_nth_last: "\u00daltimo",
+    rec_anniversary_lbl: "No", rec_dd: "Dia", rec_mm: "M\u00eas",
+    rec_dom_short: "\u00ba", rec_last_short: "\u00faltimo",
+    rec_value_lbl: "A cada", rec_unit_lbl: "Unidade", rec_wd_lbl: "Dia da semana", rec_at_lbl: "\u00c0s",
+    rec_todoist_pattern_unsupported: "Subpadr\u00f5es n\u00e3o s\u00e3o suportados quando o intervalo \u00e9 maior que 1.",
     history: "Hist\u00f3rico", history_created: "Criado", history_completed: "Conclu\u00eddo", history_reopened: "Reaberto",
     history_reset: "Reiniciado automaticamente", history_changed: "alterado", history_empty: "Sem hist\u00f3rico", hist_title: "T\u00edtulo", history_disabled: "Desativado",
     ed_show_history: "Mostrar hist\u00f3rico", hist_by_user: "Utilizador",
@@ -485,8 +536,15 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "T\u00edtulo sobre las columnas",
     ed_sec_view: "Visualizaci\u00f3n", ed_sec_display: "Configuraci\u00f3n",
     due_time_lbl: "Hora", due_date_lbl: "Fecha", rec_mode_lbl: "Modo",
-    rec_time: "Hora", rec_end: "Fin", rec_end_never: "Nunca", rec_end_date: "En fecha", rec_end_count: "Despu\u00e9s de N veces",
-    rec_end_date_lbl: "Fecha de fin", rec_max_count_lbl: "max", rec_remaining: "a\u00fan {0}", rec_start_date_lbl: "Fecha de inicio",
+    rec_time: "Hora", rec_end: "Fin", rec_end_never: "Nunca", rec_end_date: "Hasta", rec_end_count: "X veces",
+    rec_end_date_lbl: "Hasta", rec_max_count_lbl: "Cantidad", rec_remaining: "a\u00fan {0}", rec_start_date_lbl: "Desde",
+    rec_pattern_dom: "D\u00eda del mes", rec_pattern_nth: "D\u00eda N\u00ba", rec_pattern_none: "Desde la finalizaci\u00f3n",
+    rec_dom_lbl: "D\u00eda", rec_dom_last: "\u00daltimo d\u00eda",
+    rec_nth_lbl: "El", rec_nth_1: "1\u00ba", rec_nth_2: "2\u00ba", rec_nth_3: "3\u00ba", rec_nth_4: "4\u00ba", rec_nth_last: "\u00daltimo",
+    rec_anniversary_lbl: "El", rec_dd: "D\u00eda", rec_mm: "Mes",
+    rec_dom_short: "\u00ba", rec_last_short: "\u00faltimo",
+    rec_value_lbl: "Cada", rec_unit_lbl: "Unidad", rec_wd_lbl: "D\u00eda", rec_at_lbl: "A las",
+    rec_todoist_pattern_unsupported: "Los subpatrones no son compatibles cuando el intervalo es mayor que 1.",
     history: "Historial", history_created: "Creado", history_completed: "Completado", history_reopened: "Reabierto",
     history_reset: "Restablecimiento autom.", history_changed: "modificado", history_empty: "Sin historial", hist_title: "T\u00edtulo", history_disabled: "Desactivado",
     ed_show_history: "Mostrar historial", hist_by_user: "Usuario",
@@ -540,8 +598,15 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "\u0417\u0430\u0433\u043e\u043b\u043e\u0432\u043e\u043a \u043d\u0430\u0434 \u0441\u0442\u043e\u043b\u0431\u0446\u0430\u043c\u0438",
     ed_sec_view: "\u041e\u0442\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435", ed_sec_display: "\u041a\u043e\u043d\u0444\u0438\u0433\u0443\u0440\u0430\u0446\u0438\u044f",
     due_time_lbl: "\u0412\u0440\u0435\u043c\u044f", due_date_lbl: "\u0414\u0430\u0442\u0430", rec_mode_lbl: "\u0420\u0435\u0436\u0438\u043c",
-    rec_time: "\u0412\u0440\u0435\u043c\u044f", rec_end: "\u041e\u043a\u043e\u043d\u0447\u0430\u043d\u0438\u0435", rec_end_never: "\u041d\u0438\u043a\u043e\u0433\u0434\u0430", rec_end_date: "\u041f\u043e \u0434\u0430\u0442\u0435", rec_end_count: "\u041f\u043e\u0441\u043b\u0435 N \u0440\u0430\u0437",
-    rec_end_date_lbl: "\u0414\u0430\u0442\u0430 \u043e\u043a\u043e\u043d\u0447\u0430\u043d\u0438\u044f", rec_max_count_lbl: "max", rec_remaining: "\u0435\u0449\u0451 {0}", rec_start_date_lbl: "\u0414\u0430\u0442\u0430 \u043d\u0430\u0447\u0430\u043b\u0430",
+    rec_time: "\u0412\u0440\u0435\u043c\u044f", rec_end: "\u041e\u043a\u043e\u043d\u0447\u0430\u043d\u0438\u0435", rec_end_never: "\u041d\u0438\u043a\u043e\u0433\u0434\u0430", rec_end_date: "\u0414\u043e", rec_end_count: "X \u0440\u0430\u0437",
+    rec_end_date_lbl: "\u0414\u043e", rec_max_count_lbl: "\u041a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e", rec_remaining: "\u0435\u0449\u0451 {0}", rec_start_date_lbl: "\u0421",
+    rec_pattern_dom: "\u0414\u0435\u043d\u044c \u043c\u0435\u0441\u044f\u0446\u0430", rec_pattern_nth: "N-\u0439 \u0434\u0435\u043d\u044c", rec_pattern_none: "\u041e\u0442 \u0432\u044b\u043f\u043e\u043b\u043d\u0435\u043d\u0438\u044f",
+    rec_dom_lbl: "\u0414\u0435\u043d\u044c", rec_dom_last: "\u041f\u043e\u0441\u043b\u0435\u0434\u043d\u0438\u0439 \u0434\u0435\u043d\u044c",
+    rec_nth_lbl: "\u0412", rec_nth_1: "1-\u0439", rec_nth_2: "2-\u0439", rec_nth_3: "3-\u0439", rec_nth_4: "4-\u0439", rec_nth_last: "\u041f\u043e\u0441\u043b\u0435\u0434\u043d\u0438\u0439",
+    rec_anniversary_lbl: "\u0412", rec_dd: "\u0414\u0435\u043d\u044c", rec_mm: "\u041c\u0435\u0441\u044f\u0446",
+    rec_dom_short: "-\u0439", rec_last_short: "\u043f\u043e\u0441\u043b\u0435\u0434\u043d\u0438\u0439",
+    rec_value_lbl: "\u041a\u0430\u0436\u0434\u044b\u0435", rec_unit_lbl: "\u0415\u0434\u0438\u043d\u0438\u0446\u0430", rec_wd_lbl: "\u0414\u0435\u043d\u044c \u043d\u0435\u0434\u0435\u043b\u0438", rec_at_lbl: "\u0412",
+    rec_todoist_pattern_unsupported: "\u0421\u0443\u0431\u0448\u0430\u0431\u043b\u043e\u043d\u044b \u043d\u0435 \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u044e\u0442\u0441\u044f \u043f\u0440\u0438 \u0438\u043d\u0442\u0435\u0440\u0432\u0430\u043b\u0435 \u0431\u043e\u043b\u044c\u0448\u0435 1.",
     history: "\u0418\u0441\u0442\u043e\u0440\u0438\u044f", history_created: "\u0421\u043e\u0437\u0434\u0430\u043d\u043e", history_completed: "\u0412\u044b\u043f\u043e\u043b\u043d\u0435\u043d\u043e", history_reopened: "\u041f\u0435\u0440\u0435\u043e\u0442\u043a\u0440\u044b\u0442\u043e",
     history_reset: "\u0410\u0432\u0442\u043e\u0441\u0431\u0440\u043e\u0441", history_changed: "\u0438\u0437\u043c\u0435\u043d\u0435\u043d\u043e", history_empty: "\u041d\u0435\u0442 \u0438\u0441\u0442\u043e\u0440\u0438\u0438", hist_title: "\u0417\u0430\u0433\u043e\u043b\u043e\u0432\u043e\u043a", history_disabled: "\u041e\u0442\u043a\u043b\u044e\u0447\u0435\u043d\u043e",
     ed_show_history: "\u041f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0442\u044c \u0438\u0441\u0442\u043e\u0440\u0438\u044e", hist_by_user: "\u041f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c",
@@ -595,8 +660,15 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "N\u00e1zev nad sloupci",
     ed_sec_view: "Zobrazen\u00ed", ed_sec_display: "Konfigurace",
     due_time_lbl: "\u010cas", due_date_lbl: "Datum", rec_mode_lbl: "Re\u017eim",
-    rec_time: "\u010cas", rec_end: "Konec", rec_end_never: "Nikdy", rec_end_date: "K datu", rec_end_count: "Po N kr\u00e1t",
-    rec_end_date_lbl: "Datum konce", rec_max_count_lbl: "max", rec_remaining: "je\u0161t\u011b {0}", rec_start_date_lbl: "Datum za\u010d\u00e1tku",
+    rec_time: "\u010cas", rec_end: "Konec", rec_end_never: "Nikdy", rec_end_date: "Do", rec_end_count: "X kr\u00e1t",
+    rec_end_date_lbl: "Do", rec_max_count_lbl: "Po\u010det", rec_remaining: "je\u0161t\u011b {0}", rec_start_date_lbl: "Od",
+    rec_pattern_dom: "Den v m\u011bs\u00edci", rec_pattern_nth: "N-t\u00fd den", rec_pattern_none: "Od dokon\u010den\u00ed",
+    rec_dom_lbl: "Den", rec_dom_last: "Posledn\u00ed den",
+    rec_nth_lbl: "V", rec_nth_1: "1.", rec_nth_2: "2.", rec_nth_3: "3.", rec_nth_4: "4.", rec_nth_last: "Posledn\u00ed",
+    rec_anniversary_lbl: "V", rec_dd: "Den", rec_mm: "M\u011bs\u00edc",
+    rec_dom_short: ".", rec_last_short: "posledn\u00ed",
+    rec_value_lbl: "Ka\u017ed\u00fd", rec_unit_lbl: "Jednotka", rec_wd_lbl: "Den v t\u00fddnu", rec_at_lbl: "V",
+    rec_todoist_pattern_unsupported: "Podvzory nejsou podporov\u00e1ny, pokud je interval v\u011bt\u0161\u00ed ne\u017e 1.",
     history: "Historie", history_created: "Vytvo\u0159eno", history_completed: "Dokon\u010deno", history_reopened: "Znovu otev\u0159eno",
     history_reset: "Automaticky obnoveno", history_changed: "zm\u011bn\u011bno", history_empty: "\u017d\u00e1dn\u00e1 historie", hist_title: "N\u00e1zev", history_disabled: "Deaktivov\u00e1no",
     ed_show_history: "Zobrazit historii", hist_by_user: "U\u017eivatel",
@@ -650,8 +722,15 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "Titel over kolonner",
     ed_sec_view: "Visning", ed_sec_display: "Konfiguration",
     due_time_lbl: "Tid", due_date_lbl: "Dato", rec_mode_lbl: "Tilstand",
-    rec_time: "Tidspunkt", rec_end: "Slut", rec_end_never: "Aldrig", rec_end_date: "P\u00e5 dato", rec_end_count: "Efter N gange",
-    rec_end_date_lbl: "Slutdato", rec_max_count_lbl: "max", rec_remaining: "{0} tilbage", rec_start_date_lbl: "Startdato",
+    rec_time: "Tidspunkt", rec_end: "Slut", rec_end_never: "Aldrig", rec_end_date: "Til", rec_end_count: "X gange",
+    rec_end_date_lbl: "Til", rec_max_count_lbl: "Antal", rec_remaining: "{0} tilbage", rec_start_date_lbl: "Fra",
+    rec_pattern_dom: "Dag i m\u00e5neden", rec_pattern_nth: "Nte ugedag", rec_pattern_none: "Fra fuldf\u00f8relse",
+    rec_dom_lbl: "Dag", rec_dom_last: "Sidste dag",
+    rec_nth_lbl: "Den", rec_nth_1: "1.", rec_nth_2: "2.", rec_nth_3: "3.", rec_nth_4: "4.", rec_nth_last: "Sidste",
+    rec_anniversary_lbl: "Den", rec_dd: "Dag", rec_mm: "M\u00e5ned",
+    rec_dom_short: ".", rec_last_short: "sidste",
+    rec_value_lbl: "Hver", rec_unit_lbl: "Enhed", rec_wd_lbl: "Ugedag", rec_at_lbl: "Kl.",
+    rec_todoist_pattern_unsupported: "Underm\u00f8nstre underst\u00f8ttes ikke, n\u00e5r intervallet er st\u00f8rre end 1.",
     history: "Historik", history_created: "Oprettet", history_completed: "F\u00e6rdiggjort", history_reopened: "\u00c5bnet igen",
     history_reset: "Auto-nulstillet", history_changed: "\u00e6ndret", history_empty: "Ingen historik", hist_title: "Titel", history_disabled: "Deaktiveret",
     ed_show_history: "Vis historik", hist_by_user: "Bruger",
@@ -705,8 +784,15 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "Tittel over kolonner",
     ed_sec_view: "Visning", ed_sec_display: "Konfigurasjon",
     due_time_lbl: "Tid", due_date_lbl: "Dato", rec_mode_lbl: "Modus",
-    rec_time: "Klokkeslett", rec_end: "Slutt", rec_end_never: "Aldri", rec_end_date: "P\u00e5 dato", rec_end_count: "Etter N ganger",
-    rec_end_date_lbl: "Sluttdato", rec_max_count_lbl: "max", rec_remaining: "{0} igjen", rec_start_date_lbl: "Startdato",
+    rec_time: "Klokkeslett", rec_end: "Slutt", rec_end_never: "Aldri", rec_end_date: "Til", rec_end_count: "X ganger",
+    rec_end_date_lbl: "Til", rec_max_count_lbl: "Antall", rec_remaining: "{0} igjen", rec_start_date_lbl: "Fra",
+    rec_pattern_dom: "Dag i m\u00e5neden", rec_pattern_nth: "Nte ukedag", rec_pattern_none: "Fra fullf\u00f8ring",
+    rec_dom_lbl: "Dag", rec_dom_last: "Siste dag",
+    rec_nth_lbl: "Den", rec_nth_1: "1.", rec_nth_2: "2.", rec_nth_3: "3.", rec_nth_4: "4.", rec_nth_last: "Siste",
+    rec_anniversary_lbl: "Den", rec_dd: "Dag", rec_mm: "M\u00e5ned",
+    rec_dom_short: ".", rec_last_short: "siste",
+    rec_value_lbl: "Hver", rec_unit_lbl: "Enhet", rec_wd_lbl: "Ukedag", rec_at_lbl: "Kl.",
+    rec_todoist_pattern_unsupported: "Underm\u00f8nstre st\u00f8ttes ikke n\u00e5r intervallet er st\u00f8rre enn 1.",
     history: "Historikk", history_created: "Opprettet", history_completed: "Fullf\u00f8rt", history_reopened: "\u00c5pnet igjen",
     history_reset: "Auto-tilbakestilt", history_changed: "endret", history_empty: "Ingen historikk", hist_title: "Tittel", history_disabled: "Deaktivert",
     ed_show_history: "Vis historikk", hist_by_user: "Bruker",
@@ -760,8 +846,15 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "Otsikko sarakkeiden yl\u00e4puolella",
     ed_sec_view: "N\u00e4ytt\u00f6", ed_sec_display: "Konfiguraatio",
     due_time_lbl: "Aika", due_date_lbl: "P\u00e4iv\u00e4m\u00e4\u00e4r\u00e4", rec_mode_lbl: "Tila",
-    rec_time: "Aika", rec_end: "Loppu", rec_end_never: "Ei koskaan", rec_end_date: "P\u00e4iv\u00e4m\u00e4\u00e4r\u00e4n\u00e4", rec_end_count: "N kerran j\u00e4lkeen",
-    rec_end_date_lbl: "Loppup\u00e4iv\u00e4", rec_max_count_lbl: "max", rec_remaining: "{0} j\u00e4ljell\u00e4", rec_start_date_lbl: "Alkamisp\u00e4iv\u00e4",
+    rec_time: "Aika", rec_end: "Loppu", rec_end_never: "Ei koskaan", rec_end_date: "Asti", rec_end_count: "X kertaa",
+    rec_end_date_lbl: "Asti", rec_max_count_lbl: "M\u00e4\u00e4r\u00e4", rec_remaining: "{0} j\u00e4ljell\u00e4", rec_start_date_lbl: "Alkaen",
+    rec_pattern_dom: "Kuukauden p\u00e4iv\u00e4", rec_pattern_nth: "N. viikonp\u00e4iv\u00e4", rec_pattern_none: "Valmistumisesta",
+    rec_dom_lbl: "P\u00e4iv\u00e4", rec_dom_last: "Viimeinen p\u00e4iv\u00e4",
+    rec_nth_lbl: "Numero", rec_nth_1: "1.", rec_nth_2: "2.", rec_nth_3: "3.", rec_nth_4: "4.", rec_nth_last: "Viimeinen",
+    rec_anniversary_lbl: "Pvm", rec_dd: "P\u00e4iv\u00e4", rec_mm: "Kuukausi",
+    rec_dom_short: ".", rec_last_short: "viimeinen",
+    rec_value_lbl: "Joka", rec_unit_lbl: "Yksikk\u00f6", rec_wd_lbl: "Viikonp\u00e4iv\u00e4", rec_at_lbl: "Klo",
+    rec_todoist_pattern_unsupported: "Alikaavat eiv\u00e4t ole tuettuja, kun aikav\u00e4li on suurempi kuin 1.",
     history: "Historia", history_created: "Luotu", history_completed: "Valmis", history_reopened: "Avattu uudelleen",
     history_reset: "Automaattinen palautus", history_changed: "muutettu", history_empty: "Ei historiaa", hist_title: "Otsikko", history_disabled: "K\u00e4yt\u00f6ss\u00e4 poistettu",
     ed_show_history: "N\u00e4yt\u00e4 historia", hist_by_user: "K\u00e4ytt\u00e4j\u00e4",
@@ -815,8 +908,15 @@ const _TRANSLATIONS = {
     ed_card_title_placeholder: "C\u00edm az oszlopok felett",
     ed_sec_view: "Megjelen\u00edt\u00e9s", ed_sec_display: "Konfigur\u00e1ci\u00f3",
     due_time_lbl: "Id\u0151pont", due_date_lbl: "D\u00e1tum", rec_mode_lbl: "M\u00f3d",
-    rec_time: "Id\u0151pont", rec_end: "V\u00e9ge", rec_end_never: "Soha", rec_end_date: "D\u00e1tumon", rec_end_count: "N alkalom ut\u00e1n",
-    rec_end_date_lbl: "V\u00e9gdatum", rec_max_count_lbl: "max", rec_remaining: "m\u00e9g {0}", rec_start_date_lbl: "Kezd\u0151 d\u00e1tum",
+    rec_time: "Id\u0151pont", rec_end: "V\u00e9ge", rec_end_never: "Soha", rec_end_date: "Eddig", rec_end_count: "X alkalom",
+    rec_end_date_lbl: "Eddig", rec_max_count_lbl: "Darabsz\u00e1m", rec_remaining: "m\u00e9g {0}", rec_start_date_lbl: "Ett\u0151l",
+    rec_pattern_dom: "H\u00f3nap napja", rec_pattern_nth: "N-edik nap", rec_pattern_none: "Befejez\u00e9st\u0151l",
+    rec_dom_lbl: "Nap", rec_dom_last: "Utols\u00f3 nap",
+    rec_nth_lbl: "Sorsz\u00e1m", rec_nth_1: "1.", rec_nth_2: "2.", rec_nth_3: "3.", rec_nth_4: "4.", rec_nth_last: "Utols\u00f3",
+    rec_anniversary_lbl: "D\u00e1tum", rec_dd: "Nap", rec_mm: "H\u00f3nap",
+    rec_dom_short: ".", rec_last_short: "utols\u00f3",
+    rec_value_lbl: "Minden", rec_unit_lbl: "Egys\u00e9g", rec_wd_lbl: "H\u00e9t napja", rec_at_lbl: "Id\u0151pont",
+    rec_todoist_pattern_unsupported: "Az almint\u00e1zatok nem t\u00e1mogatottak, ha az id\u0151k\u00f6z nagyobb mint 1.",
     history: "El\u0151zm\u00e9nyek", history_created: "L\u00e9trehozva", history_completed: "Teljes\u00edtve", history_reopened: "\u00dajranyitva",
     history_reset: "Automatikus visszavonas", history_changed: "m\u00f3dos\u00edtva", history_empty: "Nincs el\u0151zm\u00e9ny", hist_title: "C\u00edm", history_disabled: "Letiltva",
     ed_show_history: "El\u0151zm\u00e9nyek mutat\u00e1sa", hist_by_user: "Felhaszn\u00e1l\u00f3",
@@ -917,8 +1017,17 @@ const _TRANSLATIONS = {
     due_time_lbl: "Uhrzeit",
     due_date_lbl: "Datum",
     rec_mode_lbl: "Modus",
-    rec_time: "Uhrzeit", rec_end: "Ende", rec_end_never: "Nie", rec_end_date: "An Datum", rec_end_count: "Nach X mal",
-    rec_end_date_lbl: "Enddatum", rec_max_count_lbl: "max", rec_remaining: "noch {0}", rec_start_date_lbl: "Startdatum",
+    rec_time: "Uhrzeit", rec_end: "Ende", rec_end_never: "Nie", rec_end_date: "Bis", rec_end_count: "X mal",
+    rec_end_date_lbl: "Bis", rec_max_count_lbl: "Anzahl", rec_remaining: "noch {0}", rec_start_date_lbl: "Ab",
+    rec_pattern_dom: "Tag im Monat", rec_pattern_nth: "N-ter Wochentag", rec_pattern_none: "Ab Erledigung",
+    rec_dom_lbl: "Tag", rec_dom_last: "letzten Tag",
+    rec_nth_lbl: "Am", rec_nth_1: "1.", rec_nth_2: "2.", rec_nth_3: "3.", rec_nth_4: "4.", rec_nth_last: "letzten",
+    rec_anniversary_lbl: "Am",
+    rec_dd: "Tag", rec_mm: "Monat",
+    rec_dom_short: ".", rec_last_short: "letzter",
+    rec_value_lbl: "Alle", rec_unit_lbl: "Einheit", rec_wd_lbl: "Wochentag",
+    rec_at_lbl: "Um",
+    rec_todoist_pattern_unsupported: "Untermuster sind nicht m\u00f6glich, wenn das Intervall gr\u00f6\u00dfer als 1 ist.",
     history: "Verlauf", history_created: "Erstellt", history_completed: "Erledigt", history_reopened: "Wieder ge\u00f6ffnet",
     history_reset: "Automatisch zur\u00fcckgesetzt", history_changed: "ge\u00e4ndert", history_empty: "Noch kein Verlauf", hist_title: "Titel", history_disabled: "Deaktiviert",
     ed_show_history: "Verlauf anzeigen", hist_by_user: "Benutzer",
@@ -978,6 +1087,14 @@ class HomeTasksCard extends HTMLElement {
     this._addInputRect = null;
     this._justAppearedTaskIds = null;
     this._filterAnimPending = false;
+    // Sticky UI state for radios that don't yet have backing data.  When
+    // the user picks "Am" but hasn't entered the actual values, we don't
+    // save anything (avoids snap-back on reload), so the next render would
+    // otherwise re-derive "Ab Erledigung" from the empty data.  These maps
+    // remember the user's pick until either real data is entered (which
+    // takes over) or they pick "Ab Erledigung" (which clears the override).
+    this._weekPatternOverride = new Map();   // task.id → "on"
+    this._yearPatternOverride = new Map();   // task.id → "on"
   }
 
   _defaultColState() {
@@ -989,6 +1106,32 @@ class HomeTasksCard extends HTMLElement {
     if (lang === "nb" || lang === "nn") lang = "no";
     const str = (_TRANSLATIONS[lang] || _TRANSLATIONS.en)[key] || _TRANSLATIONS.en[key] || key;
     return args.length ? str.replace(/\{(\d+)\}/g, (_, i) => args[i] ?? "") : str;
+  }
+
+  // After the user picks an option in a <select>, drop focus right away.
+  // Otherwise the dropdown stays "highlighted" and the very next click
+  // on a sibling control is consumed by the implicit focus transition
+  // rather than by the new control's own change handler.  Defer to the
+  // next microtask so any synchronous change handler runs first against
+  // the still-focused element.
+  _blurSelectOnChange(select) {
+    select.addEventListener("change", () => {
+      Promise.resolve().then(() => select.blur());
+    });
+  }
+
+  // Format an ordinal day-of-month in the user's language: "1." in
+  // German/most European, "1st"/"2nd"/"3rd"/"4th" in English.
+  _domOrdinal(d) {
+    const lang = (this._hass && this._hass.language) || "en";
+    if (lang === "en" || lang.startsWith("en-") || lang === "en_US" || lang === "en_GB") {
+      const mod100 = d % 100;
+      if (mod100 >= 11 && mod100 <= 13) return `${d}th`;
+      const last = d % 10;
+      const suffix = last === 1 ? "st" : last === 2 ? "nd" : last === 3 ? "rd" : "th";
+      return `${d}${suffix}`;
+    }
+    return `${d}.`;
   }
 
   setConfig(config) {
@@ -2003,7 +2146,10 @@ class HomeTasksCard extends HTMLElement {
     //     picking an option while a background save is in flight would
     //     snap the menu closed.
     // In both cases the render is deferred until blur (the user leaves
-    // the field or picks an option).
+    // the field or picks an option).  Other inputs (text, number, radio,
+    // checkbox) MUST rebuild immediately — the tag autocomplete relies on
+    // a synchronous render to insert the new chip while the input is
+    // still focused.
     const activeNow = this.shadowRoot?.activeElement;
     const isStatefulInput = activeNow && (
       (activeNow.tagName === "INPUT" &&
@@ -2558,13 +2704,35 @@ class HomeTasksCard extends HTMLElement {
 
   _buildRecurrenceBadge(task) {
     let recLabel = null;
+    const unit = task.recurrence_unit;
+    const val = task.recurrence_value || 1;
+    const unitLabels = { hours: this._t("rec_short_h"), days: this._t("rec_short_d"), weeks: this._t("rec_short_w"), months: this._t("rec_short_m"), years: this._t("rec_short_y") };
+    const singleLabels = { hours: this._t("rec_hourly"), days: this._t("rec_daily"), weeks: this._t("rec_weekly"), months: this._t("rec_monthly"), years: this._t("rec_yearly") };
+
     if (task.recurrence_type === "weekdays" && task.recurrence_weekdays && task.recurrence_weekdays.length) {
+      // Legacy mode (pre-migration): show weekdays.
       recLabel = task.recurrence_weekdays.map(d => this._t(`rec_wd_${d}`)).join(" ");
-    } else if (task.recurrence_unit) {
-      const unitLabels = { hours: this._t("rec_short_h"), days: this._t("rec_short_d"), weeks: this._t("rec_short_w"), months: this._t("rec_short_m"), years: this._t("rec_short_y") };
-      const val = task.recurrence_value || 1;
-      const singleLabels = { hours: this._t("rec_hourly"), days: this._t("rec_daily"), weeks: this._t("rec_weekly"), months: this._t("rec_monthly"), years: this._t("rec_yearly") };
-      recLabel = val === 1 ? singleLabels[task.recurrence_unit] : `${val} ${unitLabels[task.recurrence_unit] || task.recurrence_unit}`;
+    } else if (unit === "weeks" && task.recurrence_weekdays && task.recurrence_weekdays.length) {
+      // Weekly with weekday filter — "Mo Mi" or "alle 2 Wo: Mo Mi".
+      const days = task.recurrence_weekdays.map(d => this._t(`rec_wd_${d}`)).join(" ");
+      recLabel = val === 1 ? days : `${val} ${unitLabels.weeks} ${days}`;
+    } else if (unit === "months" && task.recurrence_month_pattern === "day_of_month" && task.recurrence_day_of_month != null) {
+      const dom = task.recurrence_day_of_month;
+      const dayPart = dom === "last" ? this._t("rec_last_short") : `${dom}${this._t("rec_dom_short")}`;
+      recLabel = val === 1 ? dayPart : `${dayPart} \u00b7 ${val} ${unitLabels.months}`;
+    } else if (unit === "months" && task.recurrence_month_pattern === "nth_weekday" && task.recurrence_nth_week != null && task.recurrence_weekdays && task.recurrence_weekdays.length) {
+      const nth = task.recurrence_nth_week;
+      const wdShort = this._t(`rec_wd_${task.recurrence_weekdays[0]}`);
+      const nthLbl = nth === "last" ? this._t("rec_last_short") : `${nth}.`;
+      const head = `${nthLbl} ${wdShort}`;
+      recLabel = val === 1 ? head : `${head} \u00b7 ${val} ${unitLabels.months}`;
+    } else if (unit === "years" && task.recurrence_anniversary && /^\d{2}-\d{2}$/.test(task.recurrence_anniversary)) {
+      const m = task.recurrence_anniversary.slice(0, 2);
+      const d = task.recurrence_anniversary.slice(3, 5);
+      const head = `${parseInt(d, 10)}.${parseInt(m, 10)}.`;
+      recLabel = val === 1 ? head : `${head} \u00b7 ${val} ${unitLabels.years}`;
+    } else if (unit) {
+      recLabel = val === 1 ? singleLabels[unit] : `${val} ${unitLabels[unit] || unit}`;
     }
     // Fallback for complex Todoist recurrence patterns
     if (!recLabel && task._todoist_recurrence_string) {
@@ -2930,8 +3098,10 @@ class HomeTasksCard extends HTMLElement {
   _buildRecurrenceSection(task, colIdx) {
     const recurrenceEnabled = task.recurrence_enabled || false;
     const recurrenceValue = task.recurrence_value || 1;
-    const recurrenceUnit = task.recurrence_unit || "days";
-    const recurrenceType = task.recurrence_type || "interval";
+    // Default unit "days"; legacy "weekdays" mode (unmigrated overlay) is
+    // mapped to weeks+weekday-filter for UI purposes.
+    const legacyWeekdaysMode = task.recurrence_type === "weekdays";
+    const recurrenceUnit = legacyWeekdaysMode ? "weeks" : (task.recurrence_unit || "days");
     const recurrenceWeekdays = task.recurrence_weekdays || [];
     const recurrenceStartDate = task.recurrence_start_date || "";
     const recurrenceTime = task.recurrence_time || "00:00";
@@ -2939,6 +3109,10 @@ class HomeTasksCard extends HTMLElement {
     const recurrenceEndDate = task.recurrence_end_date || "";
     const recurrenceMaxCount = task.recurrence_max_count ?? null;
     const recurrenceRemainingCount = task.recurrence_remaining_count ?? task.recurrence_max_count ?? null;
+    const recurrenceMonthPattern = task.recurrence_month_pattern || "none";
+    const recurrenceDayOfMonth = task.recurrence_day_of_month;
+    const recurrenceNthWeek = task.recurrence_nth_week;
+    const recurrenceAnniversary = task.recurrence_anniversary || "";
 
     const recSwitch = document.createElement("ha-switch");
     recSwitch.checked = recurrenceEnabled;
@@ -2947,17 +3121,6 @@ class HomeTasksCard extends HTMLElement {
         document.createTextNode(this._t("recurrence"))
       ]),
       recSwitch,
-    ]);
-
-    const recurrenceModeSelect = this._el("select", {});
-    for (const [val, key] of [["interval", "rec_type_interval"], ["weekdays", "rec_type_weekdays"]]) {
-      const opt = this._el("option", { value: val, textContent: this._t(key) });
-      if (val === recurrenceType) opt.selected = true;
-      recurrenceModeSelect.appendChild(opt);
-    }
-    const recurrenceModeWrap = this._el("div", { className: "sel-wrap" }, [
-      recurrenceModeSelect,
-      this._el("span", { textContent: this._t("rec_mode_lbl") }),
     ]);
 
     const recurrenceValueInput = this._el("input", {
@@ -2994,17 +3157,37 @@ class HomeTasksCard extends HTMLElement {
     });
     const recValueWrap = this._el("div", { className: "field-wrap inline" }, [
       recurrenceValueInput,
-      this._el("span", { textContent: "#" }),
+      this._el("span", { textContent: this._t("rec_value_lbl") }),
       this._el("div", { className: "spin-btns" }, [spinUp, spinDown]),
     ]);
     const recUnitWrap = this._el("div", { className: "sel-wrap inline" }, [
       recurrenceUnitSelect,
-      this._el("span", { textContent: this._t("recurrence_every") }),
+      this._el("span", { textContent: this._t("rec_unit_lbl") }),
     ]);
     const recurrenceIntervalRow = this._el("div", { className: "recurrence-input-row" }, [recValueWrap, recUnitWrap]);
 
+    // ---- Weekly sub-section (radios: Ab Erledigung / Am + weekday filter) -
+    const _weekPatName = `rec_week_pattern_${task.id}`;
+    const weekHasFilter = (recurrenceWeekdays && recurrenceWeekdays.length > 0)
+      || this._weekPatternOverride.get(task.id) === "on";
+    const _mkWeekRadio = (val, checked) => {
+      const r = this._el("input", { type: "radio", name: _weekPatName, value: val });
+      if (checked) r.checked = true;
+      return r;
+    };
+    const weekPatNoneRadio = _mkWeekRadio("none", !weekHasFilter);
+    const weekPatOnRadio = _mkWeekRadio("on", weekHasFilter);
+    const weekPatNoneLabel = this._el("label", { className: "weekday-label" }, [
+      weekPatNoneRadio, this._el("span", { textContent: this._t("rec_pattern_none") }),
+    ]);
+    const weekPatOnLabel = this._el("label", { className: "weekday-label" }, [
+      weekPatOnRadio, this._el("span", { textContent: this._t("rec_anniversary_lbl") }),
+    ]);
+    const recurrenceWeekRadioRow = this._el("div", { className: "recurrence-radio-row" }, [
+      weekPatNoneLabel, weekPatOnLabel,
+    ]);
     const weekdayCheckboxes = [];
-    const recurrenceWeekdayRow = this._el("div", { className: "recurrence-weekday-row" });
+    const recurrenceWeekdayCheckboxRow = this._el("div", { className: "recurrence-weekday-row" });
     for (let d = 0; d < 7; d++) {
       const cb = this._el("input", { type: "checkbox", checked: recurrenceWeekdays.includes(d) });
       const lbl = this._el("label", { className: "weekday-label" }, [
@@ -3012,10 +3195,201 @@ class HomeTasksCard extends HTMLElement {
         this._el("span", { textContent: this._t(`rec_wd_${d}`) }),
       ]);
       weekdayCheckboxes.push(cb);
-      recurrenceWeekdayRow.appendChild(lbl);
+      recurrenceWeekdayCheckboxRow.appendChild(lbl);
     }
+    const recurrenceWeekSection = this._el("div", { className: "recurrence-week-section" }, [
+      recurrenceWeekRadioRow, recurrenceWeekdayCheckboxRow,
+    ]);
 
-    // Start date + reactivation time (start date + time row, time hidden for hours mode)
+    // ---- Monthly sub-section (pattern picker + dom + nth/weekday) ---------
+    // Radios use the same .weekday-label pill styling as the weekday picker
+    // so both rows feel like one consistent control.
+    const _patternName = `rec_month_pattern_${task.id}`;
+    const _mkPatternRadio = (val) => {
+      const r = this._el("input", { type: "radio", name: _patternName, value: val });
+      if (recurrenceMonthPattern === val) r.checked = true;
+      return r;
+    };
+    const monthPatNoneRadio = _mkPatternRadio("none");
+    const monthPatDomRadio = _mkPatternRadio("day_of_month");
+    const monthPatNthRadio = _mkPatternRadio("nth_weekday");
+
+    // Day-of-month options: "1. Tag", "2. Tag", ..., plus "Letzter Tag".
+    // Ordinals are language-aware ("1." in German/most European, "1st"
+    // in English).  Default to day 1 so the dropdown shows a sensible
+    // value as soon as the user picks "Tag im Monat".
+    const monthDomSelect = this._el("select", {});
+    const _domEffective = recurrenceDayOfMonth ?? 1;
+    for (let d = 1; d <= 31; d++) {
+      const opt = this._el("option", {
+        value: String(d),
+        textContent: `${this._domOrdinal(d)} ${this._t("rec_dom_lbl")}`,
+      });
+      if (_domEffective === d) opt.selected = true;
+      monthDomSelect.appendChild(opt);
+    }
+    const lastOpt = this._el("option", { value: "last", textContent: this._t("rec_dom_last") });
+    if (recurrenceDayOfMonth === "last") lastOpt.selected = true;
+    monthDomSelect.appendChild(lastOpt);
+    const monthDomWrap = this._el("div", { className: "sel-wrap" }, [
+      monthDomSelect,
+      this._el("span", { textContent: this._t("rec_anniversary_lbl") }),
+    ]);
+
+    const monthNthSelect = this._el("select", {});
+    for (const [val, key] of [[1, "rec_nth_1"], [2, "rec_nth_2"], [3, "rec_nth_3"], [4, "rec_nth_4"], ["last", "rec_nth_last"]]) {
+      const opt = this._el("option", { value: String(val), textContent: this._t(key) });
+      if (recurrenceNthWeek === val) opt.selected = true;
+      monthNthSelect.appendChild(opt);
+    }
+    const monthNthWrap = this._el("div", { className: "sel-wrap" }, [
+      monthNthSelect,
+      this._el("span", { textContent: this._t("rec_nth_lbl") }),
+    ]);
+
+    // Weekday dropdown: spell out the names ("Montag, Dienstag, …") via
+    // Intl, so the user-facing text is the full word — the abbreviated
+    // forms (rec_wd_0..6) are still used elsewhere (badges, weekly
+    // checkboxes).  Our weekday convention is 0=Mon..6=Sun; 2024-01-01
+    // happens to be a Monday, which lets us index dates 1..7 directly.
+    const monthWeekdaySelect = this._el("select", {});
+    const monthWeekdayInitial = (recurrenceWeekdays && recurrenceWeekdays.length) ? recurrenceWeekdays[0] : 0;
+    const _wdLang = this._hass?.language || "en";
+    for (let d = 0; d < 7; d++) {
+      const fullName = new Date(2024, 0, d + 1).toLocaleString(_wdLang, { weekday: "long" });
+      const opt = this._el("option", { value: String(d), textContent: fullName });
+      if (d === monthWeekdayInitial) opt.selected = true;
+      monthWeekdaySelect.appendChild(opt);
+    }
+    const monthWeekdayWrap = this._el("div", { className: "sel-wrap" }, [
+      monthWeekdaySelect,
+      this._el("span", { textContent: this._t("rec_wd_lbl") }),
+    ]);
+
+    const monthPatNoneLabel = this._el("label", { className: "weekday-label" }, [
+      monthPatNoneRadio, this._el("span", { textContent: this._t("rec_pattern_none") }),
+    ]);
+    const monthPatDomLabel = this._el("label", { className: "weekday-label" }, [
+      monthPatDomRadio, this._el("span", { textContent: this._t("rec_pattern_dom") }),
+    ]);
+    const monthPatNthLabel = this._el("label", { className: "weekday-label" }, [
+      monthPatNthRadio, this._el("span", { textContent: this._t("rec_pattern_nth") }),
+    ]);
+    const recurrenceMonthRadioRow = this._el("div", { className: "recurrence-radio-row" }, [
+      monthPatNoneLabel, monthPatDomLabel, monthPatNthLabel,
+    ]);
+    // The selects appear under the radios — only one set is visible at a time.
+    const recurrenceMonthDomRow = this._el("div", { className: "recurrence-sub-row" }, [
+      monthDomWrap,
+    ]);
+    const recurrenceMonthNthRow = this._el("div", { className: "recurrence-sub-row" }, [
+      monthNthWrap, monthWeekdayWrap,
+    ]);
+    const recurrenceTodoistMonthNote = this._el("div", {
+      className: "recurrence-todoist-note",
+      textContent: this._t("rec_todoist_pattern_unsupported"),
+    });
+    recurrenceTodoistMonthNote.style.display = "none";
+    const recurrenceMonthSection = this._el("div", { className: "recurrence-month-section" }, [
+      recurrenceMonthRadioRow, recurrenceMonthDomRow, recurrenceMonthNthRow,
+      recurrenceTodoistMonthNote,
+    ]);
+
+    // ---- Yearly sub-section (radios: Ab Erledigung / Am + TT.MM) ----------
+    const _yearPatName = `rec_year_pattern_${task.id}`;
+    const yearHasAnchor = !!(recurrenceAnniversary && /^\d{2}-\d{2}$/.test(recurrenceAnniversary))
+      || this._yearPatternOverride.get(task.id) === "on";
+    const _mkYearRadio = (val, checked) => {
+      const r = this._el("input", { type: "radio", name: _yearPatName, value: val });
+      if (checked) r.checked = true;
+      return r;
+    };
+    const yearPatNoneRadio = _mkYearRadio("none", !yearHasAnchor);
+    const yearPatOnRadio = _mkYearRadio("on", yearHasAnchor);
+    const yearPatNoneLabel = this._el("label", { className: "weekday-label" }, [
+      yearPatNoneRadio, this._el("span", { textContent: this._t("rec_pattern_none") }),
+    ]);
+    const yearPatOnLabel = this._el("label", { className: "weekday-label" }, [
+      yearPatOnRadio, this._el("span", { textContent: this._t("rec_anniversary_lbl") }),
+    ]);
+    const recurrenceYearRadioRow = this._el("div", { className: "recurrence-radio-row" }, [
+      yearPatNoneLabel, yearPatOnLabel,
+    ]);
+
+    // TT input: same custom spin-btn pattern as the value/anzahl fields so
+    // the up/down arrows look consistent.  Native browser spinners are
+    // suppressed by .field-wrap.inline CSS rules.
+    const annDayInput = this._el("input", { type: "number" });
+    annDayInput.min = 1; annDayInput.max = 31; annDayInput.placeholder = "TT";
+    const annDaySpinUp = this._el("button", { className: "spin-btn spin-up", textContent: "\u25b4", type: "button" });
+    const annDaySpinDown = this._el("button", { className: "spin-btn spin-down", textContent: "\u25be", type: "button" });
+    annDaySpinUp.addEventListener("click", () => {
+      const v = Math.min(31, (parseInt(annDayInput.value) || 0) + 1);
+      annDayInput.value = v;
+      annDayInput.dispatchEvent(new Event("change"));
+    });
+    annDaySpinDown.addEventListener("click", () => {
+      const cur = parseInt(annDayInput.value);
+      const v = isNaN(cur) ? 1 : Math.max(1, cur - 1);
+      annDayInput.value = v;
+      annDayInput.dispatchEvent(new Event("change"));
+    });
+
+    // MM as a localized dropdown — Januar, Februar, ... in the user's
+    // language via Intl, so we don't need a translated month-name table.
+    const annMonthSelect = this._el("select", {});
+    const _lang = this._hass?.language || "en";
+    for (let i = 1; i <= 12; i++) {
+      const name = new Date(2024, i - 1, 1).toLocaleString(_lang, { month: "long" });
+      annMonthSelect.appendChild(this._el("option", { value: String(i), textContent: name }));
+    }
+    if (yearHasAnchor) {
+      annMonthSelect.value = String(parseInt(recurrenceAnniversary.slice(0, 2), 10));
+      annDayInput.value = parseInt(recurrenceAnniversary.slice(3, 5), 10);
+    } else {
+      // Sensible default when the user just picked "Am" — January 1st.
+      // The values are only saved once the partial-input guard sees a
+      // complete (TT+MM) pair, so showing them pre-filled is fine.
+      annDayInput.value = "1";
+      annMonthSelect.value = "1";
+    }
+    // The period rendered right after the typed number is drawn via a
+    // ::after pseudo on the wrapper (CSS).  The wrapper toggles the
+    // ``has-value`` class so the dot only shows when the input actually
+    // has a number — empty TT shouldn't read "." next to the placeholder.
+    const annDayWrap = this._el("div", { className: "field-wrap inline year-day" }, [
+      annDayInput,
+      this._el("span", { textContent: this._t("rec_dd") }),
+      this._el("div", { className: "spin-btns" }, [annDaySpinUp, annDaySpinDown]),
+    ]);
+    const _syncDotVisibility = () => {
+      const v = annDayInput.value || "";
+      annDayWrap.classList.toggle("has-value", !!v);
+      // The dot's left offset is left-padding + (digit count) * 1ch.
+      annDayWrap.style.setProperty("--day-len", String(v.length));
+    };
+    annDayInput.addEventListener("input", _syncDotVisibility);
+    annDayInput.addEventListener("change", _syncDotVisibility);
+    _syncDotVisibility();
+
+    const annMonthWrap = this._el("div", { className: "sel-wrap" }, [
+      annMonthSelect, this._el("span", { textContent: this._t("rec_mm") }),
+    ]);
+    const recurrenceTodoistYearNote = this._el("div", {
+      className: "recurrence-todoist-note",
+      textContent: this._t("rec_todoist_pattern_unsupported"),
+    });
+    recurrenceTodoistYearNote.style.display = "none";
+    const recurrenceYearInputs = this._el("div", { className: "recurrence-year-row" }, [
+      annDayWrap,
+      annMonthWrap,
+    ]);
+    const recurrenceYearRow = this._el("div", { className: "recurrence-year-section" }, [
+      recurrenceYearRadioRow, recurrenceYearInputs, recurrenceTodoistYearNote,
+    ]);
+
+    // Start date + reactivation time — now on separate rows so the time
+    // input is read as "time of each occurrence" rather than "starts at".
     const _todayStr = new Date().toISOString().slice(0, 10);
     const recurrenceStartDateInput = this._el("input", {
       type: "date", value: recurrenceStartDate, min: _todayStr,
@@ -3051,33 +3425,46 @@ class HomeTasksCard extends HTMLElement {
 
     const recTimeFieldWrap = this._el("div", { className: "field-wrap" }, [
       recurrenceTimeInput,
-      this._el("span", { textContent: this._t("rec_time") }),
+      this._el("span", { textContent: this._t("rec_at_lbl") }),
     ]);
     const recurrenceTimeWrap = this._el("div", { className: "field-with-clear" }, [recTimeFieldWrap, recTimeClearBtn]);
 
-    const recurrenceDateTimeRow = this._el("div", { className: "due-input-row" }, [
-      recurrenceStartDateWrap,
+    // Each on its own single-column row — the time row sits above "Beginn"
+    // so the user reads "happens at HH:MM" rather than "starts at HH:MM".
+    const recurrenceTimeRow = this._el("div", { className: "due-input-row single" }, [
       recurrenceTimeWrap,
     ]);
+    const recurrenceStartDateRow = this._el("div", { className: "due-input-row single" }, [
+      recurrenceStartDateWrap,
+    ]);
 
-    // End condition — "date" (default) or "count" (native lists only)
+    // End condition — two radio pills: "Bis" (date, default) and "X mal"
+    // (count, native lists only).  "Bis" with an empty date input means
+    // "no end" — same semantics as Beginn: leave it blank to never end.
+    // The "Nie" radio was dropped because the empty-date case already
+    // covers it and the extra option just added noise.
     const caps = this._colCapabilities(colIdx);
     const providerSupportsCount = !this._isExternalCol(colIdx) || !caps || !caps.can_sync_recurrence;
 
-    const recurrenceEndSelect = this._el("select", {});
-    const endOptions = [["date", "rec_end_date"]];
-    if (providerSupportsCount) endOptions.push(["count", "rec_end_count"]);
-    for (const [val, key] of endOptions) {
-      const opt = this._el("option", { value: val, textContent: this._t(key) });
-      if (val === recurrenceEndType) opt.selected = true;
-      recurrenceEndSelect.appendChild(opt);
-    }
-    const recurrenceEndWrap = this._el("div", { className: "sel-wrap" }, [
-      recurrenceEndSelect,
-      this._el("span", { textContent: this._t("rec_end") }),
+    const initialEndType = (recurrenceEndType === "count" && providerSupportsCount)
+      ? "count" : "date";
+    const _endName = `rec_end_${task.id}`;
+    const _mkEndRadio = (val) => {
+      const r = this._el("input", { type: "radio", name: _endName, value: val });
+      if (initialEndType === val) r.checked = true;
+      return r;
+    };
+    const endDateRadio = _mkEndRadio("date");
+    const endCountRadio = _mkEndRadio("count");
+    const endDateLabel = this._el("label", { className: "weekday-label" }, [
+      endDateRadio, this._el("span", { textContent: this._t("rec_end_date") }),
     ]);
-    // Hide mode selector for Todoist (only "date" available)
-    if (!providerSupportsCount) recurrenceEndWrap.style.display = "none";
+    const endCountLabel = this._el("label", { className: "weekday-label" }, [
+      endCountRadio, this._el("span", { textContent: this._t("rec_end_count") }),
+    ]);
+    const recurrenceEndRow = this._el("div", { className: "recurrence-radio-row" });
+    recurrenceEndRow.appendChild(endDateLabel);
+    if (providerSupportsCount) recurrenceEndRow.appendChild(endCountLabel);
 
     // Compute the minimum allowed end date based on recurrence interval.
     const _computeMinEndDate = () => {
@@ -3148,72 +3535,295 @@ class HomeTasksCard extends HTMLElement {
       this._el("span", { textContent: this._t("rec_max_count_lbl") }),
       this._el("div", { className: "spin-btns" }, [spinUp2, spinDown2]),
     ]);
-    const recurrenceCountRow = this._el("div", { className: "recurrence-input-row" }, [recMaxCountWrap, recRemainingSpan]);
+    const recMaxCountClearBtn = this._el("button", { className: "field-clear-btn", textContent: "\u00D7" });
+    recMaxCountClearBtn.addEventListener("click", () => {
+      recurrenceMaxCountInput.value = "";
+      saveEndCondition();
+      recMaxCountClearBtn.style.display = "none";
+    });
+    if (recurrenceMaxCount === null || recurrenceMaxCount === undefined) recMaxCountClearBtn.style.display = "none";
+    recurrenceMaxCountInput.addEventListener("change", () => {
+      recMaxCountClearBtn.style.display = recurrenceMaxCountInput.value ? "" : "none";
+    });
+    const recMaxCountWithClear = this._el("div", { className: "field-with-clear" }, [recMaxCountWrap, recMaxCountClearBtn]);
+    const recurrenceCountRow = this._el("div", { className: "recurrence-input-row" }, [recMaxCountWithClear, recRemainingSpan]);
 
     // For Todoist: hide start date + recurrence time row entirely —
     // the due date/time fields already control when the recurrence starts.
     const providerSyncsRecurrence = caps && caps.can_sync_recurrence;
 
-    const applyRowVisibility = (mode, unit) => {
-      recurrenceIntervalRow.style.display = mode === "interval" ? "" : "none";
-      recurrenceWeekdayRow.style.display = mode === "weekdays" ? "" : "none";
-      if (providerSyncsRecurrence) {
-        recurrenceDateTimeRow.style.display = "none";
-      } else {
-        const hideTime = !(mode === "weekdays" || (mode === "interval" && unit !== "hours"));
-        recurrenceTimeWrap.style.display = hideTime ? "none" : "";
-        recurrenceDateTimeRow.classList.toggle("single", hideTime);
-      }
+    // Todoist's natural-language parser can't model "every N months on the
+    // <pattern>" or "every N years on TT.MM" — match Todoist's web UI by
+    // hiding the pattern picker entirely whenever value > 1 + months/years
+    // on a Todoist list.  Forces the data to stay on "no pattern".
+    const todoistPatternBlocked = (unit, value) => (
+      providerSyncsRecurrence && value > 1 && (unit === "months" || unit === "years")
+    );
+
+    const applyRowVisibility = (unit, value) => {
+      recurrenceIntervalRow.style.display = "";
+      // Weekly: radios always visible when unit=weeks; the checkbox row only
+      // when "Am" is selected.
+      recurrenceWeekSection.style.display = unit === "weeks" ? "" : "none";
+      recurrenceWeekdayCheckboxRow.style.display = (unit === "weeks" && weekPatOnRadio.checked) ? "" : "none";
+      const blockMonthly = todoistPatternBlocked(unit, value);
+      recurrenceMonthSection.style.display = unit === "months" ? "" : "none";
+      recurrenceMonthRadioRow.style.display = (unit === "months" && !blockMonthly) ? "" : "none";
+      recurrenceMonthDomRow.style.display = (unit === "months" && !blockMonthly && monthPatDomRadio.checked) ? "" : "none";
+      recurrenceMonthNthRow.style.display = (unit === "months" && !blockMonthly && monthPatNthRadio.checked) ? "" : "none";
+      recurrenceTodoistMonthNote.style.display = (unit === "months" && blockMonthly) ? "" : "none";
+      recurrenceYearRow.style.display = unit === "years" ? "" : "none";
+      const blockYearly = todoistPatternBlocked(unit, value);
+      // Yearly: radios visible (when not Todoist-blocked); TT.MM only when "Am".
+      recurrenceYearRadioRow.style.display = (unit === "years" && !blockYearly) ? "" : "none";
+      recurrenceYearInputs.style.display = (unit === "years" && !blockYearly && yearPatOnRadio.checked) ? "" : "none";
+      recurrenceTodoistYearNote.style.display = (unit === "years" && blockYearly) ? "" : "none";
+      // Time row: only meaningful when the recurrence triggers on a calendar
+      // day (so hours mode hides it).  For Todoist we still show it so the
+      // user can set "happens at HH:MM".
+      const hideTime = unit === "hours";
+      recurrenceTimeRow.style.display = hideTime ? "none" : "";
+      // Start date: hidden for Todoist (due_date drives the anchor).
+      recurrenceStartDateRow.style.display = providerSyncsRecurrence ? "none" : "";
     };
-    applyRowVisibility(recurrenceType, recurrenceUnit);
+    applyRowVisibility(recurrenceUnit, recurrenceValue);
 
     const applyEndTypeVisibility = (endType) => {
-      recurrenceEndDateWrap.style.display = endType === "count" ? "none" : "";
+      recurrenceEndDateWrap.style.display = endType === "date" ? "" : "none";
       recurrenceCountRow.style.display = endType === "count" ? "" : "none";
     };
-    applyEndTypeVisibility(recurrenceEndType);
+    applyEndTypeVisibility(initialEndType);
+
+    const applyMonthPatternState = () => {
+      const isDom = monthPatDomRadio.checked;
+      const isNth = monthPatNthRadio.checked;
+      monthDomSelect.disabled = !recSwitch.checked || !isDom;
+      monthNthSelect.disabled = !recSwitch.checked || !isNth;
+      monthWeekdaySelect.disabled = !recSwitch.checked || !isNth;
+    };
+    const applyWeekPatternState = () => {
+      const isOn = weekPatOnRadio.checked;
+      weekdayCheckboxes.forEach(cb => { cb.disabled = !recSwitch.checked || !isOn; });
+    };
+    const applyYearPatternState = () => {
+      const isOn = yearPatOnRadio.checked;
+      const off = !recSwitch.checked || !isOn;
+      annDayInput.disabled = off;
+      annDaySpinUp.disabled = off;
+      annDaySpinDown.disabled = off;
+      annMonthSelect.disabled = off;
+    };
 
     const applyEnabledState = (enabled) => {
-      recurrenceModeSelect.disabled = !enabled;
       recurrenceValueInput.disabled = !enabled;
       recurrenceUnitSelect.disabled = !enabled;
       spinUp.disabled = !enabled;
       spinDown.disabled = !enabled;
-      weekdayCheckboxes.forEach(cb => { cb.disabled = !enabled; });
+      weekPatNoneRadio.disabled = !enabled;
+      weekPatOnRadio.disabled = !enabled;
+      monthPatNoneRadio.disabled = !enabled;
+      monthPatDomRadio.disabled = !enabled;
+      monthPatNthRadio.disabled = !enabled;
+      yearPatNoneRadio.disabled = !enabled;
+      yearPatOnRadio.disabled = !enabled;
       recurrenceStartDateInput.disabled = !enabled;
       recurrenceTimeInput.disabled = !enabled;
-      recurrenceEndSelect.disabled = !enabled;
+      endDateRadio.disabled = !enabled;
+      endCountRadio.disabled = !enabled;
       recurrenceEndDateInput.disabled = !enabled;
       recurrenceMaxCountInput.disabled = !enabled;
       spinUp2.disabled = !enabled;
       spinDown2.disabled = !enabled;
+      applyMonthPatternState();
+      applyWeekPatternState();
+      applyYearPatternState();
     };
     applyEnabledState(recurrenceEnabled);
 
+    // ---- Helpers: collect current sub-pattern fields into a payload -------
+    const _normaliseDom = () => {
+      const v = monthDomSelect.value;
+      return v === "last" ? "last" : parseInt(v, 10);
+    };
+    const _normaliseNth = () => {
+      const v = monthNthSelect.value;
+      return v === "last" ? "last" : parseInt(v, 10);
+    };
+    const _collectMonthlyFields = () => {
+      // Returns the four monthly-specific fields based on which radio is set.
+      // Unused fields are explicitly null so the backend clears stale data.
+      if (monthPatDomRadio.checked) {
+        return {
+          recurrence_month_pattern: "day_of_month",
+          recurrence_day_of_month: _normaliseDom(),
+          recurrence_nth_week: null,
+        };
+      }
+      if (monthPatNthRadio.checked) {
+        return {
+          recurrence_month_pattern: "nth_weekday",
+          recurrence_day_of_month: null,
+          recurrence_nth_week: _normaliseNth(),
+        };
+      }
+      return {
+        recurrence_month_pattern: null,
+        recurrence_day_of_month: null,
+        recurrence_nth_week: null,
+      };
+    };
+    // Returns:
+    //   "MM-DD"      → both fields filled and valid
+    //   null         → both fields empty (= clear the anchor)
+    //   undefined    → partial / invalid input — caller should NOT save yet,
+    //                  otherwise the round-trip reload wipes the user's
+    //                  half-typed value (the bug behind "TT loses on blur").
+    const _collectAnniversary = () => {
+      const dStr = annDayInput.value;
+      const mStr = annMonthSelect.value;
+      if (!dStr && !mStr) return null;
+      if (!dStr || !mStr) return undefined;
+      const d = parseInt(dStr, 10);
+      const m = parseInt(mStr, 10);
+      if (!(d >= 1 && d <= 31 && m >= 1 && m <= 12)) return undefined;
+      return `${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    };
+    const _collectWeekdaysSelected = () => weekdayCheckboxes
+      .map((cb, i) => cb.checked ? i : -1).filter(i => i >= 0);
+
+    const _activeWeekdaysForUnit = (unit) => {
+      // For weekly mode: only when "Am" is selected — the checkboxes drive it.
+      // For monthly nth-weekday mode: the single weekday picker.
+      // Otherwise: empty (we don't want stale weekday data lingering).
+      if (unit === "weeks" && weekPatOnRadio.checked) return _collectWeekdaysSelected();
+      if (unit === "months" && monthPatNthRadio.checked) {
+        return [parseInt(monthWeekdaySelect.value, 10)];
+      }
+      return [];
+    };
+
     const saveWeekdays = () => {
-      const selected = weekdayCheckboxes.map((cb, i) => cb.checked ? i : -1).filter(i => i >= 0);
-      this._updateTaskRouted(colIdx, task.id, {
-        recurrence_weekdays: selected,
-      })?.then(() => this._loadAllTasks());
+      // If the user toggled a checkbox while "Ab Erledigung" was selected,
+      // auto-flip to "Am" so the picker stays consistent (unlikely path —
+      // checkboxes are disabled in that mode — but a keyboard shortcut
+      // could still hit it).
+      if (recurrenceUnitSelect.value === "weeks" && !weekPatOnRadio.checked) {
+        const any = weekdayCheckboxes.some(cb => cb.checked);
+        if (any) {
+          weekPatOnRadio.checked = true;
+          applyRowVisibility("weeks", parseInt(recurrenceValueInput.value) || 1);
+          applyWeekPatternState();
+        }
+      }
+      _saveAndReload(this._updateTaskRouted(colIdx, task.id, {
+        recurrence_weekdays: _activeWeekdaysForUnit(recurrenceUnitSelect.value),
+      }));
+    };
+
+    const saveMonthlyPattern = () => {
+      applyRowVisibility(recurrenceUnitSelect.value, parseInt(recurrenceValueInput.value) || 1);
+      applyMonthPatternState();
+      const monthly = _collectMonthlyFields();
+      const fields = { ...monthly };
+      // Keep recurrence_weekdays in sync with the nth-weekday picker.
+      if (recurrenceUnitSelect.value === "months") {
+        fields.recurrence_weekdays = _activeWeekdaysForUnit("months");
+      }
+      _saveAndReload(this._updateTaskRouted(colIdx, task.id, fields));
+    };
+
+    const saveAnniversary = () => {
+      const ann = _collectAnniversary();
+      if (ann === undefined) return;  // partial input; wait for the second field
+      _saveAndReload(this._updateTaskRouted(colIdx, task.id, {
+        recurrence_anniversary: ann,
+      }));
+    };
+
+    const saveWeekPattern = () => {
+      applyRowVisibility(recurrenceUnitSelect.value, parseInt(recurrenceValueInput.value) || 1);
+      applyWeekPatternState();
+      if (!weekPatOnRadio.checked) {
+        // Picked "Ab Erledigung" — clear weekdays AND drop the override
+        // so a future reload renders the radio purely from data.
+        this._weekPatternOverride.delete(task.id);
+        _saveAndReload(this._updateTaskRouted(colIdx, task.id, {
+          recurrence_weekdays: [],
+        }));
+      } else {
+        // Picked "Am" without any checkboxes yet — remember the choice
+        // locally so an unrelated reload (e.g. from a still-pending
+        // saveInterval) doesn't snap the radio back to "Ab Erledigung".
+        // Once the user actually picks a weekday, saveWeekdays writes
+        // the data and the override becomes redundant.
+        this._weekPatternOverride.set(task.id, "on");
+      }
+    };
+
+    const saveYearPattern = () => {
+      applyRowVisibility(recurrenceUnitSelect.value, parseInt(recurrenceValueInput.value) || 1);
+      applyYearPatternState();
+      if (yearPatNoneRadio.checked) {
+        this._yearPatternOverride.delete(task.id);
+        _saveAndReload(this._updateTaskRouted(colIdx, task.id, {
+          recurrence_anniversary: null,
+        }));
+      } else {
+        // Same sticky-UI rule as the weekly radio.
+        this._yearPatternOverride.set(task.id, "on");
+        const ann = _collectAnniversary();
+        if (!ann) return;  // wait for the user to fill in TT and the month
+        _saveAndReload(this._updateTaskRouted(colIdx, task.id, {
+          recurrence_anniversary: ann,
+        }));
+      }
     };
 
     const saveInterval = () => {
       const val = Math.max(1, Math.min(365, parseInt(recurrenceValueInput.value) || 1));
       recurrenceValueInput.value = val;
-      applyRowVisibility(recurrenceModeSelect.value, recurrenceUnitSelect.value);
-      // Update end-date min; auto-clear if it became invalid (Bug 4/5/6)
+      const newUnit = recurrenceUnitSelect.value;
+      // Switching unit clears any sticky-UI overrides for the OTHER unit
+      // dimensions — picking "Am" under "Wochen", switching to "Jahre",
+      // then back to "Wochen" should give a fresh derivation from the
+      // saved data rather than a leftover override from the earlier
+      // session.  Same idea for Year ↔ Month transitions.
+      if (newUnit !== "weeks") this._weekPatternOverride.delete(task.id);
+      if (newUnit !== "years") this._yearPatternOverride.delete(task.id);
+      applyRowVisibility(newUnit, val);
+      // Update end-date min; auto-clear if it became invalid
       const oldEndVal = recurrenceEndDateInput.value;
       _updateEndDateMin();
       const fields = {
+        recurrence_type: "interval",  // legacy "weekdays" mode is gone
         recurrence_value: val,
-        recurrence_unit: recurrenceUnitSelect.value,
+        recurrence_unit: newUnit,
+        // Re-sync weekdays so switching unit clears stale selections
+        recurrence_weekdays: _activeWeekdaysForUnit(newUnit),
       };
+      // Sub-pattern fields: only meaningful for the active unit; clear the rest.
+      // Todoist + value > 1 also forces "no pattern" — match Todoist web UI.
+      const todoistBlocks = todoistPatternBlocked(newUnit, val);
+      if (newUnit === "months" && !todoistBlocks) {
+        Object.assign(fields, _collectMonthlyFields());
+        fields.recurrence_anniversary = null;
+      } else if (newUnit === "years" && !todoistBlocks) {
+        fields.recurrence_anniversary = _collectAnniversary();
+        fields.recurrence_month_pattern = null;
+        fields.recurrence_day_of_month = null;
+        fields.recurrence_nth_week = null;
+      } else {
+        fields.recurrence_month_pattern = null;
+        fields.recurrence_day_of_month = null;
+        fields.recurrence_nth_week = null;
+        fields.recurrence_anniversary = null;
+      }
       // If end date was cleared because it's now invalid, tell the server
       if (oldEndVal && !recurrenceEndDateInput.value) {
         fields.recurrence_end_date = null;
         fields.recurrence_end_type = "none";
       }
-      this._updateTaskRouted(colIdx, task.id, fields)?.then(() => this._loadAllTasks());
+      _saveAndReload(this._updateTaskRouted(colIdx, task.id, fields));
     };
 
     const _saveAndReload = (promise) => {
@@ -3222,9 +3832,19 @@ class HomeTasksCard extends HTMLElement {
       // need _reloadExternal(); native ones need _loadAllTasks() — without
       // this, fields like recurrence_time appeared to snap back to "00:00"
       // on re-expand until an unrelated state event rewrote the cached task.
-      promise?.then(() => {
-        if (this._isExternalCol(colIdx)) this._reloadExternal();
-        else this._loadAllTasks();
+      //
+      // Mark the reload as a background update so _render() defers if the
+      // user has already moved focus to another field — otherwise picking
+      // an option, then clicking the next field, would tear down the DOM
+      // mid-click and the click would be lost.
+      promise?.then(async () => {
+        this._isBackgroundUpdate = true;
+        try {
+          if (this._isExternalCol(colIdx)) await this._reloadExternal();
+          else await this._loadAllTasks();
+        } finally {
+          this._isBackgroundUpdate = false;
+        }
       });
     };
 
@@ -3240,8 +3860,10 @@ class HomeTasksCard extends HTMLElement {
       }));
     };
 
+    const _selectedEndType = () => endCountRadio.checked ? "count" : "date";
     const saveEndCondition = () => {
-      const endType = recurrenceEndSelect.value;
+      const endType = _selectedEndType();
+      applyEndTypeVisibility(endType);
       // Clamp manually entered end date to the minimum allowed
       if (endType === "date" && recurrenceEndDateInput.value) {
         const minEnd = _computeMinEndDate();
@@ -3249,7 +3871,11 @@ class HomeTasksCard extends HTMLElement {
           recurrenceEndDateInput.value = minEnd;
         }
       }
-      // "date" with empty field = no end (equivalent to old "none" mode)
+      // "Bis" with an empty date = no end (same idea as an empty Beginn).
+      // The radio stays on "Bis" — that's now the default — but the saved
+      // end_type is "none" so the backend doesn't try to clamp on a
+      // missing date.  Reload doesn't snap the radio back because empty
+      // "Bis" + count-not-selected → initialEndType === "date" still wins.
       const effectiveEndType = (endType === "date" && !recurrenceEndDateInput.value) ? "none" : endType;
       _saveAndReload(this._updateTaskRouted(colIdx, task.id, {
         recurrence_end_type: effectiveEndType,
@@ -3261,38 +3887,66 @@ class HomeTasksCard extends HTMLElement {
     recSwitch.addEventListener("change", () => {
       const enabled = recSwitch.checked;
       applyEnabledState(enabled);
-      const mode = recurrenceModeSelect.value;
+      const newUnit = recurrenceUnitSelect.value;
       const val = Math.max(1, Math.min(365, parseInt(recurrenceValueInput.value) || 1));
-      const selected = weekdayCheckboxes.map((cb, i) => cb.checked ? i : -1).filter(i => i >= 0);
-      const endType = recurrenceEndSelect.value;
-      // Include current reminders — Todoist deletes them when due changes,
-      // so the backend needs to re-create them after the update.
-      this._updateTaskRouted(colIdx, task.id, {
+      const endType = _selectedEndType();
+      const todoistBlocks = todoistPatternBlocked(newUnit, val);
+      const fields = {
         recurrence_enabled: enabled,
-        recurrence_type: mode,
+        recurrence_type: "interval",
         recurrence_value: val,
-        recurrence_unit: recurrenceUnitSelect.value,
-        recurrence_weekdays: selected,
+        recurrence_unit: newUnit,
+        recurrence_weekdays: _activeWeekdaysForUnit(newUnit),
         recurrence_start_date: recurrenceStartDateInput.value || null,
         recurrence_time: recurrenceTimeInput.value || null,
         recurrence_end_type: endType,
         recurrence_end_date: endType === "date" ? (recurrenceEndDateInput.value || null) : null,
         recurrence_max_count: endType === "count" ? (parseInt(recurrenceMaxCountInput.value) || null) : null,
+        // Include current reminders — Todoist deletes them when due changes,
+        // so the backend needs to re-create them after the update.
         reminders: task.reminders || [],
-      })?.then(() => this._loadAllTasks());
-    });
-
-    recurrenceModeSelect.addEventListener("change", () => {
-      const mode = recurrenceModeSelect.value;
-      applyRowVisibility(mode, recurrenceUnitSelect.value);
-      this._updateTaskRouted(colIdx, task.id, {
-        recurrence_type: mode,
-      })?.then(() => this._loadAllTasks());
+      };
+      if (newUnit === "months" && !todoistBlocks) {
+        Object.assign(fields, _collectMonthlyFields());
+        fields.recurrence_anniversary = null;
+      } else if (newUnit === "years" && !todoistBlocks) {
+        fields.recurrence_anniversary = _collectAnniversary();
+        fields.recurrence_month_pattern = null;
+        fields.recurrence_day_of_month = null;
+        fields.recurrence_nth_week = null;
+      } else {
+        fields.recurrence_month_pattern = null;
+        fields.recurrence_day_of_month = null;
+        fields.recurrence_nth_week = null;
+        fields.recurrence_anniversary = null;
+      }
+      _saveAndReload(this._updateTaskRouted(colIdx, task.id, fields));
     });
 
     recurrenceValueInput.addEventListener("change", saveInterval);
+    recurrenceValueInput.addEventListener("keydown", (e) => { if (e.key === "Enter") recurrenceValueInput.blur(); });
+    const _blurAfterChange = (el) => this._blurSelectOnChange(el);
     recurrenceUnitSelect.addEventListener("change", saveInterval);
+    _blurAfterChange(recurrenceUnitSelect);
     weekdayCheckboxes.forEach(cb => cb.addEventListener("change", saveWeekdays));
+    [monthPatNoneRadio, monthPatDomRadio, monthPatNthRadio].forEach(r =>
+      r.addEventListener("change", saveMonthlyPattern));
+    monthDomSelect.addEventListener("change", saveMonthlyPattern);
+    monthNthSelect.addEventListener("change", saveMonthlyPattern);
+    monthWeekdaySelect.addEventListener("change", saveMonthlyPattern);
+    _blurAfterChange(monthDomSelect);
+    _blurAfterChange(monthNthSelect);
+    _blurAfterChange(monthWeekdaySelect);
+    annDayInput.addEventListener("blur", saveAnniversary);
+    annDayInput.addEventListener("keydown", (e) => { if (e.key === "Enter") annDayInput.blur(); });
+    annMonthSelect.addEventListener("change", saveAnniversary);
+    _blurAfterChange(annMonthSelect);
+    [weekPatNoneRadio, weekPatOnRadio].forEach(r =>
+      r.addEventListener("change", saveWeekPattern));
+    [yearPatNoneRadio, yearPatOnRadio].forEach(r =>
+      r.addEventListener("change", saveYearPattern));
+    [endDateRadio, endCountRadio].forEach(r =>
+      r.addEventListener("change", saveEndCondition));
     // Use "blur" instead of "change" for the time/date inputs: type="time"
     // fires change the moment the hour alone becomes a valid time ("20:00"),
     // which would trigger a save + re-render and yank the focus out before
@@ -3303,18 +3957,20 @@ class HomeTasksCard extends HTMLElement {
     recurrenceStartDateInput.addEventListener("keydown", (e) => { if (e.key === "Enter") recurrenceStartDateInput.blur(); });
     recurrenceTimeInput.addEventListener("blur", saveRecurrenceTime);
     recurrenceTimeInput.addEventListener("keydown", (e) => { if (e.key === "Enter") recurrenceTimeInput.blur(); });
-    recurrenceEndSelect.addEventListener("change", () => { applyEndTypeVisibility(recurrenceEndSelect.value); saveEndCondition(); });
     recurrenceEndDateInput.addEventListener("blur", saveEndCondition);
     recurrenceEndDateInput.addEventListener("keydown", (e) => { if (e.key === "Enter") recurrenceEndDateInput.blur(); });
     recurrenceMaxCountInput.addEventListener("change", saveEndCondition);
+    recurrenceMaxCountInput.addEventListener("keydown", (e) => { if (e.key === "Enter") recurrenceMaxCountInput.blur(); });
 
     return this._el("div", { className: "detail-section" }, [
       recurrenceToggleRow,
-      recurrenceModeWrap,
       recurrenceIntervalRow,
-      recurrenceWeekdayRow,
-      recurrenceDateTimeRow,
-      recurrenceEndWrap,
+      recurrenceWeekSection,
+      recurrenceMonthSection,
+      recurrenceYearRow,
+      recurrenceTimeRow,
+      recurrenceStartDateRow,
+      recurrenceEndRow,
       recurrenceEndDateWrap,
       recurrenceCountRow,
     ]);
@@ -3342,6 +3998,7 @@ class HomeTasksCard extends HTMLElement {
       this._render();
       this._updateTaskRouted(colIdx, task.id, { assigned_person: task.assigned_person });
     });
+    this._blurSelectOnChange(personSelect);
     const personWrap = this._el("div", { className: "sel-wrap no-label" }, [personSelect]);
     return this._el("div", { className: "detail-section" }, [
       this._el("label", { className: "detail-label", textContent: this._t("assigned_to") }),
@@ -3557,6 +4214,7 @@ class HomeTasksCard extends HTMLElement {
         updated[ri] = parseInt(sel.value, 10);
         _rebuildReminders(updated);
       });
+      this._blurSelectOnChange(sel);
       const removeBtn = this._el("button", {
         className: "reminder-remove",
         textContent: "\u00D7",
@@ -4317,15 +4975,56 @@ class HomeTasksCard extends HTMLElement {
       .weekday-label {
         display: block; font-size: 12px; color: var(--todo-secondary-text); cursor: pointer; user-select: none;
       }
-      .weekday-label input[type="checkbox"] { display: none; }
+      .weekday-label input[type="checkbox"], .weekday-label input[type="radio"] { display: none; }
       .weekday-label span {
         display: block; text-align: center; padding: 4px 2px; border-radius: 4px; border: 1px solid var(--todo-divider);
         background: var(--todo-bg); transition: background 0.15s, color 0.15s;
       }
-      .weekday-label input[type="checkbox"]:checked + span {
+      .weekday-label input[type="checkbox"]:checked + span,
+      .weekday-label input[type="radio"]:checked + span {
         background: var(--primary-color, #03a9f4); color: #fff; border-color: var(--primary-color, #03a9f4);
       }
-      .weekday-label input[type="checkbox"]:disabled + span { opacity: 0.5; cursor: default; }
+      .weekday-label input[type="checkbox"]:disabled + span,
+      .weekday-label input[type="radio"]:disabled + span { opacity: 0.5; cursor: default; }
+      /* Generic radio-pill row used for the monthly pattern + end-mode toggles. */
+      .recurrence-radio-row { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; margin-top: 6px; }
+      /* Inline rows where a labeled select sits below a pill-toggle. */
+      .recurrence-sub-row { display: flex; gap: 8px; align-items: stretch; margin-top: 6px; }
+      .recurrence-sub-row .sel-wrap { flex: 1; min-width: 0; }
+      /* Yearly TT.MM input: 50/50 split between TT field and the month
+         dropdown.  Spacing under the radio row matches .recurrence-sub-row. */
+      .recurrence-year-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+      .recurrence-year-row > .field-wrap,
+      .recurrence-year-row > .sel-wrap { flex: 1 1 0; min-width: 0; }
+      .recurrence-year-row .field-wrap input { padding: 18px 4px 4px 8px; font-size: 13px; }
+      .recurrence-year-row .field-wrap > span { left: 8px; font-size: 10px; }
+      /* TT field special-cases: left-aligned number (matches the rest of
+         the card) with a "." rendered inside the field immediately after
+         the typed value.  We can't style the input's value content
+         directly, so we read the value's length via a CSS custom
+         property and place the dot at left = padding + len * 1ch.
+         tabular-nums keeps digit widths uniform so the offset is stable
+         when the user types or spins. */
+      .field-wrap.year-day input[type="number"] {
+        text-align: left;
+        padding-right: 30px;  /* reserve room for spin buttons */
+        font-variant-numeric: tabular-nums;
+      }
+      .field-wrap.year-day::after {
+        content: ".";
+        position: absolute;
+        left: calc(8px + var(--day-len, 1) * 1ch + 1px);
+        bottom: 6px;
+        color: var(--primary-text-color);
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+        pointer-events: none;
+      }
+      .field-wrap.year-day:not(.has-value)::after { display: none; }
+      .recurrence-todoist-note {
+        font-size: 11px; color: var(--secondary-text-color);
+        font-style: italic; margin-top: 4px;
+      }
       .reminder-row { display: flex; gap: 6px; align-items: center; }
       .reminder-remove {
         background: none; border: none; color: var(--todo-secondary-text);
@@ -4368,7 +5067,7 @@ class HomeTasksCard extends HTMLElement {
       .field-wrap input[type="date"], .field-wrap input[type="time"] { text-align: left; padding-right: 6px; max-width: 100%; -webkit-appearance: none; appearance: none; }
       .field-wrap { position: relative; width: 100%; overflow: hidden; }
       .due-input-row.single { grid-template-columns: 1fr; }
-      .field-wrap input, .field-wrap textarea { width: 100%; box-sizing: border-box; padding: 20px 12px 6px; height: 48px; border: 1px solid var(--outline-color, var(--divider-color, rgba(255,255,255,0.12))); border-radius: 4px; background: var(--mdc-text-field-fill-color, var(--input-fill-color, transparent)); color: var(--primary-text-color); font-size: 0.875rem; font-family: inherit; outline: none; }
+      .field-wrap input, .field-wrap textarea { width: 100%; box-sizing: border-box; padding: 20px 12px 6px; height: 48px; border: 1px solid var(--outline-color, var(--divider-color, rgba(255,255,255,0.12))); border-radius: 4px; background: var(--mdc-text-field-fill-color, var(--input-fill-color, transparent)); color: var(--primary-text-color); font-size: 0.875rem; font-family: inherit; outline: none; color-scheme: light dark; }
       .field-wrap textarea { height: auto; }
       .field-wrap input:focus, .field-wrap textarea:focus { border: 2px solid var(--primary-color); padding: 19px 11px 5px; }
       .field-wrap input:disabled, .field-wrap textarea:disabled { opacity: 0.4; }
@@ -4392,9 +5091,16 @@ class HomeTasksCard extends HTMLElement {
       .spin-btn:hover { color: var(--primary-color); }
       .spin-btn:disabled { opacity: 0.4; cursor: default; }
       .sel-wrap { position: relative; width: 100%; }
-      .sel-wrap select { width: 100%; height: 48px; padding: 18px 32px 4px 12px; border: 1px solid var(--outline-color, var(--divider-color, rgba(255,255,255,0.12))); border-radius: 4px; background: var(--mdc-text-field-fill-color, var(--input-fill-color, transparent)); color: var(--primary-text-color); font-size: 0.875rem; font-family: inherit; appearance: none; -webkit-appearance: none; cursor: pointer; outline: none; box-sizing: border-box; }
+      .sel-wrap select { width: 100%; height: 48px; padding: 18px 32px 4px 12px; border: 1px solid var(--outline-color, var(--divider-color, rgba(255,255,255,0.12))); border-radius: 4px; background: var(--mdc-text-field-fill-color, var(--input-fill-color, transparent)); color: var(--primary-text-color); font-size: 0.875rem; font-family: inherit; appearance: none; -webkit-appearance: none; cursor: pointer; outline: none; box-sizing: border-box; color-scheme: light dark; }
       .sel-wrap select:focus { border: 2px solid var(--primary-color); padding: 17px 31px 3px 11px; }
       .sel-wrap select:disabled { opacity: 0.4; cursor: default; }
+      /* The native options panel ignores the page palette unless we set
+         these explicitly — without them HA's dark theme falls back to the
+         browser's white default. */
+      .sel-wrap select option {
+        background: var(--card-background-color, var(--ha-card-background, var(--primary-background-color, #fff)));
+        color: var(--primary-text-color);
+      }
       .sel-wrap > span { position: absolute; top: 6px; left: 12px; font-size: 11px; font-weight: 400; color: var(--secondary-text-color); text-transform: none; letter-spacing: 0; pointer-events: none; }
       .sel-wrap::after { content: "▾"; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--secondary-text-color); font-size: 16px; line-height: 1; }
       .sel-wrap.inline { flex: 1; width: auto; }

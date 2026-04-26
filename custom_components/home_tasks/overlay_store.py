@@ -55,6 +55,10 @@ OVERLAY_FIELDS = (
     "recurrence_end_date",
     "recurrence_max_count",
     "recurrence_remaining_count",
+    "recurrence_month_pattern",
+    "recurrence_day_of_month",
+    "recurrence_nth_week",
+    "recurrence_anniversary",
     "history",
     "completed_at",
 )
@@ -85,6 +89,10 @@ def _empty_overlay() -> dict:
         "recurrence_end_date": None,
         "recurrence_max_count": None,
         "recurrence_remaining_count": None,
+        "recurrence_month_pattern": None,
+        "recurrence_day_of_month": None,
+        "recurrence_nth_week": None,
+        "recurrence_anniversary": None,
         "history": [],
         "completed_at": None,
     }

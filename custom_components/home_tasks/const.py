@@ -25,6 +25,9 @@ RECURRENCE_UNIT_SECONDS = {
 }
 MAX_RECURRENCE_VALUE = 365
 
+VALID_MONTH_PATTERNS = ("day_of_month", "nth_weekday")
+VALID_NTH_WEEK = (1, 2, 3, 4, "last")
+
 # --- Reminders ---
 MAX_REMINDERS_PER_TASK = 5
 MAX_REMINDER_OFFSET_MINUTES = 43200  # 30 days
