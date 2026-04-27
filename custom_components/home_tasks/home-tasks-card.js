@@ -3472,8 +3472,8 @@ class HomeTasksCard extends HTMLElement {
       const unit = recurrenceUnitSelect.value || "days";
       const val = parseInt(recurrenceValueInput.value) || 1;
       const next = new Date(today);
-      if (unit === "hours") next.setDate(next.getDate() + 1);
-      else if (unit === "days") next.setDate(next.getDate() + val);
+      // Hours: multiple occurrences fit in one day, so today is a valid end date.
+      if (unit === "days") next.setDate(next.getDate() + val);
       else if (unit === "weeks") next.setDate(next.getDate() + val * 7);
       else if (unit === "months") next.setMonth(next.getMonth() + val);
       else if (unit === "years") next.setFullYear(next.getFullYear() + val);
