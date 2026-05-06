@@ -172,6 +172,7 @@ def _on_task_completed(hass: HomeAssistant, entry_id: str, task: dict) -> None:
 
     completed_at = _parse_completed_at(task)
 
+    target = None
     if task.get("recurrence_enabled") and task.get("due_date"):
         target = _compute_next_reopen_target(task, completed_at)
         if target is not None:
@@ -189,7 +190,9 @@ def _on_task_completed(hass: HomeAssistant, entry_id: str, task: dict) -> None:
                 task.get("due_time"), task.get("due_time"),
             )
 
-    _schedule_recurrence(hass, entry_id, task, completed_at=completed_at)
+    # Pass the already-computed target into the scheduler so it doesn't
+    # recompute against the just-advanced due_date and double-advance.
+    _schedule_recurrence(hass, entry_id, task, completed_at=completed_at, precomputed_target=target)
     # _schedule_reminders cancels old timers first, then (for recurring tasks)
     # reschedules against the newly-advanced due_date.
     _schedule_reminders(hass, entry_id, task)
@@ -481,31 +484,52 @@ def _compute_next_reopen_target(task: dict, completed_at: datetime) -> datetime 
 
     local_completed = completed_at.astimezone(dt_util.DEFAULT_TIME_ZONE)
 
+    # For date-based intervals (days/weeks/months/years), the user's intent is
+    # "advance the due_date to the next occurrence" — anchored at the existing
+    # due_date, NOT at the moment of completion.  This makes early completions
+    # (complete today's task at 09:00 when it's due 14:00) advance to tomorrow,
+    # not stay on today.  For late completions (overdue task), we anchor at
+    # local_completed so the next occurrence skips into the future rather than
+    # producing another past date.
+    anchor_local = local_completed
+    due_date_str = task.get("due_date")
+    if due_date_str:
+        try:
+            due_d = date.fromisoformat(due_date_str)
+            due_anchor = local_completed.replace(
+                year=due_d.year, month=due_d.month, day=due_d.day,
+                hour=0, minute=0, second=0, microsecond=0,
+            )
+            if due_anchor.date() >= local_completed.date():
+                anchor_local = due_anchor
+        except ValueError:
+            pass
+
     if unit == "days":
-        target_local = local_completed + timedelta(days=value)
+        target_local = anchor_local + timedelta(days=value)
     elif unit == "weeks":
         weekdays = task.get("recurrence_weekdays") or []
         if weekdays:
             # Each iteration = value calendar weeks (Mon–Sun blocks).  Within
             # the current iteration, pick the next selected weekday strictly
-            # after the completion weekday.  If none remain in this iteration,
+            # after the anchor weekday.  If none remain in this iteration,
             # jump to the first selected weekday of iteration N+value.
             weekdays_sorted = sorted(set(weekdays))
-            completed_wd = local_completed.weekday()
-            in_this_week = [w for w in weekdays_sorted if w > completed_wd]
+            anchor_wd = anchor_local.weekday()
+            in_this_week = [w for w in weekdays_sorted if w > anchor_wd]
             if in_this_week:
-                delta_days = in_this_week[0] - completed_wd
+                delta_days = in_this_week[0] - anchor_wd
             else:
-                delta_days = max(1, value) * 7 - completed_wd + weekdays_sorted[0]
-            target_local = local_completed + timedelta(days=delta_days)
+                delta_days = max(1, value) * 7 - anchor_wd + weekdays_sorted[0]
+            target_local = anchor_local + timedelta(days=delta_days)
         else:
-            target_local = local_completed + timedelta(weeks=value)
+            target_local = anchor_local + timedelta(weeks=value)
     elif unit == "months":
-        target_local = _next_monthly_target(task, local_completed, value)
+        target_local = _next_monthly_target(task, anchor_local, value)
         if target_local is None:
             return None
     else:  # years
-        target_local = _next_yearly_target(task, local_completed, value)
+        target_local = _next_yearly_target(task, anchor_local, value)
         if target_local is None:
             return None
 
@@ -602,12 +626,24 @@ def _compute_reopen_delay(task: dict, completed_at: datetime) -> float | None:
     return (target.astimezone(timezone.utc) - now).total_seconds()
 
 
-def _schedule_recurrence(hass: HomeAssistant, entry_id: str, task: dict, completed_at: datetime | None = None) -> None:
+def _schedule_recurrence(
+    hass: HomeAssistant,
+    entry_id: str,
+    task: dict,
+    completed_at: datetime | None = None,
+    precomputed_target: datetime | None = None,
+) -> None:
     """Schedule a task to reopen at its next recurrence target.
 
     Reminders are NOT handled here — _on_task_completed advances the task's
     due_date/due_time at completion time and calls _schedule_reminders
     separately, so reminders can fire during the completed→reopen window.
+
+    *precomputed_target* lets callers (specifically _on_task_completed, which
+    has already mutated task['due_date'] to the next occurrence) reuse the
+    target they computed before the mutation.  Without it, this function
+    would recompute against the advanced due_date and roll forward a second
+    time.
     """
     timers = hass.data.setdefault(DATA_RECURRENCE_TIMERS, {})
     task_id = task["id"]
@@ -617,7 +653,10 @@ def _schedule_recurrence(hass: HomeAssistant, entry_id: str, task: dict, complet
     if completed_at is None:
         completed_at = datetime.now(timezone.utc)
 
-    delay = _compute_reopen_delay(task, completed_at)
+    if precomputed_target is not None:
+        delay = (precomputed_target.astimezone(timezone.utc) - datetime.now(timezone.utc)).total_seconds()
+    else:
+        delay = _compute_reopen_delay(task, completed_at)
     if delay is None:
         return
 
