@@ -2618,26 +2618,24 @@ class HomeTasksCard extends HTMLElement {
         if (t.section_id && knownIds.has(t.section_id)) bySection.get(t.section_id).push(t);
       }
 
-      // Top: unsorted, no header
+      // Top: unsorted, no header (flat)
       for (const t of unsorted) taskListChildren.push(this._buildTask(t, colIdx));
 
-      // Each section in sort order
+      // Each section in sort order — header + body wrapper (so the entire
+      // body collapses/expands as a single animated unit, including its
+      // internal flex gaps).
       for (const section of sections) {
         const tasksIn = bySection.get(section.id) || [];
         const collapsed = this._isSectionCollapsed(colIdx, section.id);
         taskListChildren.push(this._buildSectionHeader(section, colIdx, { collapsed, count: tasksIn.length }));
-        if (!collapsed) {
-          for (const t of tasksIn) taskListChildren.push(this._buildTask(t, colIdx));
-        }
+        taskListChildren.push(this._buildSectionBody(section.id, tasksIn, colIdx, collapsed));
       }
 
       // Done at end (only if there are completed tasks)
       if (doneTasks.length > 0) {
         const collapsed = this._isSectionCollapsed(colIdx, "__done__");
         taskListChildren.push(this._buildDoneHeader(colIdx, { collapsed, count: doneTasks.length }));
-        if (!collapsed) {
-          for (const t of doneTasks) taskListChildren.push(this._buildTask(t, colIdx));
-        }
+        taskListChildren.push(this._buildSectionBody("__done__", doneTasks, colIdx, collapsed));
       }
     }
 
@@ -2704,11 +2702,118 @@ class HomeTasksCard extends HTMLElement {
   }
 
   _toggleSectionCollapsed(colIdx, sectionId) {
-    const before = this._captureListFlip(colIdx);
-    const next = !this._isSectionCollapsed(colIdx, sectionId);
-    this._setSectionCollapsed(colIdx, sectionId, next);
-    this._render();
-    this._applyFlip(before, colIdx, 0.25);
+    const currentlyCollapsed = this._isSectionCollapsed(colIdx, sectionId);
+    if (currentlyCollapsed) {
+      // Expanding: render with .expanding class baseline (max-height: 0) so
+      // the body never flashes at full height, then animate it to its
+      // natural height.
+      this._setSectionCollapsed(colIdx, sectionId, false);
+      this._expandingSection = sectionId;
+      this._render();
+      this._expandingSection = null;
+      this._animateSectionExpand(colIdx, sectionId);
+    } else {
+      // Collapsing: animate body's max-height from current to 0, then render
+      // to drop the body's collapsed class baseline.
+      // Caret rotation: toggle header class immediately for instant feedback.
+      const header = this._findSectionHeader(colIdx, sectionId);
+      if (header) header.classList.add("collapsed");
+      this._animateSectionCollapse(colIdx, sectionId, () => {
+        this._setSectionCollapsed(colIdx, sectionId, true);
+        this._render();
+      });
+    }
+  }
+
+  _buildSectionBody(sectionId, tasks, colIdx, collapsed) {
+    let cls = "section-body";
+    if (collapsed) cls += " collapsed";
+    if (!collapsed && this._expandingSection === sectionId) cls += " expanding";
+    const body = this._el("div", { className: cls });
+    body.dataset.sectionId = sectionId;
+    for (const t of tasks) body.appendChild(this._buildTask(t, colIdx));
+    return body;
+  }
+
+  _findSectionHeader(colIdx, sectionId) {
+    return this.shadowRoot.querySelector(
+      `.task-list[data-col-idx="${CSS.escape(String(colIdx))}"] .section-header[data-section-id="${CSS.escape(String(sectionId))}"]`
+    );
+  }
+
+  _findSectionBody(colIdx, sectionId) {
+    return this.shadowRoot.querySelector(
+      `.task-list[data-col-idx="${CSS.escape(String(colIdx))}"] .section-body[data-section-id="${CSS.escape(String(sectionId))}"]`
+    );
+  }
+
+  _animateSectionCollapse(colIdx, sectionId, done) {
+    const body = this._findSectionBody(colIdx, sectionId);
+    if (!body) { done(); return; }
+    // Freeze current height as px so we can transition from a concrete value
+    const h = body.scrollHeight;
+    body.style.maxHeight = h + "px";
+    body.style.opacity = "1";
+    body.style.overflow = "hidden";
+    // Force layout flush before applying the transition target
+    void body.offsetHeight;
+    requestAnimationFrame(() => {
+      body.style.transition = "max-height 0.22s ease, opacity 0.18s ease";
+      body.style.maxHeight = "0";
+      body.style.opacity = "0";
+      let finished = false;
+      const finish = (e) => {
+        if (e && e.propertyName !== "max-height") return;
+        if (finished) return;
+        finished = true;
+        body.removeEventListener("transitionend", finish);
+        body.style.transition = "";
+        body.style.maxHeight = "";
+        body.style.opacity = "";
+        body.style.overflow = "";
+        done();
+      };
+      body.addEventListener("transitionend", finish);
+      setTimeout(() => finish(), 280);
+    });
+  }
+
+  _animateSectionExpand(colIdx, sectionId) {
+    // ha-card commits its layout asynchronously after _render(); waiting one
+    // rAF lets scrollHeight return the body's true natural height. The body
+    // is rendered with .expanding (max-height:0) so there's no flash during
+    // this wait.
+    requestAnimationFrame(() => {
+      const body = this._findSectionBody(colIdx, sectionId);
+      if (!body) return;
+      // scrollHeight ignores max-height and overflow:hidden — it returns
+      // the body's content height even while .expanding is still applied.
+      const targetH = body.scrollHeight;
+      // Swap the class baseline for inline styles, then transition.
+      body.classList.remove("expanding");
+      body.style.maxHeight = "0";
+      body.style.opacity = "0";
+      body.style.overflow = "hidden";
+      void body.offsetHeight; // commit baseline before transition
+      requestAnimationFrame(() => {
+        body.style.transition = "max-height 0.22s ease, opacity 0.22s ease";
+        body.style.maxHeight = targetH + "px";
+        body.style.opacity = "1";
+        let cleared = false;
+        const clear = (e) => {
+          if (e && e.propertyName !== "max-height") return;
+          if (cleared) return;
+          cleared = true;
+          body.removeEventListener("transitionend", clear);
+          body.style.transition = "";
+          body.style.maxHeight = "";
+          body.style.opacity = "";
+          body.style.overflow = "";
+        };
+        body.addEventListener("transitionend", clear);
+        setTimeout(() => clear(), 280);
+      });
+    });
   }
 
   _buildSectionHeader(section, colIdx, opts = {}) {
@@ -2770,13 +2875,17 @@ class HomeTasksCard extends HTMLElement {
       if (isDoneHeader) return; // never reposition into Done bucket via drag
       const draggedEl = this.shadowRoot.querySelector(`.task[data-task-id="${CSS.escape(String(this._draggedTaskId))}"]`);
       if (!draggedEl) return;
-      // Insert the dragged element immediately after this section header so
-      // it lands as the first task of the section.
-      if (draggedEl.previousSibling !== headerEl) {
-        const list = headerEl.parentNode;
-        const siblings = [...list.querySelectorAll(".task:not(.dragging), .section-header")];
+      // The body wrapper of this section is headerEl's next sibling. Insert
+      // the dragged element as the first child of that wrapper so it lands
+      // as the first task of the section.
+      const body = headerEl.nextElementSibling;
+      const target = body && body.classList.contains("section-body") ? body : null;
+      if (target && draggedEl.parentNode === target && draggedEl === target.firstChild) return;
+      if (target) {
+        const list = headerEl.closest(".task-list");
+        const siblings = [...list.querySelectorAll(".task:not(.dragging), .section-header, .section-body")];
         const before = new Map(siblings.map((el) => [el, el.getBoundingClientRect().top]));
-        list.insertBefore(draggedEl, headerEl.nextSibling);
+        target.insertBefore(draggedEl, target.firstChild);
         siblings.forEach((el) => {
           const dy = (before.get(el) ?? el.getBoundingClientRect().top) - el.getBoundingClientRect().top;
           if (Math.abs(dy) < 1) return;
@@ -4732,6 +4841,8 @@ class HomeTasksCard extends HTMLElement {
   // Walks the rendered list in order and returns [{taskId, sectionId}] pairs
   // where sectionId is the id of the most recent section header (or null if
   // the task sits in the unsorted top bucket / "__done__" for the Done bucket).
+  // Tasks inside a section live in a .section-body wrapper; tasks in the
+  // unsorted top bucket are direct children of the task-list.
   _getOrderWithSectionFromDom(colIdx) {
     const taskList = this.shadowRoot.querySelector(`.task-list[data-col-idx="${CSS.escape(String(colIdx))}"]`);
     if (!taskList) return [];
@@ -4740,8 +4851,15 @@ class HomeTasksCard extends HTMLElement {
     for (const el of taskList.children) {
       if (el.classList.contains("section-header")) {
         currentSection = el.dataset.sectionId || null;
+      } else if (el.classList.contains("section-body")) {
+        for (const inner of el.children) {
+          if (inner.classList.contains("task")) {
+            result.push({ taskId: inner.dataset.taskId, sectionId: currentSection });
+          }
+        }
       } else if (el.classList.contains("task")) {
-        result.push({ taskId: el.dataset.taskId, sectionId: currentSection });
+        // Top unsorted bucket — flat children of .task-list
+        result.push({ taskId: el.dataset.taskId, sectionId: null });
       }
     }
     return result;
@@ -5020,8 +5138,9 @@ class HomeTasksCard extends HTMLElement {
         this._liveMoveTask(draggedEl, target, touch.clientY);
       } else if (sectionHeader && sectionHeader.dataset.sectionId !== "__done__") {
         const draggedEl = this.shadowRoot.querySelector(`.task[data-task-id="${CSS.escape(String(this._draggedTaskId))}"]`);
-        if (draggedEl && draggedEl.previousSibling !== sectionHeader) {
-          sectionHeader.parentNode.insertBefore(draggedEl, sectionHeader.nextSibling);
+        const body = sectionHeader.nextElementSibling;
+        if (draggedEl && body && body.classList.contains("section-body") && draggedEl.parentNode !== body) {
+          body.insertBefore(draggedEl, body.firstChild);
         }
       }
     };
@@ -5114,23 +5233,28 @@ class HomeTasksCard extends HTMLElement {
       .task-list { display: flex; flex-direction: column; gap: 6px; min-height: 40px; }
       .empty-state { text-align: center; padding: 24px; color: var(--todo-disabled); font-size: 14px; }
       .section-header {
-        display: flex; align-items: center; gap: 8px;
-        padding: 10px 12px; min-height: 44px;
-        border: 1px solid var(--todo-divider); border-radius: var(--todo-radius);
-        background: rgba(var(--rgb-primary-text-color, 33, 33, 33), 0.03);
-        cursor: pointer; user-select: none; font-size: 14px; color: var(--todo-text);
-        transition: background 0.15s, box-shadow 0.2s, border-color 0.2s;
+        display: flex; align-items: center; gap: 6px;
+        padding: 2px 4px; min-height: 0;
+        background: transparent; border: none; border-radius: 0;
+        cursor: pointer; user-select: none;
+        font-size: 14px; font-weight: 500;
+        color: var(--todo-secondary-text);
+        transition: color 0.15s, opacity 0.15s;
       }
-      .section-header:hover { background: rgba(var(--rgb-primary-text-color, 33, 33, 33), 0.06); }
-      .section-header.drop-target { border-color: var(--todo-primary); box-shadow: 0 0 0 1px var(--todo-primary) inset; }
-      .section-header ha-icon { --mdc-icon-size: 18px; color: var(--todo-secondary-text); flex-shrink: 0; }
-      .section-header .section-name { flex: 1; min-width: 0; word-break: break-word; line-height: 1.3; }
+      .section-header:hover { color: var(--todo-text); }
+      .section-header.drop-target { color: var(--todo-primary); }
+      .section-header ha-icon { --mdc-icon-size: 16px; color: inherit; flex-shrink: 0; }
+      .section-header .section-name { flex: 1; min-width: 0; word-break: break-word; line-height: 1.2; }
+      .section-header .sub-badge { background: transparent; padding: 0; font-size: 11px; color: inherit; opacity: 0.8; }
       .section-header .section-caret {
-        --mdc-icon-size: 18px; color: var(--todo-secondary-text);
-        transition: transform 0.2s; flex-shrink: 0;
+        --mdc-icon-size: 16px; color: inherit;
+        transition: transform 0.2s; flex-shrink: 0; opacity: 0.7;
       }
       .section-header.collapsed .section-caret { transform: rotate(-90deg); }
-      .section-header.done-header { background: transparent; }
+      .section-body { display: flex; flex-direction: column; gap: 6px; }
+      .section-body.collapsed,
+      .section-body.expanding { max-height: 0; opacity: 0; overflow: hidden; pointer-events: none; }
+      .section-body:empty { display: none; }
       .task {
         border: 1px solid var(--todo-divider); border-radius: var(--todo-radius);
         background: rgba(var(--rgb-primary-text-color, 33, 33, 33), 0.06);
