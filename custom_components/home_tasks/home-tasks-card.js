@@ -132,6 +132,11 @@ const _TRANSLATIONS = {
     ed_move_up: "Move up",
     ed_move_down: "Move down",
     confirm_delete_section: "Delete this section? Tasks inside will become unsorted.",
+    ed_sec_preset_filters: "Preset Filters",
+    ed_preset_assignees: "Assignees (comma-separated entity IDs)",
+    ed_preset_assignees_placeholder: "e.g. person.ben, person.anna",
+    ed_preset_labels: "Labels (comma-separated)",
+    ed_preset_labels_placeholder: "e.g. School, Morning Routine",
   },
   nl: {
     my_tasks: "Mijn taken",
@@ -1062,6 +1067,11 @@ const _TRANSLATIONS = {
     ed_move_up: "Nach oben",
     ed_move_down: "Nach unten",
     confirm_delete_section: "Diesen Bereich wirklich löschen? Enthaltene Aufgaben werden unsortiert.",
+    ed_sec_preset_filters: "Voreingestellte Filter",
+    ed_preset_assignees: "Personen (kommagetrennte Entity-IDs)",
+    ed_preset_assignees_placeholder: "z.B. person.ben, person.anna",
+    ed_preset_labels: "Labels (kommagetrennt)",
+    ed_preset_labels_placeholder: "z.B. Schule, Morgenroutine",
   },
 };
 
@@ -1920,27 +1930,45 @@ class HomeTasksCard extends HTMLElement {
 
   // --- Filter & Sort ---
 
+  _preFilteredTasks(colIdx) {
+    const cs = this._columns[colIdx];
+    const col = this._config.columns[colIdx];
+    let tasks = cs.tasks;
+    const preAssignees = col.filters?.assignees;
+    const preLabels = col.filters?.labels;
+    if (preAssignees && preAssignees.length > 0) {
+      const set = new Set(preAssignees);
+      tasks = tasks.filter((t) => set.has(t.assigned_person));
+    }
+    if (preLabels && preLabels.length > 0) {
+      const set = new Set(preLabels);
+      tasks = tasks.filter((t) => t.tags && t.tags.some((tag) => set.has(tag)));
+    }
+    return tasks;
+  }
+
   _filteredTasks(colIdx) {
     const cs = this._columns[colIdx];
+    const baseTasks = this._preFilteredTasks(colIdx);
     let tasks;
     switch (cs.filter) {
       case "open":
-        tasks = cs.tasks.filter((t) => !t.completed);
+        tasks = baseTasks.filter((t) => !t.completed);
         break;
       case "done":
-        tasks = cs.tasks.filter((t) => t.completed);
+        tasks = baseTasks.filter((t) => t.completed);
         break;
       case "due_soon": {
         const col = this._config.columns[colIdx];
         const days = col.due_soon_days ?? 7;
-        tasks = cs.tasks.filter((t) =>
+        tasks = baseTasks.filter((t) =>
           !t.completed && t.due_date &&
           (this._isDueDateOverdue(t.due_date) || this._isDueDateWithinDays(t.due_date, days))
         );
         break;
       }
       default:
-        tasks = cs.tasks;
+        tasks = baseTasks;
     }
     if (cs.tagFilters.size > 0) {
       tasks = tasks.filter((t) => t.tags && t.tags.some((tag) => cs.tagFilters.has(tag)));
@@ -2475,9 +2503,12 @@ class HomeTasksCard extends HTMLElement {
   _buildColumnTagChips(col, cs, colIdx) {
     if (col.show_tags === false) return null;
     const allTags = new Set();
-    for (const t of cs.tasks) {
+    const baseTasks = this._preFilteredTasks(colIdx);
+    for (const t of baseTasks) {
       for (const tag of (t.tags || [])) allTags.add(tag);
     }
+    // Remove preset labels — they are always applied and cannot be toggled by the user
+    for (const label of (col.filters?.labels || [])) allTags.delete(label);
     if (allTags.size === 0) return null;
     const chipChildren = [];
     for (const tag of [...allTags].sort()) {
@@ -2517,9 +2548,12 @@ class HomeTasksCard extends HTMLElement {
   _buildColumnPersonChips(col, cs, colIdx) {
     if (col.show_assigned_person === false) return null;
     const assignedPersons = new Set();
-    for (const t of cs.tasks) {
+    const baseTasks = this._preFilteredTasks(colIdx);
+    for (const t of baseTasks) {
       if (t.assigned_person) assignedPersons.add(t.assigned_person);
     }
+    // Remove preset assignees — they are always applied and cannot be toggled by the user
+    for (const eid of (col.filters?.assignees || [])) assignedPersons.delete(eid);
     if (assignedPersons.size === 0) return null;
     const chipChildren = [];
     for (const eid of [...assignedPersons].sort()) {
@@ -6359,6 +6393,42 @@ class HomeTasksCardEditor extends HTMLElement {
           makeToggle("show-reminders", "ed_show_reminders", "show_reminders", true),
           makeToggle("show-recurrence", "ed_show_recurrence", "show_recurrence", true),
         ]),
+      ], false),
+      makeSection("preset-filters", "mdi:filter-settings", "ed_sec_preset_filters", [
+        (() => {
+          const input = this._el("input", {
+            type: "text",
+            value: (col.filters?.assignees || []).join(", "),
+            placeholder: this._t("ed_preset_assignees_placeholder"),
+          });
+          input.addEventListener("change", () => {
+            const vals = input.value.split(",").map((s) => s.trim()).filter(Boolean);
+            const filters = { ...(col.filters || {}), assignees: vals.length ? vals : undefined };
+            if (!filters.assignees) delete filters.assignees;
+            updateCol({ filters: Object.keys(filters).length ? filters : undefined });
+          });
+          return this._el("div", { className: "field-wrap" }, [
+            input,
+            this._el("span", { textContent: this._t("ed_preset_assignees") }),
+          ]);
+        })(),
+        (() => {
+          const input = this._el("input", {
+            type: "text",
+            value: (col.filters?.labels || []).join(", "),
+            placeholder: this._t("ed_preset_labels_placeholder"),
+          });
+          input.addEventListener("change", () => {
+            const vals = input.value.split(",").map((s) => s.trim()).filter(Boolean);
+            const filters = { ...(col.filters || {}), labels: vals.length ? vals : undefined };
+            if (!filters.labels) delete filters.labels;
+            updateCol({ filters: Object.keys(filters).length ? filters : undefined });
+          });
+          return this._el("div", { className: "field-wrap" }, [
+            input,
+            this._el("span", { textContent: this._t("ed_preset_labels") }),
+          ]);
+        })(),
       ], false),
       this._buildSectionsEditor(col),
     ]);
