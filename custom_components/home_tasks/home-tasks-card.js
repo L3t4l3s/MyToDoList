@@ -137,6 +137,8 @@ const _TRANSLATIONS = {
     ed_preset_assignees_placeholder: "e.g. person.ben, person.anna",
     ed_preset_labels: "Labels (comma-separated)",
     ed_preset_labels_placeholder: "e.g. School, Morning Routine",
+    ed_show_only_due_today: "Due today only",
+    ed_show_only_due_today_include_overdue: "Include overdue",
   },
   nl: {
     my_tasks: "Mijn taken",
@@ -1072,6 +1074,8 @@ const _TRANSLATIONS = {
     ed_preset_assignees_placeholder: "z.B. person.ben, person.anna",
     ed_preset_labels: "Labels (kommagetrennt)",
     ed_preset_labels_placeholder: "z.B. Schule, Morgenroutine",
+    ed_show_only_due_today: "Nur heute fällig",
+    ed_show_only_due_today_include_overdue: "Überfällige einschließen",
   },
 };
 
@@ -1943,6 +1947,13 @@ class HomeTasksCard extends HTMLElement {
     if (preLabels && preLabels.length > 0) {
       const set = new Set(preLabels);
       tasks = tasks.filter((t) => t.tags && t.tags.some((tag) => set.has(tag)));
+    }
+    if (col.show_only_due_today === true) {
+      const includeOverdue = col.show_only_due_today_include_overdue === true;
+      tasks = tasks.filter((t) =>
+        this._isDueDateToday(t.due_date) ||
+        (includeOverdue && this._isDueDateOverdue(t.due_date))
+      );
     }
     return tasks;
   }
@@ -6377,6 +6388,29 @@ class HomeTasksCardEditor extends HTMLElement {
             daysInput,
             this._el("span", { textContent: this._t("ed_due_soon_days") }),
             this._el("div", { className: "spin-btns" }, [spinUp, spinDown]),
+          ]);
+        })()] : []),
+        (() => {
+          const sw = document.createElement("ha-switch");
+          sw.checked = col.show_only_due_today === true;
+          sw.setAttribute("aria-label", this._t("ed_show_only_due_today"));
+          sw.addEventListener("change", () => {
+            updateCol({ show_only_due_today: sw.checked });
+            this._render();
+          });
+          return this._el("div", { className: "toggle-row" }, [
+            this._el("span", { className: "toggle-label", textContent: this._t("ed_show_only_due_today") }),
+            sw,
+          ]);
+        })(),
+        ...(col.show_only_due_today === true ? [(() => {
+          const sw = document.createElement("ha-switch");
+          sw.checked = col.show_only_due_today_include_overdue === true;
+          sw.setAttribute("aria-label", this._t("ed_show_only_due_today_include_overdue"));
+          sw.addEventListener("change", () => updateCol({ show_only_due_today_include_overdue: sw.checked }));
+          return this._el("div", { className: "toggle-row" }, [
+            this._el("span", { className: "toggle-label", textContent: this._t("ed_show_only_due_today_include_overdue") }),
+            sw,
           ]);
         })()] : []),
         this._el("div", { className: "field" }, [filterLabel, filterSelect]),
